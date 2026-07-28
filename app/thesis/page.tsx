@@ -13,22 +13,43 @@ function ThesisBuilderContent() {
   const [selectedDrivers, setSelectedDrivers] = useState<string[]>([]);
   const [selectedRisks, setSelectedRisks] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    async function checkUser() {
+    async function initializePage() {
+      // 1. Security Check: Ensure user is logged in
       const { data: { session } } = await supabase.auth.getSession();
-      if (session) setIsLoggedIn(true);
-    }
-    checkUser();
+      if (!session) {
+        router.push('/login');
+        return;
+      }
 
-    if (ticker === 'AMZN') setCompanyName('Amazon.com, Inc.');
-    else if (ticker === 'MSFT') setCompanyName('Microsoft Corporation');
-    else if (ticker === 'NVDA') setCompanyName('NVIDIA Corporation');
-    else if (ticker === 'AAPL') setCompanyName('Apple Inc.');
-    else if (ticker === 'AMD') setCompanyName('Advanced Micro Devices, Inc.');
-    else setCompanyName(`${ticker} Corporation`);
-  }, [ticker]);
+      // 2. Check if a thesis already exists for this ticker
+      const { data: existingThesis } = await supabase
+        .from('theses')
+        .select('id')
+        .eq('ticker', ticker)
+        .maybeSingle();
+
+      if (existingThesis) {
+        // If it already exists, skip builder and go straight to overview
+        router.push(`/company/${ticker}`);
+        return;
+      }
+
+      // 3. Set company name based on ticker
+      if (ticker === 'AMZN') setCompanyName('Amazon.com, Inc.');
+      else if (ticker === 'MSFT') setCompanyName('Microsoft Corporation');
+      else if (ticker === 'NVDA') setCompanyName('NVIDIA Corporation');
+      else if (ticker === 'AAPL') setCompanyName('Apple Inc.');
+      else if (ticker === 'AMD') setCompanyName('Advanced Micro Devices, Inc.');
+      else setCompanyName(`${ticker} Corporation`);
+
+      setIsLoading(false);
+    }
+
+    initializePage();
+  }, [router, ticker]);
 
   const toggleDriver = (title: string) => {
     if (selectedDrivers.includes(title)) {
@@ -62,7 +83,6 @@ function ThesisBuilderContent() {
       desc: `Monitored risk factor for ${ticker}.`
     }));
 
-    // 1. Check if a thesis for this ticker already exists in the database
     const { data: existing } = await supabase
       .from('theses')
       .select('id')
@@ -72,7 +92,6 @@ function ThesisBuilderContent() {
     let saveError = null;
 
     if (existing) {
-      // 2. If it exists, UPDATE the existing record
       const { error } = await supabase
         .from('theses')
         .update({
@@ -83,7 +102,6 @@ function ThesisBuilderContent() {
         .eq('id', existing.id);
       saveError = error;
     } else {
-      // 3. If it doesn't exist, INSERT a brand new record
       const { error } = await supabase
         .from('theses')
         .insert({
@@ -105,7 +123,6 @@ function ThesisBuilderContent() {
     }
   };
 
-  // Dynamic Data based on your exact specifications
   const potentialDrivers = [
     {
       title: 'Infrastructure & Industry Demand',
@@ -142,16 +159,24 @@ function ThesisBuilderContent() {
     }
   ];
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-gray-400 font-medium animate-pulse">Loading thesis analysis...</div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 font-sans text-black pb-24">
       
       {/* Dynamic Top Bar Navigation */}
       <div className="max-w-3xl mx-auto px-6 py-6 flex justify-between items-center">
         <button 
-          onClick={() => router.push(isLoggedIn ? '/dashboard' : '/')} 
+          onClick={() => router.push('/dashboard')} 
           className="text-gray-500 hover:text-gray-900 text-sm font-semibold flex items-center gap-1 cursor-pointer"
         >
-          {isLoggedIn ? '← Back to Dashboard' : '← Back to Home'}
+          ← Back to Dashboard
         </button>
       </div>
 
