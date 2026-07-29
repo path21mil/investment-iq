@@ -2,37 +2,19 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 
 export default function LandingPage() {
   const [searchQuery, setSearchQuery] = useState('');
-  const [isSearching, setIsSearching] = useState(false);
   const router = useRouter();
 
-  const handleSearch = async (e: React.FormEvent) => {
+  const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     const ticker = searchQuery.trim().toUpperCase();
     if (!ticker) return;
 
-    setIsSearching(true);
-
-    // Check if this company exists in Supabase
-    const { data } = await supabase
-      .from('theses')
-      .select('ticker')
-      .eq('ticker', ticker)
-      .single();
-
-    setIsSearching(false);
-
-    if (data) {
-      // If it exists, go straight to overview
-      router.push(`/company/${ticker}`);
-    } else {
-      // If it doesn't exist, pass the searched ticker to the Thesis Builder
-      router.push(`/thesis?ticker=${ticker}`);
-    }
+    // Send everyone directly to the public company overview page
+    router.push(`/company/${ticker}`);
   };
 
   return (
@@ -87,8 +69,7 @@ export default function LandingPage() {
             />
             <button
               type="submit"
-              disabled={isSearching}
-              className="absolute right-4 text-gray-400 hover:text-blue-600 transition-colors cursor-pointer disabled:opacity-50"
+              className="absolute right-4 text-gray-400 hover:text-blue-600 transition-colors cursor-pointer"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -104,11 +85,7 @@ export default function LandingPage() {
             <button
               key={t}
               type="button"
-              onClick={async () => {
-                const { data } = await supabase.from('theses').select('ticker').eq('ticker', t).single();
-                if (data) router.push(`/company/${t}`);
-                else router.push(`/thesis?ticker=${t}`);
-              }}
+              onClick={() => router.push(`/company/${t}`)}
               className="bg-gray-200/70 hover:bg-gray-200 text-gray-700 font-semibold px-3.5 py-1.5 rounded-lg text-xs transition-colors cursor-pointer"
             >
               {t}
