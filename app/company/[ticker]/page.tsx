@@ -144,12 +144,13 @@ export default function CompanyOverviewPage() {
     setThesisInputs(updated);
   };
 
-  const handleSaveThesis = async () => {
+ const handleSaveThesis = async () => {
     if (!isLoggedIn) {
-      sessionStorage.setItem(`pending_thesis_${ticker}`, JSON.stringify(thesisInputs));
-      router.push(`/login?redirect=/company/${ticker}`);
+      // Change this line to point to our new builder route:
+      router.push(`/login?redirect=/build-thesis/${ticker}`);
       return;
     }
+    // ... rest of the code
 
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
