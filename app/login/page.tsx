@@ -1,63 +1,149 @@
 'use client';
 
-import { Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useState, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 
-// 1. We put the actual login logic inside a child component
 function LoginContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
-  
-  // Grab the redirect URL from the browser, or default to the dashboard
   const redirectUrl = searchParams.get('redirect') || '/dashboard';
 
-  const handleGoogleSignIn = async () => {
-    await supabase.auth.signInWithOAuth({
-      provider: 'google',
+  const [email, setEmail] = useState('');
+  const [token, setToken] = useState('');
+  const [step, setStep] = useState<'request' | 'verify'>('request');
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
+
+  // 1. Send OTP Code to Email
+  const handleSendOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email.trim()) return;
+    
+    setLoading(true);
+    setMessage('');
+
+    const { error } = await supabase.auth.signInWithOtp({
+      email: email.trim(),
       options: {
-        // Forces the user to choose their account (professional standard)
-        queryParams: { prompt: 'select_account' },
-        // Tells Supabase exactly where to send them after Google verifies them
-        redirectTo: `${window.location.origin}${redirectUrl}`,
+        // Automatically redirect them back to your target page after verification
+        emailRedirectTo: `${window.location.origin}${redirectUrl}`,
       },
     });
+
+    setLoading(false);
+
+    if (error) {
+      setMessage(error.message);
+    } else {
+      setStep('verify');
+      setMessage('Passcode sent! Check your email inbox.');
+    }
+  };
+
+  // 2. Verify the 6-digit OTP Token entered by user
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token.trim()) return;
+
+    setLoading(true);
+    setMessage('');
+
+    const { error } = await supabase.auth.verifyOtp({
+      email: email.trim(),
+      token: token.trim(),
+      type: 'email',
+    });
+
+    setLoading(false);
+
+    if (error) {
+      setMessage('Invalid or expired code. Please try again.');
+    } else {
+      router.push(redirectUrl);
+    }
   };
 
   return (
     <div className="bg-white py-10 px-6 shadow-xl sm:rounded-3xl sm:px-12 border border-gray-100 max-w-md w-full">
-      <div className="mb-8 text-center">
-        <h2 className="text-3xl font-extrabold text-gray-900 tracking-tight">
-          Welcome back
+      <div className="mb-6 text-center">
+        <h2 className="text-2xl font-extrabold text-gray-900 tracking-tight">
+          {step === 'request' ? 'Sign in with Email' : 'Check your email'}
         </h2>
-        <p className="text-sm text-gray-500 mt-2 font-medium">
-          Sign in to manage your conviction portfolio.
+        <p className="text-xs text-gray-500 mt-2 font-medium">
+          {step === 'request' 
+            ? 'Enter your email to receive a secure one-time passcode.' 
+            : `We sent a temporary code to ${email}`}
         </p>
       </div>
 
-      <button
-        onClick={handleGoogleSignIn}
-        className="w-full flex items-center justify-center gap-3 py-3.5 px-4 rounded-xl shadow-sm text-sm font-bold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 hover:text-gray-900 transition-all cursor-pointer"
-      >
-        {/* Google 'G' Logo SVG */}
-        <svg className="w-5 h-5" viewBox="0 0 24 24">
-          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.31-1.03 2.41-2.16 3.14v2.6h3.49c2.04-1.89 3.21-4.67 3.21-7.75z" />
-          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.49-2.6c-.99.66-2.25 1.06-3.79 1.06-2.92 0-5.39-1.97-6.27-4.62H2.12v2.68C3.96 20.47 7.69 23 12 23z" />
-          <path fill="#FBBC05" d="M5.73 14.18C5.5 13.52 5.38 12.77 5.38 12s.12-1.52.35-2.18V7.14H2.12C1.4 8.58 1 10.23 1 12s.4 3.42 1.12 4.86l3.61-2.68z" />
-          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.69 1 3.96 3.53 2.12 7.14l3.61 2.68C6.61 7.17 9.08 5.38 12 5.38z" />
-        </svg>
-        Continue with Google
-      </button>
+      {message && (
+        <div className={`p-3 rounded-xl text-xs font-bold mb-4 text-center ${
+          step === 'verify' && !message.includes('sent') ? 'bg-rose-50 text-rose-700' : 'bg-blue-50 text-blue-700'
+        }`}>
+          {message}
+        </div>
+      )}
+
+      {step === 'request' ? (
+        <form onSubmit={handleSendOtp} className="space-y-4">
+          <div>
+            <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">Email Address</label>
+            <input 
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-extrabold py-3.5 px-4 rounded-xl transition-all shadow-sm text-sm cursor-pointer"
+          >
+            {loading ? 'Sending code...' : 'Send Passcode →'}
+          </button>
+        </form>
+      ) : (
+        <form onSubmit={handleVerifyOtp} className="space-y-4">
+          <div>
+            <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">Enter 6-Digit Code</label>
+            <input 
+              type="text"
+              required
+              maxLength={6}
+              value={token}
+              onChange={(e) => setToken(e.target.value)}
+              placeholder="123456"
+              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-center text-lg tracking-widest font-extrabold focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-300 text-white font-extrabold py-3.5 px-4 rounded-xl transition-all shadow-sm text-sm cursor-pointer"
+          >
+            {loading ? 'Verifying...' : 'Verify & Sign In ✓'}
+          </button>
+          <button
+            type="button"
+            onClick={() => setStep('request')}
+            className="w-full text-center text-xs font-bold text-gray-400 hover:text-gray-600 pt-2"
+          >
+            ← Use a different email
+          </button>
+        </form>
+      )}
     </div>
   );
 }
 
-// 2. The Main Page Component wraps the child in a Suspense boundary
 export default function LoginPage() {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center items-center py-12 px-6 font-sans">
-      
-      {/* Brand Header */}
       <Link href="/" className="mb-8 font-extrabold text-2xl tracking-tight text-gray-900 flex items-center gap-2">
         Investment IQ
         <span className="flex gap-0.5">
@@ -67,11 +153,9 @@ export default function LoginPage() {
         </span>
       </Link>
 
-      {/* Suspense is required by Next.js when using useSearchParams() */}
-      <Suspense fallback={<div className="text-gray-400 font-medium animate-pulse text-sm mt-4">Loading secure login...</div>}>
+      <Suspense fallback={<div className="text-gray-400 font-medium animate-pulse text-sm mt-4">Loading login...</div>}>
         <LoginContent />
       </Suspense>
-
     </div>
   );
 }
