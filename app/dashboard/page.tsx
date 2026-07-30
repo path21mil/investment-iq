@@ -285,14 +285,14 @@ export default function DashboardPage() {
                       </div>
 
                       <button 
-                        onClick={() => router.push(`/company/${company.ticker}#updates`)}
+                        onClick={() => router.push(`/company/${company.ticker}`)}
                         className={`w-full font-bold py-3.5 rounded-xl transition-all shadow-sm text-sm cursor-pointer ${
-                          needsReview 
-                            ? 'bg-amber-100 text-amber-900 hover:bg-amber-200' 
-                            : 'bg-gray-900 text-white hover:bg-gray-800'
-                        }`}
+                        needsReview 
+                           ? 'bg-amber-100 text-amber-900 hover:bg-amber-200' 
+                             : 'bg-gray-900 text-white hover:bg-gray-800'
+                         }`}
                       >
-                        {needsReview ? 'Review Required →' : 'Open Research →'}
+                      {needsReview ? 'Review Required →' : 'Open Research →'}
                       </button>
                     </div>
 
