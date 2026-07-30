@@ -98,30 +98,20 @@ export default function CompanyOverviewPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [headerSearch, setHeaderSearch] = useState('');
 
-  const [thesisInputs, setThesisInputs] = useState<string[]>([
-    'AI infrastructure capital expenditure acceleration',
-    'CUDA ecosystem developer lock-in & switching costs',
-    'Data center networking margin expansion'
-  ]);
-
   useEffect(() => {
     async function initializeOverview() {
       const { data: { session } } = await supabase.auth.getSession();
       
       if (session) {
         setIsLoggedIn(true);
+        // Just checking if they have a thesis to update the UI badges
         const { data: thesis } = await supabase
           .from('theses')
-          .select('id, drivers')
+          .select('id')
           .eq('ticker', ticker)
           .maybeSingle();
 
-        if (thesis) {
-          setHasThesis(true);
-          if (thesis.drivers && Array.isArray(thesis.drivers)) {
-            setThesisInputs(thesis.drivers);
-          }
-        }
+        if (thesis) setHasThesis(true);
       } else {
         setIsLoggedIn(false);
       }
@@ -138,38 +128,12 @@ export default function CompanyOverviewPage() {
     }
   };
 
-  const handleThesisInputChange = (index: number, value: string) => {
-    const updated = [...thesisInputs];
-    updated[index] = value;
-    setThesisInputs(updated);
-  };
-
- const handleSaveThesis = async () => {
+  // --- THE NEW LAUNCH LOGIC ---
+  const handleLaunchBuilder = () => {
     if (!isLoggedIn) {
-      // Change this line to point to our new builder route:
       router.push(`/login?redirect=/build-thesis/${ticker}`);
-      return;
-    }
-    // ... rest of the code
-
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
-
-    const { error } = await supabase
-      .from('theses')
-      .upsert({
-        user_id: session.user.id,
-        ticker: ticker,
-        company_name: `${ticker} Corp`,
-        drivers: thesisInputs,
-        thesis_state: 'Strengthening'
-      }, { onConflict: 'user_id,ticker' });
-
-    if (error) {
-      alert('Error saving thesis. Please try again.');
     } else {
-      alert('Thesis saved successfully! Investment IQ will now monitor these points.');
-      setHasThesis(true);
+      router.push(`/build-thesis/${ticker}`);
     }
   };
 
@@ -191,7 +155,7 @@ export default function CompanyOverviewPage() {
   return (
     <div className="min-h-screen bg-gray-50 font-sans text-gray-900 pb-24">
       
-      {/* UNIVERSAL NAVIGATION BAR (Restored to max-w-6xl) */}
+      {/* UNIVERSAL NAVIGATION BAR */}
       <nav className="bg-white border-b border-gray-200 sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-6 py-3 flex flex-wrap items-center justify-between gap-4">
           
@@ -242,7 +206,6 @@ export default function CompanyOverviewPage() {
         </div>
       </nav>
 
-      {/* Main Content Area (Restored to max-w-6xl) */}
       <main className="max-w-6xl mx-auto px-6 pt-10">
         
         {/* EXECUTIVE SUMMARY HERO */}
@@ -340,7 +303,7 @@ export default function CompanyOverviewPage() {
           </div>
         </div>
 
-        {/* HORIZONTAL WORKFLOW BANNER (Replaces Sidebar) */}
+        {/* HORIZONTAL WORKFLOW BANNER */}
         <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm mb-10 flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-4 flex-1 w-full border-b md:border-b-0 md:border-r border-gray-100 pb-4 md:pb-0 md:pr-4">
             <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-extrabold flex items-center justify-center text-sm shrink-0">1</div>
@@ -349,15 +312,13 @@ export default function CompanyOverviewPage() {
               <p className="text-xs text-gray-500 mt-0.5">Analyze quality, moat & risks below.</p>
             </div>
           </div>
-          
           <div className="flex items-center gap-4 flex-1 w-full border-b md:border-b-0 md:border-r border-gray-100 pb-4 md:pb-0 md:pr-4">
             <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-extrabold flex items-center justify-center text-sm shrink-0">2</div>
             <div>
               <p className="text-sm font-bold text-gray-900">Formulate Thesis</p>
-              <p className="text-xs text-gray-500 mt-0.5">Lock in your 3 conviction drivers.</p>
+              <p className="text-xs text-gray-500 mt-0.5">Launch Wizard to lock in 3 drivers.</p>
             </div>
           </div>
-
           <div className="flex items-center gap-4 flex-1 w-full">
             <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-extrabold flex items-center justify-center text-sm shrink-0">3</div>
             <div>
@@ -369,8 +330,6 @@ export default function CompanyOverviewPage() {
 
         {/* FULL-WIDTH RESEARCH COLUMN */}
         <div className="space-y-8">
-
-          {/* WHAT'S CHANGED SECTION */}
           <div id="updates" className="bg-blue-50/50 p-6 md:p-8 rounded-2xl border border-blue-100">
             <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
               <div>
@@ -412,7 +371,6 @@ export default function CompanyOverviewPage() {
             </div>
           </div>
 
-          {/* DEEP RESEARCH CARDS (Now stretching full width of max-w-6xl) */}
           <div className="space-y-6">
             <ProgressiveCard 
               question="1. Is this a high-quality business?"
@@ -421,13 +379,8 @@ export default function CompanyOverviewPage() {
               thesisSupportText="✔ Supports Thesis"
               thesisSupportType="supports"
               summary={`${ticker} benefits from expanding structural demand, industry-leading margins, and exceptional cash conversion.`}
-              evidence={[
-                "Data center revenue accelerating year-over-year",
-                "Gross margins expanding due to software and enterprise mix",
-                "Cash flow conversion allows heavy R&D reinvestment"
-              ]}
+              evidence={["Data center revenue accelerating year-over-year", "Gross margins expanding due to software and enterprise mix", "Cash flow conversion allows heavy R&D reinvestment"]}
             />
-
             <ProgressiveCard 
               question="2. Does it have a durable competitive advantage?"
               statusText="Exceptional Moat"
@@ -435,13 +388,8 @@ export default function CompanyOverviewPage() {
               thesisSupportText="✔ Supports Thesis"
               thesisSupportType="supports"
               summary="A dominant moat built on proprietary software ecosystems and switching costs for enterprise software developers."
-              evidence={[
-                "Deep developer lock-in through proprietary CUDA software stack",
-                "Unmatched interconnect networking architecture",
-                "Aggressive annual product cadence creates massive barriers to entry"
-              ]}
+              evidence={["Deep developer lock-in through proprietary CUDA software stack", "Unmatched interconnect networking architecture", "Aggressive annual product cadence creates massive barriers to entry"]}
             />
-
             <ProgressiveCard 
               question="3. Can management be trusted?"
               statusText="Trusted"
@@ -449,13 +397,8 @@ export default function CompanyOverviewPage() {
               thesisSupportText="✔ Supports Thesis"
               thesisSupportType="supports"
               summary="Founder-led execution with a proven history of pivoting into massive total addressable markets ahead of competitors."
-              evidence={[
-                "Founder maintains significant equity alignment",
-                "Consistent track record of disciplined R&D capital allocation",
-                "Clear, long-term strategic execution"
-              ]}
+              evidence={["Founder maintains significant equity alignment", "Consistent track record of disciplined R&D capital allocation", "Clear, long-term strategic execution"]}
             />
-
             <ProgressiveCard 
               question="4. What are the key growth drivers?"
               statusText="Strong Acceleration"
@@ -463,13 +406,8 @@ export default function CompanyOverviewPage() {
               thesisSupportText="✔ Supports Thesis"
               thesisSupportType="supports"
               summary="Generative AI adoption across hyperscalers, sovereign enterprise compute, and industrial robotics automation."
-              evidence={[
-                "Hyperscaler capex commitment continuing to expand",
-                "Sovereign AI initiatives driving international orders",
-                "Software revenue ramping as enterprise adoption grows"
-              ]}
+              evidence={["Hyperscaler capex commitment continuing to expand", "Sovereign AI initiatives driving international orders", "Software revenue ramping as enterprise adoption grows"]}
             />
-
             <ProgressiveCard 
               question="5. What could go wrong? (Key Risks)"
               statusText="Monitor"
@@ -477,48 +415,15 @@ export default function CompanyOverviewPage() {
               thesisSupportText="⚠ Thesis Risk"
               thesisSupportType="risk"
               summary="Geopolitical restrictions, potential capex air pockets, and custom ASIC development by cloud provider clients."
-              evidence={[
-                "Geopolitical trade restrictions limiting revenue in specific regions",
-                "Concentration risk among top 5 hyperscaler cloud customers",
-                "Cloud customers building custom silicon in-house"
-              ]}
-            />
-
-            <ProgressiveCard 
-              question="6. Is today's valuation attractive?"
-              statusText="Premium"
-              statusType="yellow"
-              thesisSupportText="⚠ Neutral / Watch"
-              thesisSupportType="neutral"
-              summary="Trading at a premium multiple relative to historic market averages, requiring sustained hyper-growth to justify."
-              evidence={[
-                "Forward P/E ratio sitting in upper historical decile",
-                "Price-to-Sales ratio reflects elevated growth expectations",
-                "High quality business offering lower margin of safety at peak price"
-              ]}
-            />
-
-            <ProgressiveCard 
-              question="7. What do the financial metrics & evidence show?"
-              statusText="Robust Financials"
-              statusType="green"
-              thesisSupportText="✔ Supports Thesis"
-              thesisSupportType="supports"
-              summary="Balance sheet strength with minimal net debt and best-in-class return on invested capital."
-              evidence={[
-                "Return on Invested Capital (ROIC) exceeds 50%",
-                "Net cash position provides total solvency protection",
-                "Free Cash Flow margin exceeds 40%"
-              ]}
+              evidence={["Geopolitical trade restrictions limiting revenue in specific regions", "Concentration risk among top 5 hyperscaler cloud customers", "Cloud customers building custom silicon in-house"]}
             />
           </div>
-
         </div>
-{/* 3. FULL-WIDTH THESIS SECTION (COMPACT & SLEEK) */}
+
+        {/* 3. FULL-WIDTH THESIS LAUNCHPAD (COMPACT) */}
         <div id="build-thesis-section" className="mt-12 pt-8 border-t border-gray-200">
           <div className="bg-gradient-to-r from-blue-950 via-indigo-950 to-slate-900 text-white p-6 md:p-8 rounded-[24px] shadow-xl border border-blue-900/50">
             
-            {/* Header - Tighter and inline */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
               <div>
                 <div className="inline-flex items-center gap-1.5 text-[10px] font-bold bg-blue-500/20 text-blue-300 px-2.5 py-1 rounded-full mb-2 border border-blue-400/20">
@@ -529,7 +434,7 @@ export default function CompanyOverviewPage() {
 
               {hasThesis ? (
                 <div className="bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shadow-inner">
-                  <span className="text-sm">🟢</span> Thesis Status: Strengthening
+                  <span className="text-sm">🟢</span> Thesis Status: Saved & Tracking
                 </div>
               ) : (
                 <div className="hidden md:flex items-center gap-3 bg-white/5 border border-white/10 px-4 py-2 rounded-xl max-w-sm text-xs text-blue-200">
@@ -539,46 +444,37 @@ export default function CompanyOverviewPage() {
               )}
             </div>
 
-            {/* Compact Driver Input Cards */}
-            <div className="space-y-2.5 mb-6">
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-blue-300/70 mb-1 pl-1">
-                Key Conviction Drivers ({ticker}):
-              </label>
-              
-              {thesisInputs.map((point, idx) => (
-                <div key={idx} className="flex items-center gap-3 bg-white/5 hover:bg-white/10 p-2.5 rounded-xl border border-white/10 focus-within:border-blue-400 focus-within:bg-white/10 transition-all">
-                  <span className="w-7 h-7 rounded-lg bg-blue-600/60 text-white flex items-center justify-center font-extrabold text-xs shrink-0 border border-blue-400/30">
-                    {idx + 1}
-                  </span>
-                  <input
-                    type="text"
-                    value={point}
-                    onChange={(e) => handleThesisInputChange(idx, e.target.value)}
-                    placeholder={`Key thesis driver #${idx + 1}...`}
-                    className="w-full bg-transparent text-sm text-white placeholder-blue-300/40 focus:outline-none font-medium"
-                  />
+            {/* Launchpad Preview UI */}
+            <div className="bg-white/5 border border-white/10 rounded-xl p-5 mb-6 flex items-start sm:items-center justify-between flex-col sm:flex-row gap-4">
+                <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-full bg-blue-600/20 flex items-center justify-center text-2xl border border-blue-500/30 shrink-0">
+                        🧭
+                    </div>
+                    <div>
+                        <h3 className="text-white font-bold text-sm">Interactive Thesis Builder</h3>
+                        <p className="text-blue-200/70 text-xs mt-1 max-w-md">Investment IQ has analyzed {ticker}'s SEC filings. Launch the wizard to select from pre-identified drivers and risks, or write your own.</p>
+                    </div>
                 </div>
-              ))}
             </div>
 
-            {/* Bottom Bar: Value Proposition + Primary Call To Action */}
+            {/* Bottom Bar: Action */}
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-5 border-t border-white/10">
               <div className="flex items-center gap-2.5 text-xs text-blue-200/80 font-medium pl-1">
                 <span className="text-emerald-400 font-bold text-sm">✓</span>
                 <span>
                   {!isLoggedIn 
-                    ? "Sign in to save this thesis and enable automated quarterly earnings checks." 
-                    : "Your thesis is saved and will be graded against future quarterly earnings."}
+                    ? "Sign in to launch the builder and enable automated quarterly checks." 
+                    : "Launch the builder to finalize and track your thesis."}
                 </span>
               </div>
 
               <button
-                onClick={handleSaveThesis}
-                className="w-full sm:w-auto bg-blue-600 hover:bg-blue-500 text-white text-xs font-extrabold px-6 py-2.5 rounded-xl transition-all shadow-lg hover:shadow-blue-500/25 cursor-pointer whitespace-nowrap text-center"
+                onClick={handleLaunchBuilder}
+                className="w-full sm:w-auto bg-blue-600 hover:bg-blue-500 text-white text-xs font-extrabold px-6 py-3 rounded-xl transition-all shadow-lg hover:shadow-blue-500/25 cursor-pointer whitespace-nowrap text-center"
               >
                 {isLoggedIn 
-                  ? (hasThesis ? 'Update Saved Thesis →' : 'Save & Track Thesis →') 
-                  : 'Sign In to Save & Track Thesis →'}
+                  ? (hasThesis ? 'Update Saved Thesis →' : 'Launch Thesis Builder →') 
+                  : 'Sign In to Launch Builder →'}
               </button>
             </div>
 
