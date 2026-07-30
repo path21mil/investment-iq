@@ -98,7 +98,6 @@ export default function CompanyOverviewPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [headerSearch, setHeaderSearch] = useState('');
 
-  // User Thesis Inputs
   const [thesisInputs, setThesisInputs] = useState<string[]>([
     'AI infrastructure capital expenditure acceleration',
     'CUDA ecosystem developer lock-in & switching costs',
@@ -191,7 +190,7 @@ export default function CompanyOverviewPage() {
   return (
     <div className="min-h-screen bg-gray-50 font-sans text-gray-900 pb-24">
       
-      {/* 1. UNIVERSAL NAVIGATION BAR (Allows navigation for both guests & members) */}
+      {/* UNIVERSAL NAVIGATION BAR */}
       <nav className="bg-white border-b border-gray-200 sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-6 py-3 flex flex-wrap items-center justify-between gap-4">
           
@@ -205,7 +204,6 @@ export default function CompanyOverviewPage() {
               </span>
             </Link>
 
-            {/* Quick Header Search input so guests never feel trapped */}
             <form onSubmit={handleHeaderSearch} className="hidden sm:flex items-center relative">
               <input 
                 type="text" 
@@ -247,8 +245,8 @@ export default function CompanyOverviewPage() {
       <main className="max-w-6xl mx-auto px-6 pt-8">
         
         {/* EXECUTIVE SUMMARY HERO */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between gap-3 mb-4">
+        <div className="mb-12">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
             <div className="flex items-center gap-3">
               <h1 className="text-3xl font-extrabold tracking-tight text-gray-900">{ticker} Research Snapshot</h1>
               <span className="bg-blue-100 text-blue-700 text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">Alpha Research</span>
@@ -256,13 +254,12 @@ export default function CompanyOverviewPage() {
 
             <button 
               onClick={scrollToThesis}
-              className="hidden sm:flex items-center gap-1.5 bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer"
+              className="flex items-center gap-1.5 bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer"
             >
               ↓ Jump to Thesis Engine
             </button>
           </div>
 
-          {/* Quick Shortcuts for Guests */}
           <div className="flex items-center gap-2 text-xs text-gray-500 font-medium mb-6">
             <span>Explore other research:</span>
             {['MSFT', 'AMD', 'COST', 'AAPL'].map((sym) => (
@@ -335,223 +332,155 @@ export default function CompanyOverviewPage() {
           </div>
         </div>
 
-        {/* RESEARCH GRID & SIDEBAR */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-          
-          {/* LEFT 2 COLUMNS: Research Analysis */}
-          <div className="lg:col-span-2 space-y-8">
+        {/* --- CENTRALIZED RESEARCH COLUMN (No Sidebar) --- */}
+        <div className="max-w-4xl mx-auto space-y-8">
 
-            {/* WHAT'S CHANGED SECTION */}
-            <div id="updates" className="bg-blue-50/50 p-6 rounded-2xl border border-blue-100">
-              <div className="flex justify-between items-center mb-4">
+          {/* WHAT'S CHANGED SECTION */}
+          <div id="updates" className="bg-blue-50/50 p-6 rounded-2xl border border-blue-100">
+            <div className="flex justify-between items-center mb-4">
+              <div>
+                <h3 className="text-xs font-bold text-blue-900 uppercase tracking-wider">What's Changed Since Last Earnings</h3>
+                <p className="text-[11px] text-blue-700 font-medium">Evaluation against fundamentals & saved drivers</p>
+              </div>
+              <span className="text-[10px] font-semibold text-blue-600 bg-blue-100/80 px-2.5 py-1 rounded-full">Updated Q2 FY27</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <div className="flex items-start gap-2 text-sm text-gray-800 font-medium bg-white p-2.5 rounded-xl border border-gray-100 shadow-sm">
+                <span className="text-green-600 font-bold">↑</span> 
                 <div>
-                  <h3 className="text-xs font-bold text-blue-900 uppercase tracking-wider">What's Changed Since Last Earnings</h3>
-                  <p className="text-[11px] text-blue-700 font-medium">Evaluation against fundamentals & saved drivers</p>
+                  <span>Revenue guidance raised</span>
+                  <p className="text-[10px] text-emerald-600 font-bold">Validates AI Demand</p>
                 </div>
-                <span className="text-[10px] font-semibold text-blue-600 bg-blue-100/80 px-2.5 py-1 rounded-full">Updated Q2 FY27</span>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                <div className="flex items-start gap-2 text-sm text-gray-800 font-medium bg-white p-2.5 rounded-xl border border-gray-100 shadow-sm">
-                  <span className="text-green-600 font-bold">↑</span> 
-                  <div>
-                    <span>Revenue guidance raised</span>
-                    <p className="text-[10px] text-emerald-600 font-bold">Validates AI Demand</p>
-                  </div>
+              <div className="flex items-start gap-2 text-sm text-gray-800 font-medium bg-white p-2.5 rounded-xl border border-gray-100 shadow-sm">
+                <span className="text-green-600 font-bold">↑</span> 
+                <div>
+                  <span>Networking demand stronger</span>
+                  <p className="text-[10px] text-emerald-600 font-bold">Validates Margin Expansion</p>
                 </div>
-                <div className="flex items-start gap-2 text-sm text-gray-800 font-medium bg-white p-2.5 rounded-xl border border-gray-100 shadow-sm">
-                  <span className="text-green-600 font-bold">↑</span> 
-                  <div>
-                    <span>Networking demand stronger</span>
-                    <p className="text-[10px] text-emerald-600 font-bold">Validates Margin Expansion</p>
-                  </div>
+              </div>
+              <div className="flex items-start gap-2 text-sm text-gray-800 font-medium bg-white p-2.5 rounded-xl border border-gray-100 shadow-sm">
+                <span className="text-green-600 font-bold">↑</span> 
+                <div>
+                  <span>Gross margins improved</span>
+                  <p className="text-[10px] text-emerald-600 font-bold">Validates Product Mix</p>
                 </div>
-                <div className="flex items-start gap-2 text-sm text-gray-800 font-medium bg-white p-2.5 rounded-xl border border-gray-100 shadow-sm">
-                  <span className="text-green-600 font-bold">↑</span> 
-                  <div>
-                    <span>Gross margins improved</span>
-                    <p className="text-[10px] text-emerald-600 font-bold">Validates Product Mix</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-2 text-sm text-gray-800 font-medium bg-white p-2.5 rounded-xl border border-gray-100 shadow-sm">
-                  <span className="text-amber-600 font-bold">⚠</span> 
-                  <div>
-                    <span>Export restrictions remain</span>
-                    <p className="text-[10px] text-amber-600 font-bold">Watch Item</p>
-                  </div>
+              </div>
+              <div className="flex items-start gap-2 text-sm text-gray-800 font-medium bg-white p-2.5 rounded-xl border border-gray-100 shadow-sm">
+                <span className="text-amber-600 font-bold">⚠</span> 
+                <div>
+                  <span>Export restrictions remain</span>
+                  <p className="text-[10px] text-amber-600 font-bold">Watch Item</p>
                 </div>
               </div>
             </div>
-
-            {/* DEEP RESEARCH CARDS */}
-            <div className="space-y-6">
-              <ProgressiveCard 
-                question="1. Is this a high-quality business?"
-                statusText="Excellent"
-                statusType="green"
-                thesisSupportText="✔ Supports Thesis"
-                thesisSupportType="supports"
-                summary={`${ticker} benefits from expanding structural demand, industry-leading margins, and exceptional cash conversion.`}
-                evidence={[
-                  "Data center revenue accelerating year-over-year",
-                  "Gross margins expanding due to software and enterprise mix",
-                  "Cash flow conversion allows heavy R&D reinvestment"
-                ]}
-              />
-
-              <ProgressiveCard 
-                question="2. Does it have a durable competitive advantage?"
-                statusText="Exceptional Moat"
-                statusType="green"
-                thesisSupportText="✔ Supports Thesis"
-                thesisSupportType="supports"
-                summary="A dominant moat built on proprietary software ecosystems and switching costs for enterprise software developers."
-                evidence={[
-                  "Deep developer lock-in through proprietary CUDA software stack",
-                  "Unmatched interconnect networking architecture",
-                  "Aggressive annual product cadence creates massive barriers to entry"
-                ]}
-              />
-
-              <ProgressiveCard 
-                question="3. Can management be trusted?"
-                statusText="Trusted"
-                statusType="green"
-                thesisSupportText="✔ Supports Thesis"
-                thesisSupportType="supports"
-                summary="Founder-led execution with a proven history of pivoting into massive total addressable markets ahead of competitors."
-                evidence={[
-                  "Founder maintains significant equity alignment",
-                  "Consistent track record of disciplined R&D capital allocation",
-                  "Clear, long-term strategic execution"
-                ]}
-              />
-
-              <ProgressiveCard 
-                question="4. What are the key growth drivers?"
-                statusText="Strong Acceleration"
-                statusType="green"
-                thesisSupportText="✔ Supports Thesis"
-                thesisSupportType="supports"
-                summary="Generative AI adoption across hyperscalers, sovereign enterprise compute, and industrial robotics automation."
-                evidence={[
-                  "Hyperscaler capex commitment continuing to expand",
-                  "Sovereign AI initiatives driving international orders",
-                  "Software revenue ramping as enterprise adoption grows"
-                ]}
-              />
-
-              <ProgressiveCard 
-                question="5. What could go wrong? (Key Risks)"
-                statusText="Monitor"
-                statusType="red"
-                thesisSupportText="⚠ Thesis Risk"
-                thesisSupportType="risk"
-                summary="Geopolitical restrictions, potential capex air pockets, and custom ASIC development by cloud provider clients."
-                evidence={[
-                  "Geopolitical trade restrictions limiting revenue in specific regions",
-                  "Concentration risk among top 5 hyperscaler cloud customers",
-                  "Cloud customers building custom silicon in-house"
-                ]}
-              />
-
-              <ProgressiveCard 
-                question="6. Is today's valuation attractive?"
-                statusText="Premium"
-                statusType="yellow"
-                thesisSupportText="⚠ Neutral / Watch"
-                thesisSupportType="neutral"
-                summary="Trading at a premium multiple relative to historic market averages, requiring sustained hyper-growth to justify."
-                evidence={[
-                  "Forward P/E ratio sitting in upper historical decile",
-                  "Price-to-Sales ratio reflects elevated growth expectations",
-                  "High quality business offering lower margin of safety at peak price"
-                ]}
-              />
-
-              <ProgressiveCard 
-                question="7. What do the financial metrics & evidence show?"
-                statusText="Robust Financials"
-                statusType="green"
-                thesisSupportText="✔ Supports Thesis"
-                thesisSupportType="supports"
-                summary="Balance sheet strength with minimal net debt and best-in-class return on invested capital."
-                evidence={[
-                  "Return on Invested Capital (ROIC) exceeds 50%",
-                  "Net cash position provides total solvency protection",
-                  "Free Cash Flow margin exceeds 40%"
-                ]}
-              />
-            </div>
-
           </div>
 
-          {/* RIGHT COLUMN: Minimalist Workflow Sidebar */}
-          <div className="lg:col-span-1">
-            <div className="sticky top-20 space-y-6">
-              
-              <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
-                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">The Investment IQ Method</h3>
-                
-                <div className="space-y-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-700 font-extrabold flex items-center justify-center text-xs">1</div>
-                    <div>
-                      <p className="text-xs font-bold text-gray-900">Review Business Evidence</p>
-                      <p className="text-[11px] text-gray-500">Analyze quality, moat & key risks</p>
-                    </div>
-                  </div>
+          {/* DEEP RESEARCH CARDS */}
+          <div className="space-y-6">
+            <ProgressiveCard 
+              question="1. Is this a high-quality business?"
+              statusText="Excellent"
+              statusType="green"
+              thesisSupportText="✔ Supports Thesis"
+              thesisSupportType="supports"
+              summary={`${ticker} benefits from expanding structural demand, industry-leading margins, and exceptional cash conversion.`}
+              evidence={[
+                "Data center revenue accelerating year-over-year",
+                "Gross margins expanding due to software and enterprise mix",
+                "Cash flow conversion allows heavy R&D reinvestment"
+              ]}
+            />
 
-                  <div className="flex items-center gap-3">
-                    <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-700 font-extrabold flex items-center justify-center text-xs">2</div>
-                    <div>
-                      <p className="text-xs font-bold text-gray-900">Lock in 3 Core Drivers</p>
-                      <p className="text-[11px] text-gray-500">Formulate your key thesis points</p>
-                    </div>
-                  </div>
+            <ProgressiveCard 
+              question="2. Does it have a durable competitive advantage?"
+              statusText="Exceptional Moat"
+              statusType="green"
+              thesisSupportText="✔ Supports Thesis"
+              thesisSupportType="supports"
+              summary="A dominant moat built on proprietary software ecosystems and switching costs for enterprise software developers."
+              evidence={[
+                "Deep developer lock-in through proprietary CUDA software stack",
+                "Unmatched interconnect networking architecture",
+                "Aggressive annual product cadence creates massive barriers to entry"
+              ]}
+            />
 
-                  <div className="flex items-center gap-3">
-                    <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-700 font-extrabold flex items-center justify-center text-xs">3</div>
-                    <div>
-                      <p className="text-xs font-bold text-gray-900">Automate Earnings Checks</p>
-                      <p className="text-[11px] text-gray-500">Track thesis changes every 90 days</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
+            <ProgressiveCard 
+              question="3. Can management be trusted?"
+              statusText="Trusted"
+              statusType="green"
+              thesisSupportText="✔ Supports Thesis"
+              thesisSupportType="supports"
+              summary="Founder-led execution with a proven history of pivoting into massive total addressable markets ahead of competitors."
+              evidence={[
+                "Founder maintains significant equity alignment",
+                "Consistent track record of disciplined R&D capital allocation",
+                "Clear, long-term strategic execution"
+              ]}
+            />
 
-              {isLoggedIn ? (
-                <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
-                  <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Thesis Status</h3>
-                  <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-3 rounded-xl text-xs font-bold mb-4 flex items-center gap-2">
-                    <span className="text-sm">🟢</span> Strengthening (+3 Drivers Validated)
-                  </div>
-                  <button
-                    onClick={() => router.push('/dashboard')}
-                    className="w-full bg-gray-900 text-white font-bold py-3 rounded-xl hover:bg-gray-800 transition-colors shadow-sm text-xs cursor-pointer"
-                  >
-                    View All Saved Theses →
-                  </button>
-                </div>
-              ) : (
-                <div className="bg-blue-50/60 p-6 rounded-2xl border border-blue-100 text-center">
-                  <p className="text-xs font-bold text-blue-900 mb-1">Looking to track {ticker}?</p>
-                  <p className="text-[11px] text-blue-700 mb-4 font-medium">Scroll down to write your thesis, or create a free account to track up to 5 stocks.</p>
-                  <button 
-                    onClick={scrollToThesis}
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl text-xs transition-all shadow-sm"
-                  >
-                    Write Thesis ↓
-                  </button>
-                </div>
-              )}
+            <ProgressiveCard 
+              question="4. What are the key growth drivers?"
+              statusText="Strong Acceleration"
+              statusType="green"
+              thesisSupportText="✔ Supports Thesis"
+              thesisSupportType="supports"
+              summary="Generative AI adoption across hyperscalers, sovereign enterprise compute, and industrial robotics automation."
+              evidence={[
+                "Hyperscaler capex commitment continuing to expand",
+                "Sovereign AI initiatives driving international orders",
+                "Software revenue ramping as enterprise adoption grows"
+              ]}
+            />
 
-            </div>
+            <ProgressiveCard 
+              question="5. What could go wrong? (Key Risks)"
+              statusText="Monitor"
+              statusType="red"
+              thesisSupportText="⚠ Thesis Risk"
+              thesisSupportType="risk"
+              summary="Geopolitical restrictions, potential capex air pockets, and custom ASIC development by cloud provider clients."
+              evidence={[
+                "Geopolitical trade restrictions limiting revenue in specific regions",
+                "Concentration risk among top 5 hyperscaler cloud customers",
+                "Cloud customers building custom silicon in-house"
+              ]}
+            />
+
+            <ProgressiveCard 
+              question="6. Is today's valuation attractive?"
+              statusText="Premium"
+              statusType="yellow"
+              thesisSupportText="⚠ Neutral / Watch"
+              thesisSupportType="neutral"
+              summary="Trading at a premium multiple relative to historic market averages, requiring sustained hyper-growth to justify."
+              evidence={[
+                "Forward P/E ratio sitting in upper historical decile",
+                "Price-to-Sales ratio reflects elevated growth expectations",
+                "High quality business offering lower margin of safety at peak price"
+              ]}
+            />
+
+            <ProgressiveCard 
+              question="7. What do the financial metrics & evidence show?"
+              statusText="Robust Financials"
+              statusType="green"
+              thesisSupportText="✔ Supports Thesis"
+              thesisSupportType="supports"
+              summary="Balance sheet strength with minimal net debt and best-in-class return on invested capital."
+              evidence={[
+                "Return on Invested Capital (ROIC) exceeds 50%",
+                "Net cash position provides total solvency protection",
+                "Free Cash Flow margin exceeds 40%"
+              ]}
+            />
           </div>
 
         </div>
 
-        {/* 3. COMBINED FULL-WIDTH THESIS SECTION (LEFT-TO-RIGHT AT THE BOTTOM) */}
-        <div id="build-thesis-section" className="mt-12 pt-8 border-t border-gray-200">
+        {/* --- FULL-WIDTH THESIS SECTION (BOTTOM CLIMAX) --- */}
+        <div id="build-thesis-section" className="mt-16 pt-8 border-t border-gray-200">
           <div className="bg-gradient-to-r from-blue-950 via-indigo-950 to-slate-900 text-white p-8 md:p-10 rounded-3xl shadow-xl border border-blue-800">
             
             <div className="flex flex-wrap justify-between items-start gap-6 mb-8">
@@ -566,13 +495,14 @@ export default function CompanyOverviewPage() {
               </div>
 
               {hasThesis ? (
-                <div className="bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Thesis Currently Saved & Monitored
+                <div className="bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shadow-inner">
+                  <span className="text-sm">🟢</span> Thesis Status: Strengthening
                 </div>
               ) : (
                 <div className="hidden md:block bg-blue-900/50 border border-blue-700/50 p-4 rounded-2xl max-w-xs text-xs text-blue-200">
                   <p className="font-bold text-white mb-1">Why record a thesis?</p>
-                  <p>When earnings arrive, Investment IQ compares new financial data directly against these 3 points.</p>
+                  {/* Updated text as requested */}
+                  <p>When earnings arrive, Investment IQ compares new financial data directly against your saved drivers.</p>
                 </div>
               )}
             </div>
@@ -606,7 +536,7 @@ export default function CompanyOverviewPage() {
                 <span>
                   {!isLoggedIn 
                     ? "Sign in to save this thesis and enable automated quarterly earnings checks." 
-                    : "Your thesis will be saved and graded automatically against future quarterly earnings."}
+                    : "Your thesis is saved and will be graded against future quarterly earnings."}
                 </span>
               </div>
 
