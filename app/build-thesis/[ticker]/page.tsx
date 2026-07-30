@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 
-// --- EXPANDED UNIFORM MOCK DATA (3 Items Each) ---
+// --- EXPANDED UNIFORM MOCK DATA (Exactly 6 items each for a perfect 3x2 grid) ---
 const SUGGESTED_DRIVERS = [
   {
     id: 'd1', title: 'AI Infrastructure Demand', why: 'Demand for AI compute continues accelerating.',
@@ -33,9 +33,9 @@ const SUGGESTED_DRIVERS = [
     monitors: ['Networking segment revenue', 'Hardware attach rates', 'New product cycles']
   },
   {
-    id: 'd6', title: 'Autonomous Driving Pivot', why: 'Automotive segment presents a massive adjacent TAM.',
-    evidence: ['Partnerships with major EV makers', 'Self-driving pipeline growth', 'Edge compute adoption expanding'], 
-    monitors: ['Automotive revenue', 'OEM Partnership announcements', 'Edge compute adoption']
+    id: 'd6', title: 'Adjacent TAM Expansion', why: 'New hardware markets present massive revenue opportunities.',
+    evidence: ['Partnerships with major auto makers', 'Robotics and edge compute growth', 'PC hardware cycle refreshing'], 
+    monitors: ['Automotive revenue', 'Edge compute adoption', 'Client segment growth']
   }
 ];
 
@@ -59,6 +59,16 @@ const SUGGESTED_RISKS = [
     id: 'r4', title: 'AI Monetization Plateau', why: 'End-users fail to generate ROI on AI, slowing down orders.',
     evidence: ['Enterprise AI budgets tightening', 'Slower software rollout phases', 'ROI timelines extending'], 
     monitors: ['Hyperscaler cloud growth', 'Enterprise IT spending surveys', 'App deployment rates']
+  },
+  {
+    id: 'r5', title: 'Macroeconomic Recession', why: 'Broad economic slowdown forces enterprise budget cuts.',
+    evidence: ['GDP growth stalling globally', 'Unemployment creeping upwards', 'Corporate IT budget reductions'], 
+    monitors: ['Overall Revenue Growth', 'Guidance revisions', 'Enterprise hardware spend']
+  },
+  {
+    id: 'r6', title: 'Key Person & Execution Risk', why: 'Dependency on current visionary leadership.',
+    evidence: ['Founder drives primary product vision', 'Highly centralized decision making', 'Fierce talent competition'], 
+    monitors: ['Executive team stability', 'Stock-based compensation trends', 'Product delivery delays']
   }
 ];
 
@@ -73,9 +83,6 @@ export default function ThesisBuilderPage() {
   const [customInput, setCustomInput] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
-  // Reference for the scrolling carousel
-  const scrollRef = useRef<HTMLDivElement>(null);
-
   useEffect(() => {
     async function checkAuth() {
       const { data: { session } } = await supabase.auth.getSession();
@@ -88,14 +95,7 @@ export default function ThesisBuilderPage() {
 
   const activeData = step === 1 ? SUGGESTED_DRIVERS : SUGGESTED_RISKS;
   const activeSelection = step === 1 ? selectedDrivers : selectedRisks;
-  const activeLimit = step === 1 ? 5 : 3; // Updated limits: 5 drivers, 3 risks
-
-  // Smooth scroll function for the arrow buttons
-  const scroll = (offset: number) => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollBy({ left: offset, behavior: 'smooth' });
-    }
-  };
+  const activeLimit = step === 1 ? 5 : 3;
 
   const toggleSelection = (title: string) => {
     if (step === 1) {
@@ -153,9 +153,9 @@ export default function ThesisBuilderPage() {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
       
-      {/* FIXED HEADER: Constrained to max-w-5xl */}
+      {/* FIXED HEADER: Constrained to max-w-6xl */}
       <nav className="bg-white border-b border-gray-200">
-        <div className="max-w-5xl mx-auto px-6 py-4 flex justify-between items-center">
+        <div className="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
           <Link href="/" className="font-extrabold text-xl tracking-tight text-gray-900 flex items-center gap-2">
             Investment IQ
           </Link>
@@ -167,8 +167,9 @@ export default function ThesisBuilderPage() {
 
       <main className="flex-grow w-full py-10 md:py-12">
         
-        <div className="max-w-5xl mx-auto px-6">
-          <div className="mb-10 text-center max-w-2xl mx-auto">
+        {/* HEADER SECTION */}
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="mb-12 text-center max-w-2xl mx-auto">
             <p className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-2">
               Step {step} of 2
             </p>
@@ -181,29 +182,9 @@ export default function ThesisBuilderPage() {
                 : `Choose up to 3 risks. Knowing what breaks your thesis is the key to disciplined investing.`}
             </p>
           </div>
-        </div>
 
-        {/* HORIZONTAL SLIDER WITH ARROW CONTROLS */}
-        <div className="relative w-full group">
-          
-          {/* Hide default scrollbar but keep functionality */}
-          <style dangerouslySetInnerHTML={{__html: `
-            .hide-scrollbar::-webkit-scrollbar { display: none; }
-            .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-          `}} />
-
-          {/* Left Arrow Button (Appears on hover) */}
-          <button 
-            onClick={() => scroll(-360)} 
-            className="hidden md:flex absolute left-4 md:left-[calc(50vw-512px-24px)] top-1/2 -translate-y-1/2 z-10 bg-white/90 backdrop-blur shadow-[0_4px_20px_rgba(0,0,0,0.15)] rounded-full w-12 h-12 items-center justify-center text-gray-700 hover:text-blue-600 hover:scale-105 transition-all opacity-0 group-hover:opacity-100 border border-gray-100"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
-            </svg>
-          </button>
-
-          {/* The Scrollable Carousel */}
-          <div ref={scrollRef} className="flex overflow-x-auto pb-8 pt-2 snap-x snap-mandatory hide-scrollbar gap-6 px-6 md:pl-[calc(50vw-512px+24px)] md:pr-[calc(50vw-512px+24px)]">
+          {/* THE NEW GRID LAYOUT */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
             {activeData.map((item) => {
               const isSelected = activeSelection.includes(item.title);
               const isMaxedOut = activeSelection.length >= activeLimit && !isSelected;
@@ -212,9 +193,9 @@ export default function ThesisBuilderPage() {
                 <div 
                   key={item.id}
                   onClick={() => !isMaxedOut && toggleSelection(item.title)}
-                  className={`relative shrink-0 w-[320px] md:w-[360px] snap-start p-6 rounded-3xl border-2 transition-all cursor-pointer flex flex-col h-[440px] ${
+                  className={`relative p-6 rounded-3xl border-2 transition-all cursor-pointer flex flex-col h-full ${
                     isSelected 
-                      ? 'border-blue-600 bg-blue-50/50 shadow-md' 
+                      ? 'border-blue-600 bg-blue-50/50 shadow-md ring-4 ring-blue-600/10' 
                       : isMaxedOut 
                         ? 'border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed' 
                         : 'border-gray-200 hover:border-blue-300 hover:shadow-sm bg-white'
@@ -228,28 +209,38 @@ export default function ThesisBuilderPage() {
 
                   <h3 className="font-extrabold text-gray-900 text-xl mb-4 pr-10 leading-tight">{item.title}</h3>
                   
-                  <div className="flex-grow space-y-4 overflow-y-auto hide-scrollbar">
+                  <div className="flex-grow space-y-5">
                     <div>
-                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Why this matters</p>
-                      <p className="text-sm font-medium text-gray-700">{item.why}</p>
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Why this matters</p>
+                      <p className="text-sm font-medium text-gray-700 leading-relaxed">{item.why}</p>
                     </div>
                     
                     <div>
-                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Evidence</p>
-                      <ul className="text-sm font-medium text-gray-700 space-y-1.5">
-                        {item.evidence.map((ev, i) => <li key={i} className="flex items-start gap-2"><span className="w-1.5 h-1.5 bg-gray-400 rounded-full shrink-0 mt-1.5"></span><span className="leading-tight">{ev}</span></li>)}
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Evidence</p>
+                      <ul className="text-sm font-medium text-gray-700 space-y-2">
+                        {item.evidence.map((ev, i) => (
+                          <li key={i} className="flex items-start gap-2.5">
+                            <span className="w-1.5 h-1.5 bg-gray-400 rounded-full shrink-0 mt-2"></span>
+                            <span className="leading-tight">{ev}</span>
+                          </li>
+                        ))}
                       </ul>
                     </div>
 
                     <div>
-                      <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider mb-1.5">Investment IQ Monitors</p>
-                      <ul className="text-xs font-bold text-blue-800 space-y-1.5 bg-blue-100/50 p-3 rounded-xl border border-blue-200/50">
-                        {item.monitors.map((mon, i) => <li key={i} className="flex items-start gap-2"><span className="text-blue-500 shrink-0">⚡</span><span className="leading-tight">{mon}</span></li>)}
+                      <p className="text-[10px] font-bold text-blue-600 uppercase tracking-wider mb-2">Investment IQ Monitors</p>
+                      <ul className="text-xs font-bold text-blue-800 space-y-2 bg-blue-100/50 p-4 rounded-xl border border-blue-200/50">
+                        {item.monitors.map((mon, i) => (
+                          <li key={i} className="flex items-start gap-2.5">
+                            <span className="text-blue-500 shrink-0">⚡</span>
+                            <span className="leading-tight">{mon}</span>
+                          </li>
+                        ))}
                       </ul>
                     </div>
                   </div>
 
-                  <div className={`mt-5 text-center text-sm font-bold py-3 rounded-xl transition-colors ${
+                  <div className={`mt-6 text-center text-sm font-bold py-3.5 rounded-xl transition-colors ${
                     isSelected ? 'bg-blue-600 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                   }`}>
                     {isSelected ? 'Selected' : '+ Add to Thesis'}
@@ -259,31 +250,19 @@ export default function ThesisBuilderPage() {
             })}
           </div>
 
-          {/* Right Arrow Button (Appears on hover) */}
-          <button 
-            onClick={() => scroll(360)} 
-            className="hidden md:flex absolute right-4 md:right-[calc(50vw-512px-24px)] top-1/2 -translate-y-1/2 z-10 bg-white/90 backdrop-blur shadow-[0_4px_20px_rgba(0,0,0,0.15)] rounded-full w-12 h-12 items-center justify-center text-gray-700 hover:text-blue-600 hover:scale-105 transition-all opacity-0 group-hover:opacity-100 border border-gray-100"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-            </svg>
-          </button>
-        </div>
-
-        {/* CUSTOM INPUT AREA */}
-        <div className="max-w-5xl mx-auto px-6 mt-4">
-          <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm">
+          {/* CUSTOM INPUT AREA */}
+          <div className="bg-white p-8 rounded-3xl border border-gray-200 shadow-sm max-w-4xl mx-auto">
             <label className="block text-sm font-bold text-gray-900 mb-1">
               + Write My Own {step === 1 ? 'Driver' : 'Risk'}
             </label>
-            <p className="text-xs text-gray-500 mb-4">Allows experienced investors to create custom tracking parameters.</p>
+            <p className="text-xs text-gray-500 mb-5">Allows experienced investors to create custom tracking parameters.</p>
             <div className="flex flex-col sm:flex-row gap-3">
               <input 
                 type="text"
                 value={customInput}
                 onChange={(e) => setCustomInput(e.target.value)}
                 placeholder={step === 1 ? "e.g. Sovereign AI demand scaling in Middle East" : "e.g. Hyperscaler capex budgets shrink"}
-                className="flex-grow bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="flex-grow bg-gray-50 border border-gray-200 rounded-xl px-5 py-3.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               <button 
                 onClick={handleAddCustom}
@@ -296,13 +275,13 @@ export default function ThesisBuilderPage() {
             
             {/* Show Custom Selections */}
             {activeSelection.length > 0 && (
-              <div className="mt-6 pt-6 border-t border-gray-100">
-                <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-3">Your Selections:</p>
-                <div className="flex flex-wrap gap-2">
+              <div className="mt-8 pt-6 border-t border-gray-100">
+                <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-4">Your Selections:</p>
+                <div className="flex flex-wrap gap-2.5">
                   {activeSelection.map((sel, i) => (
-                    <div key={i} className="flex items-center gap-2 bg-blue-50 border border-blue-200 text-blue-800 text-xs font-bold px-3 py-1.5 rounded-full">
+                    <div key={i} className="flex items-center gap-2 bg-blue-50 border border-blue-200 text-blue-800 text-sm font-bold px-4 py-2 rounded-full">
                       {sel}
-                      <button onClick={() => toggleSelection(sel)} className="text-blue-400 hover:text-blue-600">✕</button>
+                      <button onClick={() => toggleSelection(sel)} className="text-blue-400 hover:text-blue-600 font-normal ml-1">✕</button>
                     </div>
                   ))}
                 </div>
@@ -314,8 +293,8 @@ export default function ThesisBuilderPage() {
       </main>
 
       {/* STICKY FOOTER */}
-      <div className="bg-white border-t border-gray-200 p-6 sticky bottom-0 z-10 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-        <div className="max-w-5xl mx-auto flex justify-between items-center">
+      <div className="bg-white border-t border-gray-200 p-6 sticky bottom-0 z-20 shadow-[0_-8px_15px_-3px_rgba(0,0,0,0.05)]">
+        <div className="max-w-6xl mx-auto flex justify-between items-center px-6">
           <div className="text-sm font-bold text-gray-500">
             {step === 1 ? `${selectedDrivers.length}/${activeLimit} Drivers Selected` : `${selectedRisks.length}/${activeLimit} Risks Selected`}
           </div>
@@ -330,7 +309,7 @@ export default function ThesisBuilderPage() {
             <button 
               onClick={() => step === 1 ? setStep(2) : handleSaveToDatabase()}
               disabled={step === 1 ? selectedDrivers.length === 0 : selectedRisks.length === 0 || isSaving}
-              className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed text-white font-extrabold px-8 py-3.5 rounded-xl transition-all shadow-md text-sm cursor-pointer flex items-center gap-2"
+              className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed text-white font-extrabold px-8 py-3.5 rounded-xl transition-all shadow-lg text-sm cursor-pointer flex items-center gap-2"
             >
               {isSaving ? 'Saving...' : step === 1 ? 'Next: Add Risks →' : 'Save & Go to Dashboard ✓'}
             </button>
