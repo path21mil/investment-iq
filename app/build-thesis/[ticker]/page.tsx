@@ -84,13 +84,35 @@ export default function ThesisBuilderPage() {
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    async function checkAuth() {
+    async function initializeBuilder() {
       const { data: { session } } = await supabase.auth.getSession();
+      
+      // 1. Check if logged in
       if (!session) {
         router.push(`/login?redirect=/build-thesis/${ticker}`);
+        return;
+      }
+
+      // 2. Fetch existing thesis if they are updating
+      const { data: existingThesis, error } = await supabase
+        .from('theses')
+        .select('drivers, risks')
+        .eq('ticker', ticker)
+        .eq('user_id', session.user.id)
+        .maybeSingle();
+
+      // 3. Pre-fill the UI if data exists
+      if (existingThesis) {
+        if (existingThesis.drivers && existingThesis.drivers.length > 0) {
+          setSelectedDrivers(existingThesis.drivers);
+        }
+        if (existingThesis.risks && existingThesis.risks.length > 0) {
+          setSelectedRisks(existingThesis.risks);
+        }
       }
     }
-    checkAuth();
+    
+    initializeBuilder();
   }, [router, ticker]);
 
   const activeData = step === 1 ? SUGGESTED_DRIVERS : SUGGESTED_RISKS;
