@@ -144,7 +144,9 @@ export default function ThesisBuilderPage() {
       if (!error) {
         router.push('/dashboard');
       } else {
-        alert('Error saving thesis.');
+        // Change these lines to print the exact error message
+        console.error("Supabase Error:", error);
+        alert(`Database Error: ${error.message || error.details || 'Check console'}`);
         setIsSaving(false);
       }
     }
