@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, Suspense } from 'react';
+import { useState, Suspense, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
@@ -10,133 +10,219 @@ function LoginContent() {
   const searchParams = useSearchParams();
   const redirectUrl = searchParams.get('redirect') || '/dashboard';
 
+  // State for Tabs: 'login' or 'signup'
+  const [mode, setMode] = useState<'login' | 'signup'>('login');
+  
+  // Form State
   const [email, setEmail] = useState('');
-  const [token, setToken] = useState('');
-  const [step, setStep] = useState<'request' | 'verify'>('request');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [agreeTerms, setAgreeTerms] = useState(false);
+  
+  // Status State
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
 
-  // 1. Send OTP Code to Email
-  const handleSendOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email.trim()) return;
-    
-    setLoading(true);
-    setMessage('');
+  // Auto-redirect if already logged in
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) router.push(redirectUrl);
+    };
+    checkSession();
+  }, [router, redirectUrl]);
 
-    const { error } = await supabase.auth.signInWithOtp({
-      email: email.trim(),
+  // 1. Handle Google Auth
+  const handleGoogleSignIn = async () => {
+    await supabase.auth.signInWithOAuth({
+      provider: 'google',
       options: {
-        // Automatically redirect them back to your target page after verification
-        emailRedirectTo: `${window.location.origin}${redirectUrl}`,
+        queryParams: { prompt: 'select_account' },
+        redirectTo: `${window.location.origin}${redirectUrl}`,
       },
     });
-
-    setLoading(false);
-
-    if (error) {
-      setMessage(error.message);
-    } else {
-      setStep('verify');
-      setMessage('Passcode sent! Check your email inbox.');
-    }
   };
 
-  // 2. Verify the 6-digit OTP Token entered by user
-  const handleVerifyOtp = async (e: React.FormEvent) => {
+  // 2. Handle Email/Password Submit
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!token.trim()) return;
-
+    setErrorMsg('');
+    setSuccessMsg('');
     setLoading(true);
-    setMessage('');
 
-    const { error } = await supabase.auth.verifyOtp({
-      email: email.trim(),
-      token: token.trim(),
-      type: 'email',
-    });
+    if (mode === 'signup') {
+      // Validation for Sign Up
+      if (password !== confirmPassword) {
+        setErrorMsg('Passwords do not match.');
+        setLoading(false);
+        return;
+      }
+      if (!agreeTerms) {
+        setErrorMsg('You must agree to the Terms of Service.');
+        setLoading(false);
+        return;
+      }
 
-    setLoading(false);
+      // Execute Supabase Sign Up
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}${redirectUrl}`,
+        },
+      });
 
-    if (error) {
-      setMessage('Invalid or expired code. Please try again.');
+      if (error) {
+        setErrorMsg(error.message);
+      } else {
+        setSuccessMsg('Account created! Please check your email inbox to verify your account.');
+        // Clear form
+        setEmail('');
+        setPassword('');
+        setConfirmPassword('');
+      }
     } else {
-      router.push(redirectUrl);
+      // Execute Supabase Log In
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        setErrorMsg('Invalid email or password.');
+      } else {
+        router.push(redirectUrl);
+      }
     }
+    setLoading(false);
   };
 
   return (
-    <div className="bg-white py-10 px-6 shadow-xl sm:rounded-3xl sm:px-12 border border-gray-100 max-w-md w-full">
-      <div className="mb-6 text-center">
-        <h2 className="text-2xl font-extrabold text-gray-900 tracking-tight">
-          {step === 'request' ? 'Sign in with Email' : 'Check your email'}
-        </h2>
-        <p className="text-xs text-gray-500 mt-2 font-medium">
-          {step === 'request' 
-            ? 'Enter your email to receive a secure one-time passcode.' 
-            : `We sent a temporary code to ${email}`}
-        </p>
+    <div className="bg-white py-8 px-6 shadow-xl sm:rounded-3xl sm:px-10 border border-gray-100 max-w-md w-full">
+      
+      {/* Tabs */}
+      <div className="flex border-b border-gray-200 mb-8">
+        <button
+          onClick={() => { setMode('login'); setErrorMsg(''); setSuccessMsg(''); }}
+          className={`flex-1 pb-3 text-sm font-bold text-center border-b-2 transition-colors ${
+            mode === 'login' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-400 hover:text-gray-600'
+          }`}
+        >
+          Log In
+        </button>
+        <button
+          onClick={() => { setMode('signup'); setErrorMsg(''); setSuccessMsg(''); }}
+          className={`flex-1 pb-3 text-sm font-bold text-center border-b-2 transition-colors ${
+            mode === 'signup' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-400 hover:text-gray-600'
+          }`}
+        >
+          Sign Up
+        </button>
       </div>
 
-      {message && (
-        <div className={`p-3 rounded-xl text-xs font-bold mb-4 text-center ${
-          step === 'verify' && !message.includes('sent') ? 'bg-rose-50 text-rose-700' : 'bg-blue-50 text-blue-700'
-        }`}>
-          {message}
-        </div>
-      )}
+      {/* Google Sign In */}
+      <button
+        onClick={handleGoogleSignIn}
+        className="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-xl shadow-sm text-sm font-bold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 hover:text-gray-900 transition-all cursor-pointer mb-6"
+      >
+        <svg className="w-5 h-5" viewBox="0 0 24 24">
+          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.31-1.03 2.41-2.16 3.14v2.6h3.49c2.04-1.89 3.21-4.67 3.21-7.75z" />
+          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.49-2.6c-.99.66-2.25 1.06-3.79 1.06-2.92 0-5.39-1.97-6.27-4.62H2.12v2.68C3.96 20.47 7.69 23 12 23z" />
+          <path fill="#FBBC05" d="M5.73 14.18C5.5 13.52 5.38 12.77 5.38 12s.12-1.52.35-2.18V7.14H2.12C1.4 8.58 1 10.23 1 12s.4 3.42 1.12 4.86l3.61-2.68z" />
+          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.69 1 3.96 3.53 2.12 7.14l3.61 2.68C6.61 7.17 9.08 5.38 12 5.38z" />
+        </svg>
+        Continue with Google
+      </button>
 
-      {step === 'request' ? (
-        <form onSubmit={handleSendOtp} className="space-y-4">
-          <div>
-            <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">Email Address</label>
-            <input 
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-            />
+      {/* Divider */}
+      <div className="relative mb-6">
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full border-t border-gray-200"></div>
+        </div>
+        <div className="relative flex justify-center text-sm">
+          <span className="px-3 bg-white text-gray-400 font-medium">or</span>
+        </div>
+      </div>
+
+      {/* Messages */}
+      {errorMsg && <div className="bg-rose-50 text-rose-700 p-3 rounded-xl text-xs font-bold mb-4 text-center">{errorMsg}</div>}
+      {successMsg && <div className="bg-emerald-50 text-emerald-700 p-3 rounded-xl text-xs font-bold mb-4 text-center">{successMsg}</div>}
+
+      {/* Email / Password Form */}
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label className="block text-[11px] font-bold text-gray-500 mb-1">Email</label>
+          <input 
+            type="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@example.com"
+            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 transition-all"
+          />
+        </div>
+
+        <div>
+          <label className="block text-[11px] font-bold text-gray-500 mb-1">Password</label>
+          <input 
+            type="password"
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="••••••••"
+            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 transition-all"
+          />
+        </div>
+
+        {mode === 'signup' && (
+          <>
+            <div>
+              <label className="block text-[11px] font-bold text-gray-500 mb-1">Confirm Password</label>
+              <input 
+                type="password"
+                required
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="••••••••"
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 transition-all"
+              />
+            </div>
+
+            <div className="flex items-start gap-2 pt-2">
+              <input
+                type="checkbox"
+                id="terms"
+                checked={agreeTerms}
+                onChange={(e) => setAgreeTerms(e.target.checked)}
+                className="mt-1 border-gray-300 rounded text-blue-600 focus:ring-blue-500"
+              />
+              <label htmlFor="terms" className="text-xs text-gray-500 font-medium">
+                I agree to the <span className="text-blue-600 hover:underline cursor-pointer">Terms of Service</span> and <span className="text-blue-600 hover:underline cursor-pointer">Privacy Policy</span>
+              </label>
+            </div>
+          </>
+        )}
+
+        {mode === 'login' && (
+          <div className="flex justify-end pt-1">
+            <button type="button" className="text-xs font-bold text-blue-600 hover:text-blue-700">
+              Forgot password?
+            </button>
           </div>
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-extrabold py-3.5 px-4 rounded-xl transition-all shadow-sm text-sm cursor-pointer"
-          >
-            {loading ? 'Sending code...' : 'Send Passcode →'}
-          </button>
-        </form>
-      ) : (
-        <form onSubmit={handleVerifyOtp} className="space-y-4">
-          <div>
-            <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">Enter 6-Digit Code</label>
-            <input 
-              type="text"
-              required
-              maxLength={6}
-              value={token}
-              onChange={(e) => setToken(e.target.value)}
-              placeholder="123456"
-              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-center text-lg tracking-widest font-extrabold focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-300 text-white font-extrabold py-3.5 px-4 rounded-xl transition-all shadow-sm text-sm cursor-pointer"
-          >
-            {loading ? 'Verifying...' : 'Verify & Sign In ✓'}
-          </button>
-          <button
-            type="button"
-            onClick={() => setStep('request')}
-            className="w-full text-center text-xs font-bold text-gray-400 hover:text-gray-600 pt-2"
-          >
-            ← Use a different email
-          </button>
-        </form>
-      )}
+        )}
+
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-extrabold py-3 px-4 rounded-xl transition-all shadow-sm text-sm cursor-pointer mt-2"
+        >
+          {loading 
+            ? (mode === 'login' ? 'Signing in...' : 'Creating account...') 
+            : (mode === 'login' ? 'Log In' : 'Create Account')
+          }
+        </button>
+      </form>
     </div>
   );
 }
@@ -153,7 +239,7 @@ export default function LoginPage() {
         </span>
       </Link>
 
-      <Suspense fallback={<div className="text-gray-400 font-medium animate-pulse text-sm mt-4">Loading login...</div>}>
+      <Suspense fallback={<div className="text-gray-400 font-medium animate-pulse text-sm mt-4">Loading secure login...</div>}>
         <LoginContent />
       </Suspense>
     </div>
