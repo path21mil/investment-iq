@@ -1,206 +1,308 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { Search, Loader2 } from 'lucide-react';
 
-export default function LandingPage() {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [placeholderText, setPlaceholderText] = useState('Search company or ticker...');
+export default function Home() {
   const router = useRouter();
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  // Animation States
+  const [isSearching, setIsSearching] = useState(false);
+  const [loadingText, setLoadingText] = useState('');
 
-  // Rotating placeholder animation
-  useEffect(() => {
-    const tickers = ['NVDA', 'META', 'GOOG', 'TSLA', 'AMZN'];
-    let i = 0;
-    const interval = setInterval(() => {
-      setPlaceholderText(`Search ${tickers[i]}...`);
-      i = (i + 1) % tickers.length;
-    }, 3000);
-    return () => clearInterval(interval);
-  }, []);
+  const loadingSteps = [
+    "Reading latest 10-Q...",
+    "Analyzing earnings call...",
+    "Comparing to previous quarter...",
+    "Generating research..."
+  ];
 
-  const handleSearch = (e: React.FormEvent) => {
+  const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
-    const ticker = searchQuery.trim().toUpperCase();
-    if (!ticker) return;
-    router.push(`/company/${ticker}`);
+    if (searchQuery.trim()) {
+      setIsSearching(true);
+      
+      // Simulate the AI "thinking" for a premium feel
+      for (let i = 0; i < loadingSteps.length; i++) {
+        setLoadingText(loadingSteps[i]);
+        await new Promise(r => setTimeout(r, 600)); // 600ms per step
+      }
+      
+      router.push(`/company/${searchQuery.trim().toUpperCase()}`);
+    }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white font-sans text-gray-900 selection:bg-blue-600 selection:text-white overflow-hidden">
+    <div className="min-h-screen bg-gray-50 flex flex-col font-sans overflow-x-hidden">
       
-      {/* Navigation */}
-      <nav className="max-w-7xl w-full mx-auto px-6 py-6 flex justify-between items-center relative z-10">
-        <Link href="/" className="flex items-center gap-2 group cursor-pointer">
-          <span className="text-xl font-extrabold tracking-tight text-gray-900">Investment IQ</span>
-          <div className="flex gap-1 items-end h-6">
-            <span className="w-1.5 h-3 bg-blue-600 rounded-full group-hover:h-4 transition-all duration-300"></span>
-            <span className="w-1.5 h-5 bg-blue-600 rounded-full group-hover:h-6 transition-all duration-300"></span>
-            <span className="w-1.5 h-7 bg-blue-600 rounded-full"></span>
+      {/* 1. TOP NAVIGATION */}
+      <nav className="bg-white border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+          <div className="font-extrabold text-xl tracking-tight text-gray-900 flex items-center gap-2">
+            Investment IQ
+            <span className="flex gap-0.5">
+              <span className="w-1 h-2.5 bg-blue-600 rounded-full"></span>
+              <span className="w-1 h-4 bg-blue-600 rounded-full"></span>
+              <span className="w-1 h-5 bg-blue-600 rounded-full"></span>
+            </span>
           </div>
-        </Link>
-        <div className="flex items-center gap-4">
-          <Link href="/login" className="text-sm font-bold text-gray-600 hover:text-gray-900 transition-colors">
-            Sign In
-          </Link>
-          <Link href="/login" className="bg-gray-900 text-white text-sm font-bold px-5 py-2.5 rounded-xl hover:bg-gray-800 transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5">
-            Get Started Free
-          </Link>
+          <div className="flex items-center gap-4 md:gap-6">
+            <Link href="/login" className="text-sm font-bold text-gray-600 hover:text-gray-900 transition-colors hidden sm:block">
+              Sign In
+            </Link>
+            <Link href="/login" className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold px-4 md:px-5 py-2 md:py-2.5 rounded-xl transition-colors shadow-sm">
+              Get Started
+            </Link>
+          </div>
         </div>
       </nav>
 
-      {/* Hero Section (Tightened Bottom Padding) */}
-      <main className="max-w-7xl mx-auto px-6 pt-12 pb-12 lg:pt-16 lg:pb-16 relative z-10">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-8 items-center">
-          
-          {/* Left Column: Copy & Search */}
-          <div className="max-w-2xl">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-50 border border-blue-100 text-blue-700 text-xs font-bold mb-6">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
-              </span>
-              Built for Long-Term Investors
-            </div>
-            
-            <h1 className="text-5xl lg:text-6xl font-extrabold text-gray-900 tracking-tight leading-[1.1] mb-6">
-              Understand Businesses. <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">
-                Build Conviction.
-              </span>
-            </h1>
-            
-            <p className="text-lg text-gray-500 font-medium mb-10 leading-relaxed max-w-lg">
-              Everything you need to understand a business, build conviction, and track your investment thesis over time.
-            </p>
+      {/* 2. HERO SECTION */}
+      <main className="flex-grow flex flex-col items-center pt-16 md:pt-24 pb-20 px-6">
+        
+        {/* The Hook & The Who */}
+        <div className="text-center max-w-3xl mx-auto mb-10">
+          <h1 className="text-4xl md:text-6xl font-extrabold text-gray-900 tracking-tight leading-tight mb-6">
+            Don't just buy stocks. <br className="hidden md:block"/> 
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">Track your conviction.</span>
+          </h1>
+          <p className="text-lg md:text-xl text-gray-900 font-bold mb-3">
+            Built for long-term investors who buy businesses—not charts.
+          </p>
+          <p className="text-base md:text-lg text-gray-500 font-medium leading-relaxed px-4 md:px-0">
+            Investment IQ helps you understand businesses, build a thesis, and automatically monitor updates to tell you when that thesis is strengthening—or starting to break.
+          </p>
+        </div>
 
-            {/* Interactive Search Product Lead */}
-            <div className="bg-white p-2 rounded-3xl shadow-xl border border-gray-100 mb-4 relative z-20 transition-all focus-within:ring-4 focus-within:ring-blue-50">
-              <form onSubmit={handleSearch} className="relative flex items-center">
-                <div className="pl-4 pr-2 text-gray-400">
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                </div>
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder={placeholderText}
-                  className="w-full bg-transparent py-4 text-gray-900 text-lg font-medium placeholder-gray-400 focus:outline-none transition-all"
-                />
-                <button
-                  type="submit"
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-2xl transition-all shadow-md whitespace-nowrap cursor-pointer"
-                >
-                  Start Research
-                </button>
-              </form>
+        {/* The Contextual Search Bar with Animation */}
+        <div className="w-full max-w-2xl mx-auto mb-12 relative z-10">
+          <p className="text-xs font-bold text-gray-400 mb-3 text-center uppercase tracking-widest">Search any public company</p>
+          <form onSubmit={handleSearch} className="relative group">
+            <div className="absolute inset-y-0 left-0 pl-4 md:pl-5 flex items-center pointer-events-none text-gray-400 group-focus-within:text-blue-500 transition-colors">
+              <Search className="w-5 h-5 md:w-6 md:h-6" />
             </div>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              disabled={isSearching}
+              placeholder="Search company or ticker (e.g. Apple or AAPL)"
+              className="w-full bg-white border-2 border-gray-200 rounded-2xl py-4 md:py-5 pl-12 md:pl-14 pr-[130px] md:pr-[180px] text-gray-900 text-base md:text-lg font-bold placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-50 transition-all shadow-lg hover:shadow-xl disabled:bg-gray-50 disabled:text-gray-400"
+            />
+            <button 
+              type="submit"
+              disabled={isSearching}
+              className="absolute right-2 md:right-3 top-2 md:top-3 bottom-2 md:bottom-3 bg-gray-900 hover:bg-gray-800 disabled:bg-gray-400 text-white font-bold px-4 md:px-6 rounded-xl transition-all cursor-pointer text-sm md:text-base whitespace-nowrap flex items-center gap-2"
+            >
+              {isSearching ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Analyzing
+                </>
+              ) : (
+                'Start Research'
+              )}
+            </button>
+          </form>
 
-            {/* Trending Tags & Credibility Subtext */}
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-wrap items-center gap-3 text-sm">
-                <span className="text-gray-400 font-medium text-xs uppercase tracking-wider">Trending:</span>
-                {['NVDA', 'AAPL', 'MSFT', 'TSLA'].map((t) => (
-                  <button
-                    key={t}
-                    onClick={() => router.push(`/company/${t}`)}
-                    className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold px-4 py-1.5 rounded-full transition-colors cursor-pointer"
-                  >
+          {/* Dynamic Loading Text OR Suggested Tags */}
+          <div className="mt-4 h-8 flex items-center justify-center">
+            {isSearching ? (
+              <span className="text-sm font-bold text-blue-600 animate-pulse bg-blue-50 px-4 py-1.5 rounded-full border border-blue-100">
+                {loadingText}
+              </span>
+            ) : (
+              <div className="flex flex-wrap items-center justify-center gap-2 md:gap-3 text-xs md:text-sm font-medium text-gray-400">
+                <span className="hidden sm:inline">Try searching:</span>
+                {['NVDA', 'MSFT', 'TSLA', 'COST'].map(t => (
+                  <button key={t} onClick={() => router.push(`/company/${t}`)} className="bg-white border border-gray-200 px-3 py-1 rounded-lg hover:border-blue-300 hover:text-blue-600 transition-colors cursor-pointer">
                     {t}
                   </button>
                 ))}
               </div>
-              <p className="text-xs text-gray-400 font-medium flex items-center gap-1.5">
-                <svg className="w-4 h-4 text-gray-300" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
-                </svg>
-                Built on earnings calls, SEC filings, and business fundamentals.
-              </p>
-            </div>
+            )}
           </div>
-
-          {/* Right Column: Visual Mockup (The "Magic") */}
-          <div className="relative hidden lg:block perspective-1000">
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-blue-400/20 rounded-full blur-3xl"></div>
-            <div className="absolute top-1/4 right-1/4 w-72 h-72 bg-indigo-400/20 rounded-full blur-3xl"></div>
-
-            <div className="relative bg-white/80 backdrop-blur-xl border border-gray-200 p-8 rounded-3xl shadow-2xl transform rotate-y-[-10deg] rotate-x-[5deg] hover:rotate-y-0 hover:rotate-x-0 transition-transform duration-700">
-              
-              <div className="flex justify-between items-start mb-6">
-                <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 bg-gray-900 text-white rounded-2xl flex items-center justify-center font-bold text-2xl shadow-inner">
-                    A
-                  </div>
-                  <div>
-                    <h3 className="font-extrabold text-gray-900 text-xl">Apple Inc.</h3>
-                    <p className="text-sm text-gray-500 font-medium">AAPL • Consumer Electronics</p>
-                  </div>
-                </div>
-                <div className="bg-blue-50 border border-blue-200 text-blue-700 px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm">
-                  <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span> Tracking Thesis
-                </div>
-              </div>
-
-              {/* 2x2 Grid for Metrics */}
-              <div className="grid grid-cols-2 gap-3 mb-6">
-                <div className="bg-gray-50 p-3.5 rounded-2xl border border-gray-100">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Business Quality</p>
-                  <p className="text-yellow-500 font-bold tracking-widest text-sm">
-                    ★★★★★ <span className="text-gray-900 font-extrabold text-xs tracking-normal ml-0.5">Excellent</span>
-                  </p>
-                </div>
-                <div className="bg-gray-50 p-3.5 rounded-2xl border border-gray-100">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Management</p>
-                  <p className="text-yellow-500 font-bold tracking-widest text-sm">
-                    ★★★★★ <span className="text-gray-900 font-extrabold text-xs tracking-normal ml-0.5">Trusted</span>
-                  </p>
-                </div>
-                <div className="bg-gray-50 p-3.5 rounded-2xl border border-gray-100">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Valuation</p>
-                  <p className="text-gray-900 font-extrabold text-sm">Fair</p>
-                </div>
-                <div className="bg-green-50/50 p-3.5 rounded-2xl border border-green-200 shadow-sm ring-1 ring-green-50">
-                  <p className="text-[10px] font-bold text-green-600 uppercase tracking-wider mb-1">Investment Thesis</p>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-base">🟢</span>
-                    <p className="text-green-800 font-extrabold text-sm">Strengthening</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Story-driven Earnings Updates */}
-              <div className="space-y-3">
-                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100 pb-2">Last Earnings Update</h4>
-                
-                <div className="bg-white p-3.5 rounded-xl border border-gray-100 shadow-sm transition-all hover:border-blue-100 hover:shadow-md">
-                  <div className="flex items-start gap-3">
-                    <div className="w-5 h-5 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-[10px] mt-0.5 shrink-0">✓</div>
-                    <div>
-                      <span className="font-semibold text-sm text-gray-800">Services revenue accelerated</span>
-                      <p className="text-[10px] text-gray-400 font-medium mt-0.5">Updated 2 days ago</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white p-3.5 rounded-xl border border-gray-100 shadow-sm transition-all hover:border-blue-100 hover:shadow-md">
-                  <div className="flex items-start gap-3">
-                    <div className="w-5 h-5 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-[10px] mt-0.5 shrink-0">✓</div>
-                    <div>
-                      <span className="font-semibold text-sm text-gray-800">Installed base reached new high</span>
-                      <p className="text-[10px] text-gray-400 font-medium mt-0.5">Updated after latest earnings</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-            </div>
-          </div>
-
         </div>
+
+        {/* The Credibility Strip */}
+        <div className="flex flex-wrap items-center justify-center gap-4 md:gap-8 mb-20 text-xs md:text-sm font-bold text-gray-400 uppercase tracking-widest">
+          <span className="flex items-center gap-1.5"><span className="text-gray-300">✓</span> SEC EDGAR</span>
+          <span className="flex items-center gap-1.5"><span className="text-gray-300">✓</span> Earnings Calls</span>
+          <span className="flex items-center gap-1.5"><span className="text-gray-300">✓</span> Financials</span>
+        </div>
+
+        {/* 3. THE "WHY" (The Pain Points) */}
+        <div className="w-full max-w-5xl mx-auto mb-20">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-10">
+            <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col text-center items-center">
+              <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center text-xl mb-4">🧠</div>
+              <h3 className="text-lg font-bold text-gray-900 mb-2">Remember Why You Invested</h3>
+              <p className="text-gray-500 text-sm font-medium">Record exactly why you bought a stock. Never panic sell because of short-term price moves.</p>
+            </div>
+            <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col text-center items-center">
+              <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center text-xl mb-4">🤖</div>
+              <h3 className="text-lg font-bold text-gray-900 mb-2">AI Monitors Every Update</h3>
+              <p className="text-gray-500 text-sm font-medium">Investment IQ reads every earnings report, SEC filing, and management commentary while you sleep.</p>
+            </div>
+            <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col text-center items-center">
+              <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center text-xl mb-4">📈</div>
+              <h3 className="text-lg font-bold text-gray-900 mb-2">Know When Your Thesis Changes</h3>
+              <p className="text-gray-500 text-sm font-medium">See instantly whether your original reasons for investing are fundamentally strengthening or breaking.</p>
+            </div>
+          </div>
+        </div>
+
+        {/* 4. THE VISUAL PROOF (Apple Card Preview) */}
+        <div className="w-full max-w-4xl mx-auto mb-28 relative px-2 md:px-0">
+          <div className="absolute -inset-1 bg-gradient-to-r from-blue-100 to-emerald-100 rounded-[2rem] md:rounded-[3rem] blur-xl opacity-60"></div>
+          
+          <div className="relative bg-white p-6 md:p-10 rounded-3xl border border-gray-200 shadow-2xl">
+            {/* Header */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 bg-gray-900 text-white rounded-2xl flex items-center justify-center text-2xl font-extrabold shadow-inner shrink-0">A</div>
+                <div>
+                  <h2 className="text-2xl font-extrabold text-gray-900">Apple Inc.</h2>
+                  <p className="text-xs md:text-sm text-gray-500 font-bold uppercase tracking-wider">AAPL • Consumer Electronics</p>
+                </div>
+              </div>
+              <div className="inline-flex px-4 py-2 bg-emerald-50 text-emerald-700 rounded-xl font-bold text-sm items-center justify-center gap-2 border border-emerald-100 self-start md:self-auto w-full md:w-auto">
+                <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+                🟢 Thesis: Strengthening
+              </div>
+            </div>
+
+            {/* Grid Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-10">
+              <div className="bg-gray-50 p-5 rounded-2xl border border-gray-100 flex flex-col justify-center">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Business Quality</p>
+                <p className="font-extrabold text-gray-900 flex items-center gap-2 text-lg">
+                  <span className="text-amber-400 tracking-tighter">★★★★★</span> Excellent
+                </p>
+              </div>
+              <div className="bg-gray-50 p-5 rounded-2xl border border-gray-100 flex flex-col justify-center">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Management</p>
+                <p className="font-extrabold text-gray-900 flex items-center gap-2 text-lg">
+                  <span className="text-amber-400 tracking-tighter">★★★★★</span> Trusted
+                </p>
+              </div>
+            </div>
+
+            {/* Updates Section */}
+            <div>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4 border-b border-gray-100 pb-2">Latest Changes</p>
+              <div className="space-y-3">
+                <div className="flex items-start gap-4 bg-white border border-gray-100 p-4 rounded-xl shadow-sm hover:shadow-md transition-shadow">
+                  <div className="mt-0.5 w-6 h-6 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-sm font-extrabold shrink-0 border border-blue-100">✓</div>
+                  <div>
+                    <p className="text-sm font-bold text-gray-900">Services revenue accelerated</p>
+                    <p className="text-xs text-gray-400 mt-1 font-medium">Updated 2 days ago</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-4 bg-white border border-gray-100 p-4 rounded-xl shadow-sm hover:shadow-md transition-shadow">
+                  <div className="mt-0.5 w-6 h-6 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-sm font-extrabold shrink-0 border border-blue-100">✓</div>
+                  <div>
+                    <p className="text-sm font-bold text-gray-900">Installed base reached new high</p>
+                    <p className="text-xs text-gray-400 mt-1 font-medium">Updated after latest earnings</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 5. THE STORY WORKFLOW (Connected visually) */}
+        <div className="w-full max-w-6xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl font-extrabold text-gray-900 mb-4">How Investment IQ Works</h2>
+          </div>
+          
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center relative px-4 md:px-0 gap-10 md:gap-0">
+            {/* Connected Line (Desktop) */}
+            <div className="hidden md:block absolute top-[24px] left-[10%] right-[10%] h-[2px] bg-gradient-to-r from-gray-200 via-blue-200 to-emerald-200 z-0"></div>
+            {/* Connected Line (Mobile) */}
+            <div className="md:hidden absolute left-[39px] top-[24px] bottom-[24px] w-[2px] bg-gradient-to-b from-gray-200 via-blue-200 to-emerald-200 z-0"></div>
+
+            {/* Step 1 */}
+            <div className="relative z-10 flex flex-row md:flex-col items-center md:text-center gap-6 md:gap-0 md:w-1/4">
+              <div className="w-12 h-12 bg-white border-2 border-gray-300 text-gray-900 rounded-full flex items-center justify-center font-extrabold text-lg shadow-sm md:mb-6 shrink-0">1</div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900 mb-1">Research</h3>
+                <p className="text-gray-500 text-sm font-medium">Analyze a business</p>
+              </div>
+            </div>
+
+            {/* Step 2 */}
+            <div className="relative z-10 flex flex-row md:flex-col items-center md:text-center gap-6 md:gap-0 md:w-1/4">
+              <div className="w-12 h-12 bg-white border-2 border-blue-400 text-blue-600 rounded-full flex items-center justify-center font-extrabold text-lg shadow-md shadow-blue-100 md:mb-6 shrink-0">2</div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900 mb-1">Build Thesis</h3>
+                <p className="text-gray-500 text-sm font-medium">Record why you invested</p>
+              </div>
+            </div>
+
+            {/* Step 3 */}
+            <div className="relative z-10 flex flex-row md:flex-col items-center md:text-center gap-6 md:gap-0 md:w-1/4">
+              <div className="w-12 h-12 bg-white border-2 border-indigo-400 text-indigo-600 rounded-full flex items-center justify-center font-extrabold text-lg shadow-md shadow-indigo-100 md:mb-6 shrink-0">3</div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900 mb-1">AI Monitors</h3>
+                <p className="text-gray-500 text-sm font-medium">We monitor every report</p>
+              </div>
+            </div>
+
+            {/* Step 4 */}
+            <div className="relative z-10 flex flex-row md:flex-col items-center md:text-center gap-6 md:gap-0 md:w-1/4">
+              <div className="w-12 h-12 bg-white border-2 border-emerald-400 text-emerald-600 rounded-full flex items-center justify-center font-extrabold text-lg shadow-md shadow-emerald-100 md:mb-6 shrink-0">4</div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900 mb-1">Track Your Conviction</h3>
+                <p className="text-gray-500 text-sm font-medium">Know exactly when to sell</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
       </main>
+      
+      {/* 6. EXPANDED FOOTER */}
+      <footer className="w-full border-t border-gray-200 pt-16 pb-8 bg-white mt-20">
+        <div className="max-w-6xl mx-auto px-6 grid grid-cols-1 md:grid-cols-4 gap-8 mb-12 text-sm">
+          <div className="col-span-1 md:col-span-2">
+            <div className="font-extrabold text-xl text-gray-900 flex items-center gap-2 mb-4">
+              Investment IQ
+              <span className="flex gap-0.5 opacity-50">
+                <span className="w-1 h-2.5 bg-blue-600 rounded-full"></span>
+                <span className="w-1 h-4 bg-blue-600 rounded-full"></span>
+                <span className="w-1 h-5 bg-blue-600 rounded-full"></span>
+              </span>
+            </div>
+            <p className="text-gray-500 font-medium max-w-sm">
+              The AI-powered journal for long-term investors. Track your conviction, not just price charts.
+            </p>
+          </div>
+          <div>
+            <h4 className="font-bold text-gray-900 mb-4">Product</h4>
+            <ul className="space-y-3 text-gray-500 font-medium">
+              <li><button className="hover:text-blue-600 transition-colors">Research</button></li>
+              <li><button className="hover:text-blue-600 transition-colors">Pricing</button></li>
+              <li><button className="hover:text-blue-600 transition-colors">About</button></li>
+            </ul>
+          </div>
+          <div>
+            <h4 className="font-bold text-gray-900 mb-4">Legal & Social</h4>
+            <ul className="space-y-3 text-gray-500 font-medium">
+              <li><button className="hover:text-blue-600 transition-colors">Privacy Policy</button></li>
+              <li><button className="hover:text-blue-600 transition-colors">Terms of Service</button></li>
+              <li><button className="hover:text-blue-600 transition-colors">Twitter / X</button></li>
+            </ul>
+          </div>
+        </div>
+        <div className="max-w-6xl mx-auto px-6 pt-8 border-t border-gray-100 flex flex-col md:flex-row justify-between items-center gap-4">
+          <p className="text-sm font-medium text-gray-400">© {new Date().getFullYear()} Investment IQ. For educational purposes only.</p>
+        </div>
+      </footer>
     </div>
   );
 }
