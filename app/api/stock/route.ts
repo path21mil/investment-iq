@@ -12,9 +12,6 @@ export async function GET(request: Request) {
   const symbols = symbolsParam.split(',');
 
   try {
-    // Suppress internal Yahoo Finance notices so our console stays clean
-    yahooFinance.suppressNotices(['yahooSurvey']);
-
     const rawResult = await yahooFinance.quote(symbols);
     const quotes = Array.isArray(rawResult) ? rawResult : [rawResult];
 
@@ -32,7 +29,6 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ prices });
   } catch (error) {
-    // If it fails, log a highly visible error in the VS Code terminal
     console.error('🔥 YAHOO FINANCE API ERROR:', error);
     return NextResponse.json({ error: 'Failed to fetch stock data' }, { status: 500 });
   }
