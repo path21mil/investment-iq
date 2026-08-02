@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
-import yahooFinance from 'yahoo-finance2';
+import YahooFinance from 'yahoo-finance2'; // Notice the capital Y here now
+
+// INITIALIZE THE NEW V4 INSTANCE HERE
+const yahooFinance = new YahooFinance();
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -9,14 +12,12 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'No symbols provided' }, { status: 400 });
   }
 
-  // Safely split and clean the symbols (removes empty spaces or weird commas)
+  // Safely split and clean the symbols
   const symbols = symbolsParam.split(',').map(s => s.trim()).filter(Boolean);
 
   if (symbols.length === 0) {
     return NextResponse.json({ prices: {} });
   }
-
-  console.log(`\n📡 1. Pinging Yahoo Finance for:`, symbols);
 
   try {
     const rawResult = await yahooFinance.quote(symbols);
@@ -26,6 +27,7 @@ export async function GET(request: Request) {
     
     quotes.forEach((quote: any) => {
       if (quote && quote.symbol) {
+        // Check regular price, then post-market, then general price fallback
         const currentPrice = quote.regularMarketPrice || quote.postMarketPrice || quote.price;
         if (currentPrice) {
           prices[quote.symbol] = currentPrice;
@@ -33,12 +35,10 @@ export async function GET(request: Request) {
       }
     });
 
-    console.log(`✅ 2. Success! Prices found:`, prices);
     return NextResponse.json({ prices });
     
   } catch (error) {
-    console.error('\n🔥 YAHOO FINANCE API ERROR 🔥');
-    console.error(error);
+    console.error('🔥 YAHOO FINANCE API ERROR:', error);
     return NextResponse.json({ error: 'Failed to fetch stock data', details: String(error) }, { status: 500 });
   }
 }
