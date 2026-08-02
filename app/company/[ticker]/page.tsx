@@ -13,7 +13,8 @@ function ProgressiveCard({
   thesisSupportText,
   thesisSupportType,
   summary, 
-  evidence 
+  evidence,
+  showThesisBadge = false // <-- Added the prop here
 }: { 
   question: string, 
   statusText: string, 
@@ -21,7 +22,8 @@ function ProgressiveCard({
   thesisSupportText: string,
   thesisSupportType: 'supports' | 'neutral' | 'risk',
   summary: string,
-  evidence: string[]
+  evidence: string[],
+  showThesisBadge?: boolean // <-- Added the type here
 }) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -45,9 +47,12 @@ function ProgressiveCard({
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
           <h3 className="text-xl font-bold text-gray-900">{question}</h3>
           
-          <div className={`text-xs font-extrabold px-3 py-1 rounded-full border ${thesisStyles[thesisSupportType]} flex items-center gap-1.5`}>
-            <span className="text-[10px]">Thesis:</span> {thesisSupportText}
-          </div>
+          {/* Conditional rendering of the badge based on showThesisBadge prop */}
+          {showThesisBadge && (
+            <div className={`text-xs font-extrabold px-3 py-1 rounded-full border ${thesisStyles[thesisSupportType]} flex items-center gap-1.5`}>
+              <span className="text-[10px]">Thesis:</span> {thesisSupportText}
+            </div>
+          )}
         </div>
         
         <div className="mb-3">
@@ -104,11 +109,12 @@ export default function CompanyOverviewPage() {
       
       if (session) {
         setIsLoggedIn(true);
-        // Just checking if they have a thesis to update the UI badges
+        // Checking if they have a thesis to update the UI badges
         const { data: thesis } = await supabase
           .from('theses')
           .select('id')
           .eq('ticker', ticker)
+          .eq('user_id', session.user.id) // Ensure we only check for this user's thesis
           .maybeSingle();
 
         if (thesis) setHasThesis(true);
@@ -304,26 +310,27 @@ export default function CompanyOverviewPage() {
         </div>
 
         {/* HORIZONTAL WORKFLOW BANNER */}
+{/* HORIZONTAL WORKFLOW BANNER */}
         <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm mb-10 flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-4 flex-1 w-full border-b md:border-b-0 md:border-r border-gray-100 pb-4 md:pb-0 md:pr-4">
             <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-extrabold flex items-center justify-center text-sm shrink-0">1</div>
             <div>
-              <p className="text-sm font-bold text-gray-900">Review Evidence</p>
-              <p className="text-xs text-gray-500 mt-0.5">Analyze quality, moat & risks below.</p>
+              <p className="text-sm font-bold text-gray-900">Understand the Business</p>
+              <p className="text-xs text-gray-500 mt-0.5">Learn what makes this company exceptional - or risky.</p>
             </div>
           </div>
           <div className="flex items-center gap-4 flex-1 w-full border-b md:border-b-0 md:border-r border-gray-100 pb-4 md:pb-0 md:pr-4">
             <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-extrabold flex items-center justify-center text-sm shrink-0">2</div>
             <div>
-              <p className="text-sm font-bold text-gray-900">Formulate Thesis</p>
-              <p className="text-xs text-gray-500 mt-0.5">Launch Wizard to lock in 3 drivers.</p>
+              <p className="text-sm font-bold text-gray-900">Build Your Investment Thesis</p>
+              <p className="text-xs text-gray-500 mt-0.5">Record why you're investing and what could change your mind.</p>
             </div>
           </div>
           <div className="flex items-center gap-4 flex-1 w-full">
             <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-extrabold flex items-center justify-center text-sm shrink-0">3</div>
             <div>
-              <p className="text-sm font-bold text-gray-900">Track Fundamentals</p>
-              <p className="text-xs text-gray-500 mt-0.5">AI compares filings against your thesis.</p>
+              <p className="text-sm font-bold text-gray-900">Monitor your Thesis</p>
+              <p className="text-xs text-gray-500 mt-0.5">AI continuously scans earnings, filings, and transcripts to detect changes to your investment thesis.</p>
             </div>
           </div>
         </div>
@@ -378,6 +385,7 @@ export default function CompanyOverviewPage() {
               statusType="green"
               thesisSupportText="✔ Supports Thesis"
               thesisSupportType="supports"
+              showThesisBadge={hasThesis} // Passed down here!
               summary={`${ticker} benefits from expanding structural demand, industry-leading margins, and exceptional cash conversion.`}
               evidence={["Data center revenue accelerating year-over-year", "Gross margins expanding due to software and enterprise mix", "Cash flow conversion allows heavy R&D reinvestment"]}
             />
@@ -387,6 +395,7 @@ export default function CompanyOverviewPage() {
               statusType="green"
               thesisSupportText="✔ Supports Thesis"
               thesisSupportType="supports"
+              showThesisBadge={hasThesis} // Passed down here!
               summary="A dominant moat built on proprietary software ecosystems and switching costs for enterprise software developers."
               evidence={["Deep developer lock-in through proprietary CUDA software stack", "Unmatched interconnect networking architecture", "Aggressive annual product cadence creates massive barriers to entry"]}
             />
@@ -396,6 +405,7 @@ export default function CompanyOverviewPage() {
               statusType="green"
               thesisSupportText="✔ Supports Thesis"
               thesisSupportType="supports"
+              showThesisBadge={hasThesis} // Passed down here!
               summary="Founder-led execution with a proven history of pivoting into massive total addressable markets ahead of competitors."
               evidence={["Founder maintains significant equity alignment", "Consistent track record of disciplined R&D capital allocation", "Clear, long-term strategic execution"]}
             />
@@ -405,6 +415,7 @@ export default function CompanyOverviewPage() {
               statusType="green"
               thesisSupportText="✔ Supports Thesis"
               thesisSupportType="supports"
+              showThesisBadge={hasThesis} // Passed down here!
               summary="Generative AI adoption across hyperscalers, sovereign enterprise compute, and industrial robotics automation."
               evidence={["Hyperscaler capex commitment continuing to expand", "Sovereign AI initiatives driving international orders", "Software revenue ramping as enterprise adoption grows"]}
             />
@@ -414,6 +425,7 @@ export default function CompanyOverviewPage() {
               statusType="red"
               thesisSupportText="⚠ Thesis Risk"
               thesisSupportType="risk"
+              showThesisBadge={hasThesis} // Passed down here!
               summary="Geopolitical restrictions, potential capex air pockets, and custom ASIC development by cloud provider clients."
               evidence={["Geopolitical trade restrictions limiting revenue in specific regions", "Concentration risk among top 5 hyperscaler cloud customers", "Cloud customers building custom silicon in-house"]}
             />
