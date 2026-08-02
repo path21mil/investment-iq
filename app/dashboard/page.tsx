@@ -30,7 +30,7 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [userEmail, setUserEmail] = useState<string | null>(null);
 
-  // --- FETCH DATA FROM SUPABASE ---
+  // --- FETCH DATA FROM SUPABASE & LIVE STOCK API ---
   useEffect(() => {
     async function loadDashboard() {
       // 1. Get current logged-in user
@@ -43,7 +43,7 @@ export default function DashboardPage() {
 
       setUserEmail(session.user.email || 'User');
 
-      // 2. Fetch their specific saved theses
+      // 2. Fetch their specific saved theses from Supabase
       const { data: thesesData, error: dbError } = await supabase
         .from('theses')
         .select('*')
@@ -55,24 +55,49 @@ export default function DashboardPage() {
         return;
       }
 
-      // 3. Map DB rows to our UI Card format
-      if (thesesData) {
-        const formattedPortfolio: TrackedCompany[] = thesesData.map((row) => ({
-          ticker: row.ticker,
-          name: row.company_name || 'Unknown Company',
-          // Price and Valuation will come from our Financial API in the next phase!
-          price: '$---', 
-          valuation: { status: 'gray', text: 'Live API Pending' },
-          
-          thesisState: (row.thesis_state as ThesisState) || 'No Material Change',
-          latestUpdateContext: {
-            event: row.latest_update_event || 'No recent updates',
-            impactText: row.latest_update_impact || 'Fundamentals remain aligned with thesis.',
-            impactPoints: row.impact_points || []
+      if (thesesData && thesesData.length > 0) {
+        // 3. Extract all unique tickers to send to our API (e.g., "TSLA,NVDA,MSFT")
+        const tickers = [...new Set(thesesData.map(t => t.ticker))].join(',');
+
+        // 4. Fetch the LIVE PRICES from our brand new API route!
+        let livePrices: Record<string, number> = {};
+        try {
+          const res = await fetch(`/api/stock?symbols=${tickers}`);
+          if (res.ok) {
+            const data = await res.json();
+            livePrices = data.prices || {};
           }
-        }));
+        } catch (err) {
+          console.error("Failed to fetch live prices", err);
+        }
+
+        // 5. Map DB rows to our UI Card format
+        const formattedPortfolio: TrackedCompany[] = thesesData.map((row) => {
+          // Grab the live price we just fetched
+          const currentPrice = livePrices[row.ticker];
+          
+          // Format as currency, or fallback if API fails
+          const displayPrice = currentPrice ? `$${currentPrice.toFixed(2)}` : 'API Error';
+
+          return {
+            ticker: row.ticker,
+            name: row.company_name || 'Unknown Company',
+            price: displayPrice, // <--- REAL DATA INJECTED HERE
+            valuation: { status: 'green', text: 'Live Tracking Active' }, // <--- UPDATED STATUS
+            
+            thesisState: (row.thesis_state as ThesisState) || 'No Material Change',
+            latestUpdateContext: {
+              event: row.latest_update_event || 'No recent updates',
+              impactText: row.latest_update_impact || 'Fundamentals remain aligned with thesis.',
+              impactPoints: row.impact_points || []
+            }
+          };
+        });
         
         setPortfolio(formattedPortfolio);
+      } else {
+        // If they have no theses saved, set portfolio to empty
+        setPortfolio([]);
       }
       
       setIsLoading(false);
@@ -143,7 +168,7 @@ export default function DashboardPage() {
                 await supabase.auth.signOut();
                 router.push('/');
               }}
-              className="text-sm font-bold text-gray-600 hover:text-gray-900 transition-colors"
+              className="text-sm font-bold text-gray-600 hover:text-gray-900 transition-colors cursor-pointer"
             >
               Sign Out
             </button>
