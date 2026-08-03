@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
+import { ArrowRight, ArrowLeft, Check, Plus, Loader2 } from 'lucide-react';
 
 // --- EXPANDED UNIFORM MOCK DATA (Exactly 6 items each for a perfect 3x2 grid) ---
 const SUGGESTED_DRIVERS = [
@@ -166,7 +167,6 @@ export default function ThesisBuilderPage() {
       if (!error) {
         router.push('/dashboard');
       } else {
-        // Change these lines to print the exact error message
         console.error("Supabase Error:", error);
         alert(`Database Error: ${error.message || error.details || 'Check console'}`);
         setIsSaving(false);
@@ -175,24 +175,25 @@ export default function ThesisBuilderPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
+    // Note the pb-32 here to prevent content from hiding under the sticky footer!
+    <div className="min-h-screen bg-gray-50 flex flex-col font-sans relative pb-32">
       
-      {/* FIXED HEADER: Constrained to max-w-6xl */}
-      <nav className="bg-white border-b border-gray-200">
+      {/* FIXED HEADER */}
+      <nav className="bg-white/90 backdrop-blur-md border-b border-gray-200 sticky top-0 z-40">
         <div className="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
           <Link href="/" className="font-extrabold text-xl tracking-tight text-gray-900 flex items-center gap-2">
             Investment IQ
           </Link>
-          <button onClick={() => router.back()} className="text-sm font-bold text-gray-500 hover:text-gray-900">
+          <button onClick={() => router.back()} className="text-sm font-bold text-gray-500 hover:text-gray-900 transition-colors">
             Cancel
           </button>
         </div>
       </nav>
 
       <main className="flex-grow w-full py-10 md:py-12">
-        
-        {/* HEADER SECTION */}
         <div className="max-w-6xl mx-auto px-6">
+          
+          {/* HEADER SECTION */}
           <div className="mb-12 text-center max-w-2xl mx-auto">
             <p className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-2">
               Step {step} of 2
@@ -207,7 +208,7 @@ export default function ThesisBuilderPage() {
             </p>
           </div>
 
-          {/* THE NEW GRID LAYOUT */}
+          {/* THE GRID LAYOUT */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
             {activeData.map((item) => {
               const isSelected = activeSelection.includes(item.title);
@@ -226,9 +227,9 @@ export default function ThesisBuilderPage() {
                   }`}
                 >
                   <div className={`absolute top-5 right-5 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
-                    isSelected ? 'bg-blue-600 border-blue-600 text-white' : 'border-gray-300'
+                    isSelected ? 'bg-blue-600 border-blue-600 text-white' : 'border-gray-300 text-transparent'
                   }`}>
-                    {isSelected && <span className="text-sm font-bold">✓</span>}
+                    <Check className="w-4 h-4" />
                   </div>
 
                   <h3 className="font-extrabold text-gray-900 text-xl mb-4 pr-10 leading-tight">{item.title}</h3>
@@ -276,22 +277,22 @@ export default function ThesisBuilderPage() {
 
           {/* CUSTOM INPUT AREA */}
           <div className="bg-white p-8 rounded-3xl border border-gray-200 shadow-sm max-w-4xl mx-auto">
-            <label className="block text-sm font-bold text-gray-900 mb-1">
-              + Write My Own {step === 1 ? 'Driver' : 'Risk'}
+            <label className="block text-sm font-bold text-gray-900 mb-1 flex items-center gap-2">
+              <Plus className="w-4 h-4 text-gray-400" /> Write My Own {step === 1 ? 'Driver' : 'Risk'}
             </label>
-            <p className="text-xs text-gray-500 mb-5">Allows experienced investors to create custom tracking parameters.</p>
+            <p className="text-xs text-gray-500 mb-5 pl-6">Allows experienced investors to create custom tracking parameters.</p>
             <div className="flex flex-col sm:flex-row gap-3">
               <input 
                 type="text"
                 value={customInput}
                 onChange={(e) => setCustomInput(e.target.value)}
                 placeholder={step === 1 ? "e.g. Sovereign AI demand scaling in Middle East" : "e.g. Hyperscaler capex budgets shrink"}
-                className="flex-grow bg-gray-50 border border-gray-200 rounded-xl px-5 py-3.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="flex-grow bg-gray-50 border border-gray-200 rounded-xl px-5 py-3.5 text-sm font-medium focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-50 transition-all"
               />
               <button 
                 onClick={handleAddCustom}
                 disabled={activeSelection.length >= activeLimit}
-                className="bg-gray-900 hover:bg-gray-800 disabled:bg-gray-300 text-white font-bold px-8 py-3.5 rounded-xl transition-colors text-sm"
+                className="bg-gray-900 hover:bg-gray-800 disabled:bg-gray-300 text-white font-bold px-8 py-3.5 rounded-xl transition-colors text-sm whitespace-nowrap"
               >
                 Add Custom
               </button>
@@ -313,34 +314,49 @@ export default function ThesisBuilderPage() {
             )}
           </div>
         </div>
-
       </main>
 
-      {/* STICKY FOOTER */}
-      <div className="bg-white border-t border-gray-200 p-6 sticky bottom-0 z-20 shadow-[0_-8px_15px_-3px_rgba(0,0,0,0.05)]">
-        <div className="max-w-6xl mx-auto flex justify-between items-center px-6">
-          <div className="text-sm font-bold text-gray-500">
-            {step === 1 ? `${selectedDrivers.length}/${activeLimit} Drivers Selected` : `${selectedRisks.length}/${activeLimit} Risks Selected`}
+      {/* PREMIUM STICKY FOOTER */}
+      <div className="fixed bottom-0 left-0 w-full bg-white/90 backdrop-blur-md border-t border-gray-200 shadow-[0_-10px_40px_-10px_rgba(0,0,0,0.1)] z-50">
+        <div className="max-w-6xl mx-auto px-6 py-4 md:py-5 flex flex-col md:flex-row justify-between items-center gap-4">
+          
+          <div className="flex items-center gap-3 w-full md:w-auto justify-center md:justify-start">
+            <div className={`flex items-center justify-center w-8 h-8 rounded-full font-bold text-sm ${
+              activeSelection.length > 0 ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-400'
+            }`}>
+              {activeSelection.length}
+            </div>
+            <p className="font-bold text-gray-500 text-sm">
+              / {activeLimit} {step === 1 ? 'Drivers' : 'Risks'} Selected
+            </p>
           </div>
           
-          <div className="flex gap-4">
+          <div className="flex gap-4 w-full md:w-auto">
             {step === 2 && (
-              <button onClick={() => setStep(1)} className="px-6 py-3 font-bold text-gray-600 hover:text-gray-900 transition-colors hidden sm:block">
-                Back to Drivers
+              <button 
+                onClick={() => setStep(1)} 
+                className="w-full md:w-auto px-6 py-3.5 rounded-xl font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors flex items-center justify-center gap-2"
+              >
+                <ArrowLeft className="w-4 h-4" /> Back
               </button>
             )}
             
             <button 
               onClick={() => step === 1 ? setStep(2) : handleSaveToDatabase()}
-              disabled={step === 1 ? selectedDrivers.length === 0 : selectedRisks.length === 0 || isSaving}
-              className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed text-white font-extrabold px-8 py-3.5 rounded-xl transition-all shadow-lg text-sm cursor-pointer flex items-center gap-2"
+              disabled={activeSelection.length === 0 || isSaving}
+              className="w-full md:w-auto flex-grow md:flex-grow-0 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-extrabold px-8 py-3.5 rounded-xl transition-all shadow-md text-sm cursor-pointer flex items-center justify-center gap-2"
             >
-              {isSaving ? 'Saving...' : step === 1 ? 'Next: Add Risks →' : 'Save & Go to Dashboard ✓'}
+              {isSaving ? (
+                <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</>
+              ) : step === 1 ? (
+                <>Next: Add Risks <ArrowRight className="w-4 h-4" /></>
+              ) : (
+                <>Save & Go to Dashboard <Check className="w-4 h-4" /></>
+              )}
             </button>
           </div>
         </div>
       </div>
-
     </div>
   );
 }
