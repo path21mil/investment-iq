@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Mail, Lock, ArrowRight, Loader2 } from 'lucide-react';
+import { supabase } from '@/lib/supabase'; // <-- We must import Supabase here!
 
 export default function Login() {
   const router = useRouter();
@@ -11,24 +12,28 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  // Hook this up to your working Supabase Google Auth!
-  const handleGoogleLogin = () => {
+  // REAL SUPABASE GOOGLE AUTH LOGIC
+  const handleGoogleLogin = async () => {
     setIsLoading(true);
-    // Simulate loading for the UI before your auth kicks in
-    setTimeout(() => {
-      // Your Supabase Google Auth logic goes here
-      router.push('/dashboard');
-    }, 1000);
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/dashboard`,
+        },
+      });
+      if (error) throw error;
+    } catch (error: any) {
+      console.error('Error logging in:', error.message);
+      alert('Failed to log in with Google.');
+      setIsLoading(false);
+    }
   };
 
+  // Basic email mockup (we can wire this to real Supabase later if you want email login)
   const handleEmailLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
-    // Simulate loading for the UI before your auth kicks in
-    setTimeout(() => {
-      // Your Supabase Email Auth logic goes here
-      router.push('/dashboard');
-    }, 1500);
+    alert("Email login isn't wired up yet! Please use Google.");
   };
 
   return (
@@ -103,7 +108,7 @@ export default function Login() {
 
           <form className="space-y-5" onSubmit={handleEmailLogin}>
             <div>
-              <label pl-1 htmlFor="email" className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
+              <label htmlFor="email" className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">
                 Email address
               </label>
               <div className="relative">
@@ -114,7 +119,6 @@ export default function Login() {
                   id="email"
                   name="email"
                   type="email"
-                  required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="appearance-none block w-full pl-10 pr-3 py-3.5 border-2 border-gray-200 rounded-xl text-gray-900 font-medium placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-50 sm:text-sm transition-all"
@@ -136,7 +140,6 @@ export default function Login() {
                   id="password"
                   name="password"
                   type="password"
-                  required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="appearance-none block w-full pl-10 pr-3 py-3.5 border-2 border-gray-200 rounded-xl text-gray-900 font-medium placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-50 sm:text-sm transition-all"
@@ -150,11 +153,7 @@ export default function Login() {
               disabled={isLoading}
               className="w-full flex justify-center items-center gap-2 bg-gray-900 hover:bg-gray-800 text-white font-bold py-3.5 px-4 rounded-xl transition-all shadow-md mt-6 disabled:opacity-70"
             >
-              {isLoading ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : (
-                <>Sign In <ArrowRight className="w-4 h-4" /></>
-              )}
+              <>Sign In <ArrowRight className="w-4 h-4" /></>
             </button>
           </form>
 
