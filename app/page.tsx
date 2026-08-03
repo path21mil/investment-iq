@@ -1,17 +1,33 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Search, Loader2 } from 'lucide-react';
+import { Search, Loader2, ArrowRight, ArrowDown } from 'lucide-react';
+
+// Pool of tickers to randomly cycle through
+const TICKER_POOL = ['NVDA', 'MSFT', 'TSLA', 'COST', 'AAPL', 'AMZN', 'GOOGL', 'META', 'NFLX', 'CRM', 'PLTR', 'AMD'];
 
 export default function Home() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   
-  // Animation States
+  // Animation & Dynamic States
   const [isSearching, setIsSearching] = useState(false);
   const [loadingText, setLoadingText] = useState('');
+  const [popularSearches, setPopularSearches] = useState<string[]>(['NVDA', 'MSFT', 'TSLA', 'COST']);
+
+  // Rotate popular searches every 5 seconds for a dynamic feel
+  useEffect(() => {
+    // Initial shuffle on mount to prevent hydration errors
+    setPopularSearches([...TICKER_POOL].sort(() => 0.5 - Math.random()).slice(0, 4));
+
+    const interval = setInterval(() => {
+      setPopularSearches([...TICKER_POOL].sort(() => 0.5 - Math.random()).slice(0, 4));
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   const loadingSteps = [
     "Reading latest 10-Q...",
@@ -64,7 +80,7 @@ export default function Home() {
       <main className="flex-grow flex flex-col items-center pt-16 md:pt-24 pb-20 px-6">
         
         {/* The Hook & The Who */}
-        <div className="text-center max-w-3xl mx-auto mb-10">
+        <div className="text-center max-w-4xl mx-auto mb-10">
           <h1 className="text-4xl md:text-6xl font-extrabold text-gray-900 tracking-tight leading-tight mb-6">
             Don't just buy stocks. <br className="hidden md:block"/> 
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">Track your conviction.</span>
@@ -73,14 +89,13 @@ export default function Home() {
             Built for long-term investors who buy businesses—not charts.
           </p>
           <p className="text-base md:text-lg text-gray-500 font-medium leading-relaxed px-4 md:px-0">
-            Investment IQ helps you understand businesses, build a thesis, and automatically monitor updates to tell you when that thesis is strengthening—or starting to break.
+            Investment IQ helps you understand great businesses, build your investment thesis, record why you invested, and use AI to identify what has changed since you invested.
           </p>
         </div>
 
-        {/* The Contextual Search Bar with Animation */}
+        {/* The Contextual Search Bar with Animation (Removed text above it) */}
         <div className="w-full max-w-2xl mx-auto mb-12 relative z-10">
-          <p className="text-xs font-bold text-gray-400 mb-3 text-center uppercase tracking-widest">Search any public company</p>
-          <form onSubmit={handleSearch} className="relative group">
+          <form onSubmit={handleSearch} className="relative group mt-4">
             <div className="absolute inset-y-0 left-0 pl-4 md:pl-5 flex items-center pointer-events-none text-gray-400 group-focus-within:text-blue-500 transition-colors">
               <Search className="w-5 h-5 md:w-6 md:h-6" />
             </div>
@@ -109,16 +124,16 @@ export default function Home() {
           </form>
 
           {/* Dynamic Loading Text OR Suggested Tags */}
-          <div className="mt-4 h-8 flex items-center justify-center">
+          <div className="mt-6 h-8 flex items-center justify-center">
             {isSearching ? (
               <span className="text-sm font-bold text-blue-600 animate-pulse bg-blue-50 px-4 py-1.5 rounded-full border border-blue-100">
                 {loadingText}
               </span>
             ) : (
-              <div className="flex flex-wrap items-center justify-center gap-2 md:gap-3 text-xs md:text-sm font-medium text-gray-400">
-                <span className="hidden sm:inline">Try searching:</span>
-                {['NVDA', 'MSFT', 'TSLA', 'COST'].map(t => (
-                  <button key={t} onClick={() => router.push(`/company/${t}`)} className="bg-white border border-gray-200 px-3 py-1 rounded-lg hover:border-blue-300 hover:text-blue-600 transition-colors cursor-pointer">
+              <div className="flex flex-wrap items-center justify-center gap-2 md:gap-3 text-xs md:text-sm font-medium text-gray-400 transition-opacity duration-500">
+                <span className="hidden sm:inline font-bold text-gray-500">Popular Searches:</span>
+                {popularSearches.map(t => (
+                  <button key={t} onClick={() => router.push(`/company/${t}`)} className="bg-white border border-gray-200 px-3 py-1 rounded-lg hover:border-blue-300 hover:text-blue-600 transition-all cursor-pointer">
                     {t}
                   </button>
                 ))}
@@ -127,27 +142,48 @@ export default function Home() {
           </div>
         </div>
 
-        {/* The Credibility Strip */}
-        <div className="flex flex-wrap items-center justify-center gap-4 md:gap-8 mb-20 text-xs md:text-sm font-bold text-gray-400 uppercase tracking-widest">
-          <span className="flex items-center gap-1.5"><span className="text-gray-300">✓</span> SEC EDGAR</span>
-          <span className="flex items-center gap-1.5"><span className="text-gray-300">✓</span> Earnings Calls</span>
-          <span className="flex items-center gap-1.5"><span className="text-gray-300">✓</span> Financials</span>
+        {/* The Credibility Strip (Now styled as a full-width banner) */}
+       {/* The Credibility Strip (Floating Pill Design) */}
+        <div className="w-full mt-12 mb-32 relative z-10 flex flex-col items-center px-4">
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-5">
+            Research powered by primary sources
+          </p>
+          <div className="flex flex-wrap justify-center items-center gap-3 md:gap-4">
+            <div className="bg-white border border-gray-200 shadow-sm px-4 py-2 rounded-full text-xs md:text-sm font-bold text-gray-600 hover:border-blue-200 hover:text-blue-600 hover:shadow-md transition-all cursor-default flex items-center gap-2">
+              <span className="text-gray-300">✓</span> SEC Filings
+            </div>
+            <div className="bg-white border border-gray-200 shadow-sm px-4 py-2 rounded-full text-xs md:text-sm font-bold text-gray-600 hover:border-blue-200 hover:text-blue-600 hover:shadow-md transition-all cursor-default flex items-center gap-2">
+              <span className="text-gray-300">✓</span> Earnings Reports
+            </div>
+            <div className="bg-white border border-gray-200 shadow-sm px-4 py-2 rounded-full text-xs md:text-sm font-bold text-gray-600 hover:border-blue-200 hover:text-blue-600 hover:shadow-md transition-all cursor-default flex items-center gap-2">
+              <span className="text-gray-300">✓</span> Financial Statements
+            </div>
+            <div className="bg-white border border-gray-200 shadow-sm px-4 py-2 rounded-full text-xs md:text-sm font-bold text-gray-600 hover:border-blue-200 hover:text-blue-600 hover:shadow-md transition-all cursor-default flex items-center gap-2">
+              <span className="text-gray-300">✓</span> Management Commentary
+            </div>
+          </div>
         </div>
-
+        
         {/* 3. THE "WHY" (The Pain Points) */}
-        <div className="w-full max-w-5xl mx-auto mb-20">
+        <div className="w-full max-w-5xl mx-auto mb-20 relative z-10">
+          
+          {/* New Punchy Header with massive breathing room */}
+          <div className="text-center mb-14 px-4">
+            <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900 tracking-tight">Never lose track of why you invested</h2>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-10">
-            <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col text-center items-center">
+            <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col text-center items-center hover:shadow-md transition-shadow">
               <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center text-xl mb-4">🧠</div>
               <h3 className="text-lg font-bold text-gray-900 mb-2">Remember Why You Invested</h3>
               <p className="text-gray-500 text-sm font-medium">Record exactly why you bought a stock. Never panic sell because of short-term price moves.</p>
             </div>
-            <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col text-center items-center">
+            <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col text-center items-center hover:shadow-md transition-shadow">
               <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center text-xl mb-4">🤖</div>
               <h3 className="text-lg font-bold text-gray-900 mb-2">AI Monitors Every Update</h3>
               <p className="text-gray-500 text-sm font-medium">Investment IQ reads every earnings report, SEC filing, and management commentary while you sleep.</p>
             </div>
-            <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col text-center items-center">
+            <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col text-center items-center hover:shadow-md transition-shadow">
               <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center text-xl mb-4">📈</div>
               <h3 className="text-lg font-bold text-gray-900 mb-2">Know When Your Thesis Changes</h3>
               <p className="text-gray-500 text-sm font-medium">See instantly whether your original reasons for investing are fundamentally strengthening or breaking.</p>
@@ -170,8 +206,8 @@ export default function Home() {
                 </div>
               </div>
               <div className="inline-flex px-4 py-2 bg-emerald-50 text-emerald-700 rounded-xl font-bold text-sm items-center justify-center gap-2 border border-emerald-100 self-start md:self-auto w-full md:w-auto">
-                <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
-                🟢 Thesis: Strengthening
+                <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse shadow-sm"></span>
+                Thesis: Strengthening
               </div>
             </div>
 
@@ -214,53 +250,50 @@ export default function Home() {
           </div>
         </div>
 
-        {/* 5. THE STORY WORKFLOW (Connected visually) */}
-        <div className="w-full max-w-6xl mx-auto">
-          <div className="text-center mb-16">
+        {/* 5. THE STORY WORKFLOW (Clean Timeline) */}
+        <div className="w-full max-w-5xl mx-auto">
+          <div className="text-center mb-12">
             <h2 className="text-3xl font-extrabold text-gray-900 mb-4">How Investment IQ Works</h2>
           </div>
           
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center relative px-4 md:px-0 gap-10 md:gap-0">
-            {/* Connected Line (Desktop) */}
-            <div className="hidden md:block absolute top-[24px] left-[10%] right-[10%] h-[2px] bg-gradient-to-r from-gray-200 via-blue-200 to-emerald-200 z-0"></div>
-            {/* Connected Line (Mobile) */}
-            <div className="md:hidden absolute left-[39px] top-[24px] bottom-[24px] w-[2px] bg-gradient-to-b from-gray-200 via-blue-200 to-emerald-200 z-0"></div>
-
+          <div className="flex flex-col md:flex-row justify-between items-center relative px-6 md:px-0 gap-6 md:gap-4">
+            
             {/* Step 1 */}
-            <div className="relative z-10 flex flex-row md:flex-col items-center md:text-center gap-6 md:gap-0 md:w-1/4">
-              <div className="w-12 h-12 bg-white border-2 border-gray-300 text-gray-900 rounded-full flex items-center justify-center font-extrabold text-lg shadow-sm md:mb-6 shrink-0">1</div>
-              <div>
-                <h3 className="text-lg font-bold text-gray-900 mb-1">Research</h3>
-                <p className="text-gray-500 text-sm font-medium">Analyze a business</p>
-              </div>
+            <div className="flex flex-col items-center text-center w-full md:w-1/4">
+              <h3 className="text-lg font-extrabold text-gray-900 mb-1">Research Company</h3>
+              <p className="text-gray-500 text-sm font-medium">Analyze a business</p>
             </div>
+
+            {/* Separator */}
+            <ArrowRight className="hidden md:block w-6 h-6 text-blue-400 opacity-50 shrink-0" />
+            <ArrowDown className="md:hidden w-5 h-5 text-blue-400 opacity-50 shrink-0" />
 
             {/* Step 2 */}
-            <div className="relative z-10 flex flex-row md:flex-col items-center md:text-center gap-6 md:gap-0 md:w-1/4">
-              <div className="w-12 h-12 bg-white border-2 border-blue-400 text-blue-600 rounded-full flex items-center justify-center font-extrabold text-lg shadow-md shadow-blue-100 md:mb-6 shrink-0">2</div>
-              <div>
-                <h3 className="text-lg font-bold text-gray-900 mb-1">Build Thesis</h3>
-                <p className="text-gray-500 text-sm font-medium">Record why you invested</p>
-              </div>
+            <div className="flex flex-col items-center text-center w-full md:w-1/4">
+              <h3 className="text-lg font-extrabold text-gray-900 mb-1">Build Thesis</h3>
+              <p className="text-gray-500 text-sm font-medium">Record why you invested</p>
             </div>
+
+            {/* Separator */}
+            <ArrowRight className="hidden md:block w-6 h-6 text-blue-400 opacity-50 shrink-0" />
+            <ArrowDown className="md:hidden w-5 h-5 text-blue-400 opacity-50 shrink-0" />
 
             {/* Step 3 */}
-            <div className="relative z-10 flex flex-row md:flex-col items-center md:text-center gap-6 md:gap-0 md:w-1/4">
-              <div className="w-12 h-12 bg-white border-2 border-indigo-400 text-indigo-600 rounded-full flex items-center justify-center font-extrabold text-lg shadow-md shadow-indigo-100 md:mb-6 shrink-0">3</div>
-              <div>
-                <h3 className="text-lg font-bold text-gray-900 mb-1">AI Monitors</h3>
-                <p className="text-gray-500 text-sm font-medium">We monitor every report</p>
-              </div>
+            <div className="flex flex-col items-center text-center w-full md:w-1/4">
+              <h3 className="text-lg font-extrabold text-gray-900 mb-1">AI Monitors</h3>
+              <p className="text-gray-500 text-sm font-medium">We monitor every report</p>
             </div>
 
+            {/* Separator */}
+            <ArrowRight className="hidden md:block w-6 h-6 text-blue-400 opacity-50 shrink-0" />
+            <ArrowDown className="md:hidden w-5 h-5 text-blue-400 opacity-50 shrink-0" />
+
             {/* Step 4 */}
-            <div className="relative z-10 flex flex-row md:flex-col items-center md:text-center gap-6 md:gap-0 md:w-1/4">
-              <div className="w-12 h-12 bg-white border-2 border-emerald-400 text-emerald-600 rounded-full flex items-center justify-center font-extrabold text-lg shadow-md shadow-emerald-100 md:mb-6 shrink-0">4</div>
-              <div>
-                <h3 className="text-lg font-bold text-gray-900 mb-1">Track Your Conviction</h3>
-                <p className="text-gray-500 text-sm font-medium">Know exactly when to sell</p>
-              </div>
+            <div className="flex flex-col items-center text-center w-full md:w-1/4">
+              <h3 className="text-lg font-extrabold text-gray-900 mb-1">Track Conviction</h3>
+              <p className="text-gray-500 text-sm font-medium">Know exactly when to sell</p>
             </div>
+
           </div>
         </div>
 
