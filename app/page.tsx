@@ -77,7 +77,7 @@ export default function Home() {
       </nav>
 
       {/* 2. HERO SECTION */}
-      <main className="flex-grow flex flex-col items-center pt-16 md:pt-24 pb-20 px-6">
+      <main className="flex-grow flex flex-col items-center pt-16 md:pt-24 pb-10 px-6">
         
         {/* The Hook & The Who */}
         <div className="text-center max-w-4xl mx-auto mb-10">
@@ -163,7 +163,7 @@ export default function Home() {
             </div>
           </div>
         </div>
-        
+
         {/* 3. THE "WHY" (The Pain Points) */}
         <div className="w-full max-w-5xl mx-auto mb-20 relative z-10">
           
@@ -191,116 +191,132 @@ export default function Home() {
           </div>
         </div>
 
-        {/* 4. THE VISUAL PROOF (Apple Card Preview) */}
-        <div className="w-full max-w-4xl mx-auto mb-28 relative px-2 md:px-0">
-          <div className="absolute -inset-1 bg-gradient-to-r from-blue-100 to-emerald-100 rounded-[2rem] md:rounded-[3rem] blur-xl opacity-60"></div>
+  {/* 4. THE VISUAL PROOF (Apple Card Preview) */}
+        <div className="w-full max-w-4xl mx-auto mb-10 relative px-4 md:px-0 z-10">
           
-          <div className="relative bg-white p-6 md:p-10 rounded-3xl border border-gray-200 shadow-2xl">
+          {/* Enhanced Decorative Glow */}
+          <div className="absolute -inset-1 bg-gradient-to-r from-blue-200 via-indigo-100 to-emerald-100 rounded-[2.5rem] md:rounded-[3.5rem] blur-3xl opacity-60 mix-blend-multiply"></div>
+
+          {/* Card Container with subtle glass-morphism */}
+          <div className="relative bg-white/95 backdrop-blur-xl p-6 md:p-10 rounded-3xl border border-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col gap-8">
+
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-100 pb-8">
               <div className="flex items-center gap-4">
-                <div className="w-14 h-14 bg-gray-900 text-white rounded-2xl flex items-center justify-center text-2xl font-extrabold shadow-inner shrink-0">A</div>
+                {/* SVG Apple Logo (Will never break on Windows) */}
+                <div className="w-14 h-14 bg-gray-900 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-gray-900/20 shrink-0">
+                  <svg viewBox="0 0 384 512" className="w-6 h-6 fill-current" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z"></path>
+                  </svg>
+                </div>
                 <div>
-                  <h2 className="text-2xl font-extrabold text-gray-900">Apple Inc.</h2>
+                  <h2 className="text-2xl font-extrabold text-gray-900 tracking-tight">Apple Inc.</h2>
                   <p className="text-xs md:text-sm text-gray-500 font-bold uppercase tracking-wider">AAPL • Consumer Electronics</p>
                 </div>
               </div>
-              <div className="inline-flex px-4 py-2 bg-emerald-50 text-emerald-700 rounded-xl font-bold text-sm items-center justify-center gap-2 border border-emerald-100 self-start md:self-auto w-full md:w-auto">
-                <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse shadow-sm"></span>
+              <div className="inline-flex px-4 py-2 bg-emerald-50/80 text-emerald-700 rounded-xl font-bold text-sm items-center justify-center gap-2 border border-emerald-100 w-full md:w-auto shadow-sm">
+                <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.6)]"></span>
                 Thesis: Strengthening
               </div>
             </div>
 
-            {/* Grid Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-10">
-              <div className="bg-gray-50 p-5 rounded-2xl border border-gray-100 flex flex-col justify-center">
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Business Quality</p>
-                <p className="font-extrabold text-gray-900 flex items-center gap-2 text-lg">
-                  <span className="text-amber-400 tracking-tighter">★★★★★</span> Excellent
+            {/* Stats 2x2 Grid */}
+            <div className="grid grid-cols-2 gap-3 md:gap-4">
+              <div className="bg-gradient-to-b from-gray-50 to-white p-4 md:p-5 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+                <p className="text-[10px] md:text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Business Quality</p>
+                <p className="font-extrabold text-gray-900 flex items-center gap-2 text-sm md:text-base">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]"></span> Excellent
                 </p>
               </div>
-              <div className="bg-gray-50 p-5 rounded-2xl border border-gray-100 flex flex-col justify-center">
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Management</p>
-                <p className="font-extrabold text-gray-900 flex items-center gap-2 text-lg">
-                  <span className="text-amber-400 tracking-tighter">★★★★★</span> Trusted
+              <div className="bg-gradient-to-b from-gray-50 to-white p-4 md:p-5 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+                <p className="text-[10px] md:text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Management</p>
+                <p className="font-extrabold text-gray-900 flex items-center gap-2 text-sm md:text-base">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]"></span> Trusted
+                </p>
+              </div>
+              <div className="bg-gradient-to-b from-gray-50 to-white p-4 md:p-5 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+                <p className="text-[10px] md:text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Valuation</p>
+                <p className="font-extrabold text-gray-900 flex items-center gap-2 text-sm md:text-base">
+                  <span className="w-2.5 h-2.5 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.8)]"></span> Premium
+                </p>
+              </div>
+              <div className="bg-gradient-to-b from-gray-50 to-white p-4 md:p-5 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+                <p className="text-[10px] md:text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Understandability</p>
+                <p className="font-extrabold text-gray-900 flex items-center gap-2 text-sm md:text-base">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]"></span> Easy
                 </p>
               </div>
             </div>
 
-            {/* Updates Section */}
+            {/* Latest Changes List */}
             <div>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4 border-b border-gray-100 pb-2">Latest Changes</p>
-              <div className="space-y-3">
-                <div className="flex items-start gap-4 bg-white border border-gray-100 p-4 rounded-xl shadow-sm hover:shadow-md transition-shadow">
-                  <div className="mt-0.5 w-6 h-6 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-sm font-extrabold shrink-0 border border-blue-100">✓</div>
-                  <div>
-                    <p className="text-sm font-bold text-gray-900">Services revenue accelerated</p>
-                    <p className="text-xs text-gray-400 mt-1 font-medium">Updated 2 days ago</p>
+              <p className="text-[10px] md:text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Latest Changes</p>
+              <div className="flex flex-col gap-3">
+                
+                {/* Positive Item 1 */}
+                <div className="group flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 p-4 rounded-xl border bg-white border-gray-100 transition-all hover:shadow-md hover:border-blue-100 cursor-default">
+                  <div className="flex items-start gap-3">
+                    <div className="mt-1.5 w-2 h-2 rounded-full shrink-0 bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]"></div>
+                    <div>
+                      <p className="text-sm font-bold text-gray-900 mb-0.5 group-hover:text-blue-600 transition-colors">Services revenue accelerated</p>
+                      <p className="text-xs font-medium text-gray-500">Supports long-term growth.</p>
+                    </div>
                   </div>
+                  <span className="text-[11px] italic text-gray-400 pl-5 sm:pl-0 whitespace-nowrap">Updated 2 days ago</span>
                 </div>
-                <div className="flex items-start gap-4 bg-white border border-gray-100 p-4 rounded-xl shadow-sm hover:shadow-md transition-shadow">
-                  <div className="mt-0.5 w-6 h-6 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-sm font-extrabold shrink-0 border border-blue-100">✓</div>
-                  <div>
-                    <p className="text-sm font-bold text-gray-900">Installed base reached new high</p>
-                    <p className="text-xs text-gray-400 mt-1 font-medium">Updated after latest earnings</p>
+
+                {/* Positive Item 2 */}
+                <div className="group flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 p-4 rounded-xl border bg-white border-gray-100 transition-all hover:shadow-md hover:border-blue-100 cursor-default">
+                  <div className="flex items-start gap-3">
+                    <div className="mt-1.5 w-2 h-2 rounded-full shrink-0 bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]"></div>
+                    <div>
+                      <p className="text-sm font-bold text-gray-900 mb-0.5 group-hover:text-blue-600 transition-colors">Installed base reached new high</p>
+                      <p className="text-xs font-medium text-gray-500">Strengthens ecosystem moat.</p>
+                    </div>
                   </div>
+                  <span className="text-[11px] italic text-gray-400 pl-5 sm:pl-0 whitespace-nowrap">Updated 5 days ago</span>
                 </div>
+
+                {/* Positive Item 3 */}
+                <div className="group flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 p-4 rounded-xl border bg-white border-gray-100 transition-all hover:shadow-md hover:border-blue-100 cursor-default">
+                  <div className="flex items-start gap-3">
+                    <div className="mt-1.5 w-2 h-2 rounded-full shrink-0 bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]"></div>
+                    <div>
+                      <p className="text-sm font-bold text-gray-900 mb-0.5 group-hover:text-blue-600 transition-colors">Share buybacks continued</p>
+                      <p className="text-xs font-medium text-gray-500">Management allocating capital well.</p>
+                    </div>
+                  </div>
+                  <span className="text-[11px] italic text-gray-400 pl-5 sm:pl-0 whitespace-nowrap">Updated 1 week ago</span>
+                </div>
+
+                {/* Warning Item */}
+                <div className="group flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 p-4 rounded-xl border bg-gradient-to-r from-amber-50/50 to-white border-amber-100/80 transition-all hover:shadow-md hover:border-amber-300 cursor-default">
+                  <div className="flex items-start gap-3">
+                    <div className="mt-1.5 w-2 h-2 rounded-full shrink-0 bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.8)] group-hover:animate-pulse"></div>
+                    <div>
+                      <p className="text-sm font-bold text-gray-900 mb-0.5 group-hover:text-amber-700 transition-colors">China demand remains soft</p>
+                      <p className="text-xs font-medium text-amber-700/70">Worth monitoring next earnings.</p>
+                    </div>
+                  </div>
+                  <span className="text-[11px] italic text-gray-400 pl-5 sm:pl-0 whitespace-nowrap">Updated 1 week ago</span>
+                </div>
+
               </div>
             </div>
-          </div>
-        </div>
 
-        {/* 5. THE STORY WORKFLOW (Clean Timeline) */}
-        <div className="w-full max-w-5xl mx-auto">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-extrabold text-gray-900 mb-4">How Investment IQ Works</h2>
-          </div>
-          
-          <div className="flex flex-col md:flex-row justify-between items-center relative px-6 md:px-0 gap-6 md:gap-4">
-            
-            {/* Step 1 */}
-            <div className="flex flex-col items-center text-center w-full md:w-1/4">
-              <h3 className="text-lg font-extrabold text-gray-900 mb-1">Research Company</h3>
-              <p className="text-gray-500 text-sm font-medium">Analyze a business</p>
-            </div>
-
-            {/* Separator */}
-            <ArrowRight className="hidden md:block w-6 h-6 text-blue-400 opacity-50 shrink-0" />
-            <ArrowDown className="md:hidden w-5 h-5 text-blue-400 opacity-50 shrink-0" />
-
-            {/* Step 2 */}
-            <div className="flex flex-col items-center text-center w-full md:w-1/4">
-              <h3 className="text-lg font-extrabold text-gray-900 mb-1">Build Thesis</h3>
-              <p className="text-gray-500 text-sm font-medium">Record why you invested</p>
-            </div>
-
-            {/* Separator */}
-            <ArrowRight className="hidden md:block w-6 h-6 text-blue-400 opacity-50 shrink-0" />
-            <ArrowDown className="md:hidden w-5 h-5 text-blue-400 opacity-50 shrink-0" />
-
-            {/* Step 3 */}
-            <div className="flex flex-col items-center text-center w-full md:w-1/4">
-              <h3 className="text-lg font-extrabold text-gray-900 mb-1">AI Monitors</h3>
-              <p className="text-gray-500 text-sm font-medium">We monitor every report</p>
-            </div>
-
-            {/* Separator */}
-            <ArrowRight className="hidden md:block w-6 h-6 text-blue-400 opacity-50 shrink-0" />
-            <ArrowDown className="md:hidden w-5 h-5 text-blue-400 opacity-50 shrink-0" />
-
-            {/* Step 4 */}
-            <div className="flex flex-col items-center text-center w-full md:w-1/4">
-              <h3 className="text-lg font-extrabold text-gray-900 mb-1">Track Conviction</h3>
-              <p className="text-gray-500 text-sm font-medium">Know exactly when to sell</p>
-            </div>
+            {/* Footer Button */}
+            <button onClick={() => router.push('/company/AAPL')} className="w-full bg-gray-900 hover:bg-gray-800 text-white font-extrabold py-4 rounded-xl transition-all flex items-center justify-center gap-2 shadow-[0_8px_20px_rgb(0,0,0,0.12)] hover:shadow-[0_8px_25px_rgb(0,0,0,0.2)] group mt-2 border border-gray-800">
+              Research Snapshot <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            </button>
 
           </div>
         </div>
 
+        
       </main>
       
       {/* 6. EXPANDED FOOTER */}
-      <footer className="w-full border-t border-gray-200 pt-16 pb-8 bg-white mt-20">
+      <footer className="w-full border-t border-gray-200 pt-16 pb-8 bg-white">
         <div className="max-w-6xl mx-auto px-6 grid grid-cols-1 md:grid-cols-4 gap-8 mb-12 text-sm">
           <div className="col-span-1 md:col-span-2">
             <div className="font-extrabold text-xl text-gray-900 flex items-center gap-2 mb-4">
