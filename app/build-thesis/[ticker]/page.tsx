@@ -176,15 +176,16 @@ export default function ThesisBuilderPage() {
 
   return (
     // Note the pb-32 here to prevent content from hiding under the sticky footer!
-    <div className="min-h-screen bg-gray-50 flex flex-col font-sans relative pb-32">
+    <div className="min-h-screen bg-slate-50 flex flex-col font-sans relative pb-32">
       
       {/* FIXED HEADER */}
-      <nav className="bg-white/90 backdrop-blur-md border-b border-gray-200 sticky top-0 z-40">
+      <nav className="bg-white/90 backdrop-blur-md border-b border-slate-200 sticky top-0 z-40">
         <div className="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
-          <Link href="/" className="font-extrabold text-xl tracking-tight text-gray-900 flex items-center gap-2">
+          <Link href="/" className="font-extrabold text-xl tracking-tight text-slate-900 flex items-center gap-2">
             Investment IQ
           </Link>
-          <button onClick={() => router.back()} className="text-sm font-bold text-gray-500 hover:text-gray-900 transition-colors">
+          <button onClick={() => router.back()} className="text-sm font-bold text-slate
+          -500 hover:text-slate-900 transition-colors">
             Cancel
           </button>
         </div>
@@ -198,10 +199,10 @@ export default function ThesisBuilderPage() {
             <p className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-2">
               Step {step} of 2
             </p>
-            <h1 className="text-3xl font-extrabold text-gray-900 mb-3">
+            <h1 className="text-3xl font-extrabold text-slate-900 mb-3">
               {step === 1 ? `Why are you considering investing in ${ticker}?` : `What could change your mind about ${ticker}?`}
             </h1>
-            <p className="text-gray-500 font-medium">
+            <p className="text-slate-500 font-medium">
               {step === 1 
                 ? `Choose up to 5 drivers. These are suggested by Investment IQ based on ${ticker}'s SEC filings.` 
                 : `Choose up to 3 risks. Knowing what breaks your thesis is the key to disciplined investing.`}
@@ -222,30 +223,30 @@ export default function ThesisBuilderPage() {
                     isSelected 
                       ? 'border-blue-600 bg-blue-50/50 shadow-md ring-4 ring-blue-600/10' 
                       : isMaxedOut 
-                        ? 'border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed' 
-                        : 'border-gray-200 hover:border-blue-300 hover:shadow-sm bg-white'
+                        ? 'border-slate-100 bg-slate-50 opacity-50 cursor-not-allowed' 
+                        : 'border-slate-200 hover:border-blue-300 hover:shadow-sm bg-white'
                   }`}
                 >
                   <div className={`absolute top-5 right-5 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
-                    isSelected ? 'bg-blue-600 border-blue-600 text-white' : 'border-gray-300 text-transparent'
+                    isSelected ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-300 text-transparent'
                   }`}>
                     <Check className="w-4 h-4" />
                   </div>
 
-                  <h3 className="font-extrabold text-gray-900 text-xl mb-4 pr-10 leading-tight">{item.title}</h3>
+                  <h3 className="font-extrabold text-slate-900 text-xl mb-4 pr-10 leading-tight">{item.title}</h3>
                   
                   <div className="flex-grow space-y-5">
                     <div>
-                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Why this matters</p>
-                      <p className="text-sm font-medium text-gray-700 leading-relaxed">{item.why}</p>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Why this matters</p>
+                      <p className="text-sm font-medium text-slate-700 leading-relaxed">{item.why}</p>
                     </div>
                     
                     <div>
-                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Evidence</p>
-                      <ul className="text-sm font-medium text-gray-700 space-y-2">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Evidence</p>
+                      <ul className="text-sm font-medium text-slate-700 space-y-2">
                         {item.evidence.map((ev, i) => (
                           <li key={i} className="flex items-start gap-2.5">
-                            <span className="w-1.5 h-1.5 bg-gray-400 rounded-full shrink-0 mt-2"></span>
+                            <span className="w-1.5 h-1.5 bg-slate-400 rounded-full shrink-0 mt-2"></span>
                             <span className="leading-tight">{ev}</span>
                           </li>
                         ))}
@@ -266,7 +267,7 @@ export default function ThesisBuilderPage() {
                   </div>
 
                   <div className={`mt-6 text-center text-sm font-bold py-3.5 rounded-xl transition-colors ${
-                    isSelected ? 'bg-blue-600 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    isSelected ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                   }`}>
                     {isSelected ? 'Selected' : '+ Add to Thesis'}
                   </div>
@@ -276,23 +277,23 @@ export default function ThesisBuilderPage() {
           </div>
 
           {/* CUSTOM INPUT AREA */}
-          <div className="bg-white p-8 rounded-3xl border border-gray-200 shadow-sm max-w-4xl mx-auto">
-            <label className="block text-sm font-bold text-gray-900 mb-1 flex items-center gap-2">
-              <Plus className="w-4 h-4 text-gray-400" /> Write My Own {step === 1 ? 'Driver' : 'Risk'}
+          <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm max-w-4xl mx-auto">
+            <label className="block text-sm font-bold text-slate-900 mb-1 flex items-center gap-2">
+              <Plus className="w-4 h-4 text-slate-400" /> Write My Own {step === 1 ? 'Driver' : 'Risk'}
             </label>
-            <p className="text-xs text-gray-500 mb-5 pl-6">Allows experienced investors to create custom tracking parameters.</p>
+            <p className="text-xs text-slate-500 mb-5 pl-6">Allows experienced investors to create custom tracking parameters.</p>
             <div className="flex flex-col sm:flex-row gap-3">
               <input 
                 type="text"
                 value={customInput}
                 onChange={(e) => setCustomInput(e.target.value)}
                 placeholder={step === 1 ? "e.g. Sovereign AI demand scaling in Middle East" : "e.g. Hyperscaler capex budgets shrink"}
-                className="flex-grow bg-gray-50 border border-gray-200 rounded-xl px-5 py-3.5 text-sm font-medium focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-50 transition-all"
+                className="flex-grow bg-slate-50 border border-slate-200 rounded-xl px-5 py-3.5 text-sm font-medium focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-50 transition-all"
               />
               <button 
                 onClick={handleAddCustom}
                 disabled={activeSelection.length >= activeLimit}
-                className="bg-gray-900 hover:bg-gray-800 disabled:bg-gray-300 text-white font-bold px-8 py-3.5 rounded-xl transition-colors text-sm whitespace-nowrap"
+                className="bg-slate-900 hover:bg-slate-800 disabled:bg-slate-300 text-white font-bold px-8 py-3.5 rounded-xl transition-colors text-sm whitespace-nowrap"
               >
                 Add Custom
               </button>
@@ -300,8 +301,8 @@ export default function ThesisBuilderPage() {
             
             {/* Show Custom Selections */}
             {activeSelection.length > 0 && (
-              <div className="mt-8 pt-6 border-t border-gray-100">
-                <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-4">Your Selections:</p>
+              <div className="mt-8 pt-6 border-t border-slate-100">
+                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-4">Your Selections:</p>
                 <div className="flex flex-wrap gap-2.5">
                   {activeSelection.map((sel, i) => (
                     <div key={i} className="flex items-center gap-2 bg-blue-50 border border-blue-200 text-blue-800 text-sm font-bold px-4 py-2 rounded-full">
@@ -317,16 +318,16 @@ export default function ThesisBuilderPage() {
       </main>
 
       {/* PREMIUM STICKY FOOTER */}
-      <div className="fixed bottom-0 left-0 w-full bg-white/90 backdrop-blur-md border-t border-gray-200 shadow-[0_-10px_40px_-10px_rgba(0,0,0,0.1)] z-50">
+      <div className="fixed bottom-0 left-0 w-full bg-white/90 backdrop-blur-md border-t border-slate-200 shadow-[0_-10px_40px_-10px_rgba(0,0,0,0.1)] z-50">
         <div className="max-w-6xl mx-auto px-6 py-4 md:py-5 flex flex-col md:flex-row justify-between items-center gap-4">
           
           <div className="flex items-center gap-3 w-full md:w-auto justify-center md:justify-start">
             <div className={`flex items-center justify-center w-8 h-8 rounded-full font-bold text-sm ${
-              activeSelection.length > 0 ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-400'
+              activeSelection.length > 0 ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-400'
             }`}>
               {activeSelection.length}
             </div>
-            <p className="font-bold text-gray-500 text-sm">
+            <p className="font-bold text-slate-500 text-sm">
               / {activeLimit} {step === 1 ? 'Drivers' : 'Risks'} Selected
             </p>
           </div>
@@ -335,7 +336,7 @@ export default function ThesisBuilderPage() {
             {step === 2 && (
               <button 
                 onClick={() => setStep(1)} 
-                className="w-full md:w-auto px-6 py-3.5 rounded-xl font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors flex items-center justify-center gap-2"
+                className="w-full md:w-auto px-6 py-3.5 rounded-xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors flex items-center justify-center gap-2"
               >
                 <ArrowLeft className="w-4 h-4" /> Back
               </button>
@@ -344,7 +345,7 @@ export default function ThesisBuilderPage() {
             <button 
               onClick={() => step === 1 ? setStep(2) : handleSaveToDatabase()}
               disabled={activeSelection.length === 0 || isSaving}
-              className="w-full md:w-auto flex-grow md:flex-grow-0 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-extrabold px-8 py-3.5 rounded-xl transition-all shadow-md text-sm cursor-pointer flex items-center justify-center gap-2"
+              className="w-full md:w-auto flex-grow md:flex-grow-0 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-extrabold px-8 py-3.5 rounded-xl transition-all shadow-md text-sm cursor-pointer flex items-center justify-center gap-2"
             >
               {isSaving ? (
                 <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</>
