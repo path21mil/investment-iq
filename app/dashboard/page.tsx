@@ -43,6 +43,13 @@ export default function Dashboard() {
 
   useEffect(() => {
     loadDashboard();
+    
+    // NEW: Clean up the massive Supabase OAuth URL string
+    if (window.location.hash) {
+      setTimeout(() => {
+        window.history.replaceState(null, '', window.location.pathname);
+      }, 500); // Waits half a second for Supabase to grab the tokens, then wipes the URL
+    }
   }, []);
 
   const loadDashboard = async () => {
