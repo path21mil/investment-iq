@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, ArrowRight, TrendingUp, TrendingDown, Clock, Info, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, ArrowRight, TrendingUp, TrendingDown, Info, X, ChevronDown, ChevronUp, AlertTriangle, Check } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
-// 1. UPDATED DATA STRUCTURE
+// 1. DATA STRUCTURE
 interface CompanyUpdate {
   text: string;
   trend: 'up' | 'down' | 'neutral';
@@ -44,11 +44,10 @@ export default function Dashboard() {
   useEffect(() => {
     loadDashboard();
     
-    // NEW: Clean up the massive Supabase OAuth URL string
     if (window.location.hash) {
       setTimeout(() => {
         window.history.replaceState(null, '', window.location.pathname);
-      }, 500); // Waits half a second for Supabase to grab the tokens, then wipes the URL
+      }, 500);
     }
   }, []);
 
@@ -65,23 +64,6 @@ export default function Dashboard() {
 
       const mockPortfolio: TrackedCompany[] = [
         {
-          ticker: 'AMD',
-          name: 'ADVANCED MICRO DEVICES',
-          domain: 'amd.com',
-          status: 'Review Needed',
-          summaryBold: 'AI GPU demand stronger than expected.',
-          summaryLight: 'Gaming segment continues to lag.',
-          affectedDriver: 'Data Center Growth Leadership',
-          aiSummary: 'Data center GPU revenue accelerated significantly, confirming your thesis on AI demand. However, the gaming segment dropped sharply, meaning the overall growth is highly concentrated. Your original thesis needs review to account for this shifting revenue mix.',
-          updates: [
-            { text: 'Data center revenue doubled YoY', trend: 'up', evidenceText: '"Data Center segment revenue was a record $2.3 billion, up 80% year-over-year, driven by strong growth in AMD Instinct™ GPUs and 4th Gen AMD EPYC™ CPUs."' },
-            { text: 'Gaming segment dropped 48%', trend: 'down', evidenceText: '"Gaming segment revenue was $922 million, down 48% year-over-year, primarily due to lower semi-custom revenue and declining discrete graphics sales."' }
-          ],
-          lastUpdated: '2 hours ago',
-          requiresAction: true,
-          price: 164.20
-        },
-        {
           ticker: 'TSLA',
           name: 'TESLA INC.',
           domain: 'tesla.com',
@@ -89,14 +71,31 @@ export default function Dashboard() {
           summaryBold: 'Automotive margins under pressure.',
           summaryLight: 'Price cuts continue to impact profitability.',
           affectedDriver: 'High Operating Margins',
-          aiSummary: 'Automotive margins declined due to continued price cuts, reducing overall profitability. Energy growth remained strong, but your original margin thesis weakened this quarter as management prioritized volume over premium pricing.',
+          aiSummary: 'Automotive margins declined due to continued price cuts, reducing overall profitability. Energy growth remained strong, but your original margin thesis weakened this quarter.',
           updates: [
-            { text: 'Operating margin fell to 5.5%', trend: 'down', evidenceText: '"Operating margin decreased to 5.5% in Q1, impacted by reduced ASP (Average Selling Price) across our vehicle lineup as we navigated a high-interest rate environment."' },
-            { text: 'Energy generation grew 40%', trend: 'up', evidenceText: '"Energy generation and storage deployments reached a record high, growing 40% year-over-year to 4.1 GWh, driven by strong Megapack demand."' }
+            { text: 'Margin dropped to 5.5%', trend: 'down', evidenceText: '"Operating margin decreased to 5.5% in Q1..."' },
+            { text: 'Energy generation grew 40%', trend: 'up', evidenceText: '"Energy generation deployments reached a record high..."' }
           ],
           lastUpdated: 'Yesterday',
           requiresAction: true,
           price: 172.50
+        },
+        {
+          ticker: 'AMD',
+          name: 'ADVANCED MICRO DEVICES',
+          domain: 'amd.com',
+          status: 'Review Needed',
+          summaryBold: 'AI GPU demand stronger than expected.',
+          summaryLight: 'Gaming segment continues to lag.',
+          affectedDriver: 'Data Center Growth Leadership',
+          aiSummary: 'Data center GPU revenue accelerated significantly, confirming your thesis on AI demand. However, the gaming segment dropped sharply.',
+          updates: [
+            { text: 'Data center revenue doubled YoY', trend: 'up', evidenceText: '"Data Center segment revenue was a record $2.3 billion..."' },
+            { text: 'Gaming segment dropped 48%', trend: 'down', evidenceText: '"Gaming segment revenue was $922 million, down 48%..."' }
+          ],
+          lastUpdated: '2 hours ago',
+          requiresAction: true,
+          price: 164.20
         },
         {
           ticker: 'AAPL',
@@ -106,10 +105,10 @@ export default function Dashboard() {
           summaryBold: 'Services revenue accelerating.',
           summaryLight: 'Offsetting slight hardware softness.',
           affectedDriver: 'Sticky Services Ecosystem',
-          aiSummary: 'Services revenue hit an all-time high with expanding gross margins. This perfectly validates your thesis that Apple is successfully monetizing its installed base, effectively insulating the business from cyclical hardware slowdowns.',
+          aiSummary: 'Services revenue hit an all-time high with expanding gross margins. This perfectly validates your thesis that Apple is successfully monetizing its installed base.',
           updates: [
-            { text: 'Services revenue grew 14% YoY', trend: 'up', evidenceText: '"Services revenue reached a new all-time record of $23.9 billion, representing a 14% increase year-over-year, with paid subscriptions surpassing 1 billion."' },
-            { text: 'China iPhone sales stabilized', trend: 'neutral', evidenceText: '"While the macroeconomic environment in Greater China remains dynamic, iPhone activations remained relatively flat year-over-year in the region."' }
+            { text: 'Services revenue grew 14% YoY', trend: 'up', evidenceText: '"Services revenue reached a new all-time record..."' },
+            { text: 'China iPhone sales stabilized', trend: 'neutral', evidenceText: '"While the macroeconomic environment remains dynamic..."' }
           ],
           lastUpdated: '3 days ago',
           requiresAction: false,
@@ -123,10 +122,10 @@ export default function Dashboard() {
           summaryBold: 'Blackwell demand exceeding supply.',
           summaryLight: 'Unprecedented hyperscaler capex continues.',
           affectedDriver: 'Unmatched AI Hardware Moat',
-          aiSummary: 'Demand for next-generation chips continues to outstrip supply, driving record gross margins. Management confirmed strong visibility into next year, significantly strengthening your thesis regarding their hardware monopoly.',
+          aiSummary: 'Demand for next-generation chips continues to outstrip supply, driving record gross margins. Management confirmed strong visibility into next year.',
           updates: [
-            { text: 'Gross margins expanded to 76%', trend: 'up', evidenceText: '"GAAP gross margin expanded to 76.0%, driven by favorable component costs and a higher mix of Data Center software and networking revenue."' },
-            { text: 'Next-gen chips sold out for 12 mos', trend: 'up', evidenceText: '"Demand for our Hopper and Blackwell architectures continues to outstrip supply. We have full visibility into our production backlog through the next calendar year."' }
+            { text: 'Gross margins expanded to 76%', trend: 'up', evidenceText: '"GAAP gross margin expanded to 76.0%..."' },
+            { text: 'Next-gen chips sold out for 12 mos', trend: 'up', evidenceText: '"Demand for our Hopper and Blackwell architectures..."' }
           ],
           lastUpdated: '1 week ago',
           requiresAction: false,
@@ -157,135 +156,87 @@ export default function Dashboard() {
   };
 
   const actionItems = portfolio.filter(p => p.requiresAction);
-  const strengtheningCount = portfolio.filter(p => p.status === 'Strengthening').length;
-
-  const getAIWelcomeMessage = () => {
-    if (portfolio.length === 0) return "Search for a company below to start tracking your conviction.";
-    if (actionItems.length === 0) return "Your portfolio remains healthy. All tracked companies align with your original thesis.";
-    
-    const weakCount = actionItems.filter(a => a.status === 'Weakening').length;
-    if (weakCount > 0) return `Your portfolio requires attention. ${weakCount} thesis has weakened, and ${actionItems.length - weakCount} need closer review.`;
-    
-    return `${actionItems.length} companies changed recently. Review the latest earnings data to ensure your thesis holds.`;
-  };
 
   const getStatusStyles = (status: TrackedCompany['status']) => {
     switch(status) {
-      case 'Strengthening': return { border: 'border-l-emerald-500', badge: 'bg-emerald-50/80 text-emerald-700 border-emerald-200/60', icon: '🟢', label: 'Thesis Strengthening' };
-      case 'Review Needed': return { border: 'border-l-amber-400', badge: 'bg-amber-50/80 text-amber-700 border-amber-200/60', icon: '🟡', label: 'Review Thesis' };
-      case 'Weakening': return { border: 'border-l-rose-500', badge: 'bg-rose-50/80 text-rose-700 border-rose-200/60', icon: '🔴', label: 'Thesis Weakening' };
+      case 'Strengthening': return { border: 'border-emerald-500', badge: 'bg-emerald-50/80 text-emerald-700 border-emerald-200/60', icon: '🟢', label: 'Thesis Strengthening' };
+      case 'Review Needed': return { border: 'border-amber-400', badge: 'bg-amber-50/80 text-amber-700 border-amber-200/60', icon: '🟡', label: 'Review Needed' };
+      case 'Weakening': return { border: 'border-rose-500', badge: 'bg-rose-50/80 text-rose-700 border-rose-200/60', icon: '🔴', label: 'Thesis Weakening' };
     }
   };
 
   if (isLoading) {
-    return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-sans text-slate-400">Loading your workspace...</div>;
+    return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-sans text-slate-400">Loading inbox...</div>;
   }
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 pb-24 relative">
       
-      {/* Navigation */}
-      <nav className="bg-white/80 backdrop-blur-md border-b border-slate-200/60 sticky top-0 z-40">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
-          <div className="font-extrabold text-xl tracking-tight flex items-center gap-2 cursor-pointer text-slate-900" onClick={() => router.push('/')}>
+      {/* NAVIGATION: Wider max-w-6xl for desktop layout */}
+      <nav className="w-full bg-white/90 backdrop-blur-md border-b border-slate-200/60 sticky top-0 z-40">
+        <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between gap-8">
+          <div className="font-extrabold text-xl tracking-tight flex items-center gap-2 cursor-pointer text-slate-900 shrink-0" onClick={() => router.push('/')}>
             Investment IQ
-            <span className="flex gap-0.5">
-              <span className="w-1 h-2.5 bg-blue-600 rounded-full"></span>
-              <span className="w-1 h-4 bg-blue-600 rounded-full"></span>
-              <span className="w-1 h-5 bg-blue-600 rounded-full"></span>
-            </span>
           </div>
-          <button onClick={() => supabase.auth.signOut().then(() => router.push('/'))} className="text-sm font-bold text-slate-500 hover:text-slate-900 transition-colors">
+          
+          <div className="flex-1 max-w-lg hidden md:block">
+            <form onSubmit={handleSearch} className="relative w-full">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search company..."
+                className="w-full bg-slate-50 border border-slate-200/60 rounded-lg py-2 pl-10 pr-4 text-sm font-medium focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all outline-none text-slate-900 placeholder-slate-400"
+              />
+            </form>
+          </div>
+
+          <button onClick={() => supabase.auth.signOut().then(() => router.push('/'))} className="text-sm font-bold text-slate-500 hover:text-slate-900 transition-colors shrink-0">
             Sign Out
           </button>
         </div>
       </nav>
 
-      <main className="max-w-4xl mx-auto px-6 pt-10">
+      {/* MAIN CONTAINER: Expanded to max-w-5xl for desktop optimization */}
+      <main className="max-w-5xl mx-auto px-6 pt-10 md:pt-14">
         
-        {/* WELCOME & AI SUMMARY */}
+        {/* HERO: The Conviction Inbox Alert */}
         <div className="mb-10">
-          <h1 className="text-3xl font-extrabold tracking-tight mb-4 text-slate-900">Welcome back, {userName} 👋</h1>
-          <div className="bg-gradient-to-r from-blue-50/80 to-indigo-50/80 border border-blue-100/60 rounded-2xl p-5 flex items-start gap-3 shadow-[0_4px_20px_rgb(59,130,246,0.05)]">
-            <Info className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
-            <p className="text-sm text-blue-900/90 font-medium leading-relaxed">{getAIWelcomeMessage()}</p>
-          </div>
+          <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-slate-900 mb-5">Welcome back, {userName} 👋</h1>
+          {actionItems.length > 0 ? (
+            <div className="flex items-center gap-3 text-rose-700 font-bold bg-rose-50 p-5 rounded-2xl border border-rose-100/80 shadow-sm">
+              <AlertTriangle className="w-5 h-5 shrink-0 text-rose-500" />
+              <span className="text-sm md:text-base">Portfolio requires attention. {actionItems.length} companies have new updates.</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3 text-emerald-700 font-bold bg-emerald-50 p-5 rounded-2xl border border-emerald-100/80 shadow-sm">
+              <Check className="w-5 h-5 shrink-0 text-emerald-500" />
+              <span className="text-sm md:text-base">Your portfolio is healthy. No recent changes detected.</span>
+            </div>
+          )}
         </div>
 
-        {/* SEARCH BAR */}
-        <div className="mb-10 relative group">
-          <form onSubmit={handleSearch} className="relative w-full">
-            <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-blue-500 transition-colors pointer-events-none" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Research a new company..."
-              className="w-full bg-white border border-slate-200/80 rounded-2xl py-4 pl-14 pr-4 text-slate-900 font-bold placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-50 transition-all shadow-[0_8px_30px_rgb(0,0,0,0.03)] text-lg"
-            />
-          </form>
-          <div className="mt-4 flex items-center gap-3 text-xs font-bold text-slate-400">
-            <span>Popular:</span>
-            {['NVDA', 'TSLA', 'META', 'AMD'].map(t => (
-              <button key={t} onClick={() => router.push(`/company/${t}`)} className="hover:text-blue-600 transition-colors cursor-pointer bg-white px-2.5 py-1 rounded-md border border-slate-200/60 shadow-sm">
-                {t}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* REFINED KPI ROW */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
-          <div className="bg-white p-5 rounded-2xl border border-slate-200/60 shadow-[0_8px_30px_rgb(0,0,0,0.02)] flex flex-col justify-center">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Portfolio</p>
-            <p className="text-2xl font-extrabold text-slate-900">{portfolio.length} <span className="text-xs text-slate-400 font-bold">Cos</span></p>
-          </div>
-          <div className="bg-white p-5 rounded-2xl border border-slate-200/60 shadow-[0_8px_30px_rgb(0,0,0,0.02)] flex flex-col justify-center">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">New Updates</p>
-            <p className="text-2xl font-extrabold text-slate-900">{actionItems.length}</p>
-          </div>
-          <div className="bg-amber-50/30 p-5 rounded-2xl border border-amber-100/60 shadow-[0_8px_30px_rgb(251,191,36,0.04)] flex flex-col justify-center">
-            <p className="text-[10px] font-bold text-amber-600/80 uppercase tracking-widest mb-1.5">Needs Review</p>
-            <p className="text-2xl font-extrabold text-amber-600">{actionItems.filter(p => p.status !== 'Strengthening').length}</p>
-          </div>
-          <div className="bg-emerald-50/30 p-5 rounded-2xl border border-emerald-100/60 shadow-[0_8px_30px_rgb(16,185,129,0.04)] flex flex-col justify-center">
-            <p className="text-[10px] font-bold text-emerald-600/80 uppercase tracking-widest mb-1.5">Healthy</p>
-            <p className="text-2xl font-extrabold text-emerald-600">{strengtheningCount}</p>
-          </div>
-        </div>
-
-        {/* SECTION 1: LATEST THESIS UPDATES */}
+        {/* SECTION 1: LATEST THESIS UPDATES (Full Width Rows for Priority) */}
         {actionItems.length > 0 && (
-          <div className="mb-14">
-            <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-5 flex items-center gap-2">
-              Latest Thesis Updates
-            </h2>
-            <div className="flex flex-col gap-4">
+          <div className="mb-16">
+            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Latest Thesis Updates</h2>
+            <div className="flex flex-col gap-3">
               {actionItems.map(company => (
-                <div key={`action-${company.ticker}`} className="bg-white rounded-2xl border border-slate-200/60 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-all p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5 group">
-                  <div className="flex items-center gap-4">
-                    <div className="relative w-12 h-12 rounded-xl overflow-hidden shrink-0 border border-slate-100 bg-slate-50 flex items-center justify-center shadow-sm">
-                      <img 
-                        src={`https://logo.clearbit.com/${company.domain}`} 
-                        alt={company.ticker}
-                        className="w-full h-full object-cover absolute inset-0 z-10"
-                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                      />
-                      <span className="font-extrabold text-lg text-slate-400">{company.ticker.charAt(0)}</span>
-                    </div>
-
+                <div key={`alert-${company.ticker}`} className="flex flex-col sm:flex-row sm:items-center justify-between bg-white border border-slate-200/80 rounded-2xl p-5 shadow-[0_2px_10px_rgb(0,0,0,0.02)] gap-4">
+                  <div className="flex items-center gap-5">
+                    <span className="font-extrabold text-2xl text-slate-900 w-16">{company.ticker}</span>
+                    <div className="hidden sm:block w-px h-8 bg-slate-200"></div>
                     <div>
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <h3 className="font-extrabold text-slate-900 text-lg tracking-tight">{company.ticker}</h3>
-                        <span className="text-xs font-bold text-slate-500">• {getStatusStyles(company.status).icon} {company.status}</span>
-                      </div>
-                      <p className="text-xs text-slate-700 leading-snug"><span className="font-bold">{company.summaryBold}</span> <span className="text-slate-500">{company.summaryLight}</span></p>
+                      <span className={`text-[10px] font-extrabold uppercase tracking-widest px-2.5 py-1 rounded-md border inline-flex items-center gap-1.5 mb-1.5 ${getStatusStyles(company.status).badge}`}>
+                        {getStatusStyles(company.status).icon} {getStatusStyles(company.status).label}
+                      </span>
+                      <p className="text-sm text-slate-700"><span className="font-bold text-slate-900">{company.summaryBold}</span> {company.summaryLight}</p>
                     </div>
                   </div>
-                  
                   <button 
-                    onClick={() => setReviewCompany(company)} 
-                    className="text-sm font-bold text-blue-600 hover:text-blue-700 bg-blue-50/50 hover:bg-blue-50 px-5 py-2.5 rounded-xl border border-blue-100/50 transition-colors whitespace-nowrap w-full sm:w-auto text-center cursor-pointer shrink-0"
+                    onClick={() => setReviewCompany(company)}
+                    className="text-sm font-bold text-blue-600 hover:text-blue-800 transition-colors bg-blue-50/50 hover:bg-blue-50 px-5 py-2.5 rounded-xl border border-blue-100/50 whitespace-nowrap"
                   >
                     Quick Review →
                   </button>
@@ -295,77 +246,88 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* SECTION 2: MY CONVICTION PORTFOLIO */}
-        <div className="mb-5 border-b border-slate-200/60 pb-5">
-          <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">My Conviction Portfolio</h2>
-        </div>
-
-        <div className="flex flex-col gap-6">
-          {portfolio.map((company) => {
-            const styles = getStatusStyles(company.status);
-            return (
-              <div key={`port-${company.ticker}`} className={`bg-white rounded-[24px] border border-slate-200/60 shadow-[0_8px_30px_rgb(0,0,0,0.03)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-all flex flex-col overflow-hidden border-l-4 ${styles.border}`}>
-                <div className="p-6 md:p-8 flex flex-col md:flex-row gap-6 md:gap-10 items-start md:items-center relative">
+        {/* SECTION 2: MY CONVICTION PORTFOLIO (Desktop 2-Column Grid) */}
+        <div className="mb-12">
+          <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6">My Conviction Portfolio</h2>
+          
+          {/* CRITICAL CHANGE: grid-cols-1 on mobile, grid-cols-2 on large screens */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {portfolio.map(company => {
+              const styles = getStatusStyles(company.status);
+              
+              return (
+                <div key={`port-${company.ticker}`} className={`bg-white rounded-3xl border border-slate-200/80 shadow-[0_4px_20px_rgb(0,0,0,0.03)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] transition-all flex flex-col overflow-hidden`}>
                   
-                  <div className="flex-1 w-full">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="relative w-14 h-14 rounded-2xl overflow-hidden shrink-0 border border-slate-100 bg-slate-50 flex items-center justify-center shadow-sm">
-                        <img 
-                          src={`https://logo.clearbit.com/${company.domain}`} 
-                          alt={company.ticker}
-                          className="w-full h-full object-cover absolute inset-0 z-10"
-                          onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                        />
-                        <span className="font-extrabold text-2xl text-slate-400">{company.ticker.charAt(0)}</span>
-                      </div>
-                      <div>
-                        <h3 className="text-2xl font-extrabold text-slate-900 tracking-tight leading-none mb-2">{company.ticker}</h3>
-                        <div className={`px-2.5 py-0.5 rounded-md text-[10px] font-extrabold inline-flex items-center gap-1.5 border ${styles.badge}`}>
-                          <span>{styles.icon}</span> {styles.label}
-                        </div>
+                  {/* Card Header (Colored Top Border matching Status) */}
+                  <div className={`h-1.5 w-full bg-slate-100 ${styles.border} border-t-2`}></div>
+                  
+                  <div className="p-6 md:p-8 flex flex-col h-full">
+                    {/* Ticker & GitHub-style Status Pill */}
+                    <div className="flex items-center justify-between mb-5">
+                      <h3 className="text-3xl font-extrabold text-slate-900 tracking-tight">{company.ticker}</h3>
+                      <div className={`px-3 py-1 rounded-md text-[10px] font-extrabold uppercase tracking-widest border ${styles.badge}`}>
+                        {styles.icon} {styles.label}
                       </div>
                     </div>
-                    <p className="text-sm text-slate-900 mb-3 leading-relaxed"><span className="font-bold">{company.summaryBold}</span> <span className="text-slate-500">{company.summaryLight}</span></p>
-                    <button onClick={() => router.push(`/company/${company.ticker}`)} className="flex items-center gap-1 text-[11px] font-bold text-slate-400 hover:text-blue-600 transition-colors">
-                      <Clock className="w-3.5 h-3.5" /> Updated {company.lastUpdated} →
-                    </button>
-                  </div>
-
-                  <div className="flex-1 w-full bg-slate-50/50 p-5 rounded-2xl border border-slate-100 self-stretch flex flex-col justify-center">
-                    <div className="space-y-3">
-                      {company.updates.map((update, idx) => (
-                        <div key={idx} className="flex items-start gap-2.5">
-                          {update.trend === 'up' && <TrendingUp className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />}
-                          {update.trend === 'down' && <TrendingDown className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />}
-                          {update.trend === 'neutral' && <span className="text-slate-400 font-bold shrink-0 mt-0.5">―</span>}
-                          <p className="text-xs font-bold text-slate-700 leading-snug">{update.text}</p>
-                        </div>
-                      ))}
+                    
+                    {/* Core Thesis Summary */}
+                    <div className="mb-6 flex-grow">
+                      <p className="text-base text-slate-900 font-bold mb-1 leading-snug">{company.summaryBold}</p>
+                      <p className="text-sm text-slate-500 leading-snug">{company.summaryLight}</p>
                     </div>
-                  </div>
-
-                  <div className="flex flex-row md:flex-col items-center md:items-end justify-between w-full md:w-32 shrink-0 gap-5 mt-2 md:mt-0">
-                    <div className="text-left md:text-right">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Current Price</p>
-                      <p className="font-bold text-slate-500 text-sm leading-none">${company.price.toFixed(2)}</p>
+                    
+                    {/* Key Changes (Clean List) */}
+                    <div className="bg-slate-50/50 rounded-2xl p-4 border border-slate-100 mb-6">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Key Changes</p>
+                      <div className="space-y-3">
+                        {company.updates.map((update, idx) => (
+                          <div key={idx} className="flex items-start gap-2.5">
+                            {update.trend === 'up' && <TrendingUp className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />}
+                            {update.trend === 'down' && <TrendingDown className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />}
+                            {update.trend === 'neutral' && <span className="text-slate-400 font-bold shrink-0 mt-0.5 font-mono">—</span>}
+                            <p className="text-xs font-bold text-slate-700 leading-snug">{update.text}</p>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                    <button 
-                      onClick={() => router.push(`/company/${company.ticker}`)}
-                      className="bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 px-5 rounded-xl transition-all text-xs flex items-center justify-center gap-1.5 shadow-[0_4px_14px_rgb(0,0,0,0.1)] hover:shadow-[0_6px_20px_rgb(0,0,0,0.15)] whitespace-nowrap w-full md:w-auto"
-                    >
-                      Open Thesis →
-                    </button>
+
+                    {/* Clean Footer */}
+                    <div className="pt-4 flex flex-row items-center justify-between mt-auto">
+                      <button 
+                        onClick={() => router.push(`/company/${company.ticker}`)}
+                        className="text-sm font-bold text-blue-600 hover:text-blue-800 transition-colors flex items-center gap-1.5"
+                      >
+                        Open Thesis <ArrowRight className="w-4 h-4" />
+                      </button>
+                      
+                      <div className="text-right flex items-center gap-3">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{company.lastUpdated}</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
+        </div>
+
+        {/* BOTTOM SEARCH (Research New Ideas) */}
+        <div className="mt-16 pt-10 border-t border-slate-200 text-center pb-16">
+          <p className="text-sm font-bold text-slate-500 mb-5">Research another company</p>
+          <form onSubmit={handleSearch} className="max-w-md mx-auto relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by ticker..."
+              className="w-full bg-white border border-slate-200/80 rounded-xl py-3.5 pl-11 pr-4 text-slate-900 font-bold placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-50 transition-all text-sm shadow-sm"
+            />
+          </form>
         </div>
       </main>
 
-      {/* ==============================================
-          THE REDESIGNED QUICK REVIEW DRAWER
-          ============================================== */}
+      {/* THE REDESIGNED QUICK REVIEW DRAWER REMAINS EXACTLY THE SAME */}
       {reviewCompany && (
         <div className="fixed inset-0 z-[100] flex justify-end">
           
@@ -379,7 +341,6 @@ export default function Dashboard() {
 
           <div className="relative w-full max-w-[440px] h-full bg-white shadow-2xl border-l border-slate-200/60 flex flex-col animate-[slideIn_0.3s_ease-out]">
             
-            {/* Minimal Header */}
             <div className="p-5 flex justify-end">
               <button 
                 onClick={() => {
@@ -392,10 +353,8 @@ export default function Dashboard() {
               </button>
             </div>
 
-            {/* Scrollable Body */}
             <div className="flex-1 overflow-y-auto px-8 pb-8">
               
-              {/* Identity & Status */}
               <div className="flex items-center gap-4 mb-10">
                 <h2 className="text-4xl font-extrabold text-slate-900 tracking-tight">{reviewCompany.ticker}</h2>
                 <div className={`px-3 py-1.5 rounded-md text-xs font-bold inline-flex items-center gap-1.5 border ${getStatusStyles(reviewCompany.status).badge}`}>
@@ -403,7 +362,6 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* 1. Affected Thesis */}
               <div className="mb-10">
                 <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Affected Thesis</h4>
                 <div className="bg-blue-50/50 border border-blue-100/60 rounded-2xl p-5 border-l-4 border-l-blue-500 shadow-sm">
@@ -412,7 +370,6 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* 2. What Changed This Quarter */}
               <div className="mb-10">
                 <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">What Changed This Quarter</h4>
                 <p className="text-sm text-slate-700 leading-relaxed font-medium">
@@ -420,7 +377,6 @@ export default function Dashboard() {
                 </p>
               </div>
 
-              {/* 3. Supporting Evidence (THE ACCORDION FIX) */}
               <div className="mb-10">
                 <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Supporting Evidence</h4>
                 <div className="space-y-4">
@@ -429,7 +385,6 @@ export default function Dashboard() {
                     
                     return (
                       <div key={idx} className="bg-white border border-slate-200/80 rounded-2xl overflow-hidden shadow-[0_4px_14px_rgb(0,0,0,0.02)] transition-all">
-                        {/* Always visible header */}
                         <div className="p-4 flex flex-col gap-2">
                           <div className="flex items-start gap-2.5">
                             {update.trend === 'up' && <TrendingUp className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />}
@@ -438,7 +393,6 @@ export default function Dashboard() {
                             <p className="text-sm font-bold text-slate-900 leading-tight">{update.text}</p>
                           </div>
                           
-                          {/* The Toggle Button */}
                           <button 
                             onClick={() => setExpandedEvidenceIdx(isExpanded ? null : idx)}
                             className="text-[11px] font-bold text-blue-600 hover:text-blue-800 transition-colors pl-6 self-start flex items-center gap-1 mt-1 cursor-pointer"
@@ -448,7 +402,6 @@ export default function Dashboard() {
                           </button>
                         </div>
 
-                        {/* Hidden Content (Expands on click) */}
                         {isExpanded && update.evidenceText && (
                           <div className="bg-slate-50/80 px-5 py-4 border-t border-slate-100 border-l-2 border-l-blue-400">
                             <p className="text-xs text-slate-600 font-medium italic leading-relaxed">
@@ -465,7 +418,6 @@ export default function Dashboard() {
 
             </div>
 
-            {/* Footer Buttons */}
             <div className="p-6 border-t border-slate-200/60 bg-white flex flex-col gap-3">
               <button 
                 onClick={() => router.push(`/build-thesis/${reviewCompany.ticker}`)}
