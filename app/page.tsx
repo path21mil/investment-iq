@@ -3,10 +3,56 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Search, Loader2, ArrowRight, ArrowDown } from 'lucide-react';
+import { Search, Loader2, ArrowRight, Star, ShieldCheck, Activity, BookOpen, Circle } from 'lucide-react';
 
 // Pool of tickers to randomly cycle through
 const TICKER_POOL = ['NVDA', 'MSFT', 'TSLA', 'COST', 'AAPL', 'AMZN', 'GOOGL', 'META', 'NFLX', 'CRM', 'PLTR', 'AMD'];
+
+// Mock dataset for the interactive landing page pills
+const DEMO_COMPANIES = {
+  AAPL: {
+    name: 'Apple Inc.',
+    ticker: 'AAPL',
+    sector: 'Consumer Electronics',
+    thesis: 'Strengthening',
+    thesisColor: 'emerald',
+    overallAssessment: 'Apple remains a high-quality business with a durable ecosystem, strong capital allocation, and resilient cash generation.',
+    pillars: { quality: 'Excellent', management: 'Trusted', valuation: 'Premium', understandability: 'Easy' },
+    changes: [
+      { text: 'Services revenue accelerated', sub: 'Supports long-term margin expansion.', status: 'positive' },
+      { text: 'Installed base reached a new high', sub: 'Strengthens ecosystem moat.', status: 'positive' },
+      { text: 'China demand remains soft', sub: 'Worth monitoring next quarter.', status: 'warning' },
+    ]
+  },
+  NVDA: {
+    name: 'NVIDIA Corp.',
+    ticker: 'NVDA',
+    sector: 'Semiconductors',
+    thesis: 'Strengthening',
+    thesisColor: 'emerald',
+    overallAssessment: 'NVIDIA maintains an unparalleled moat in AI hardware, backed by accelerating hyperscaler capex and flawless execution.',
+    pillars: { quality: 'Exceptional', management: 'Visionary', valuation: 'High', understandability: 'Moderate' },
+    changes: [
+      { text: 'Data Center revenue up 112% YoY', sub: 'Hyperscale demand remains unsated.', status: 'positive' },
+      { text: 'Blackwell architecture shipping at scale', sub: 'Secures 2-year technical lead.', status: 'positive' },
+      { text: 'Export restriction risks elevated', sub: 'Potential headwinds in restricted regions.', status: 'warning' },
+    ]
+  },
+  MSFT: {
+    name: 'Microsoft Corp.',
+    ticker: 'MSFT',
+    sector: 'Enterprise Software',
+    thesis: 'Stable',
+    thesisColor: 'blue',
+    overallAssessment: 'Microsoft continues to successfully monetize its enterprise AI investments, though heavy capex requires monitoring.',
+    pillars: { quality: 'Excellent', management: 'Top-Tier', valuation: 'Fair', understandability: 'Easy' },
+    changes: [
+      { text: 'Azure AI ARR exceeded $10B milestone', sub: 'Monetization strategy validated.', status: 'positive' },
+      { text: 'Office 365 Copilot adoption expanding', sub: 'Higher ARPU across enterprise tier.', status: 'positive' },
+      { text: 'Capital expenditure increased sharply', sub: 'Heavy investment in AI datacenter infrastructure.', status: 'neutral' },
+    ]
+  }
+};
 
 export default function Home() {
   const router = useRouter();
@@ -16,10 +62,13 @@ export default function Home() {
   const [isSearching, setIsSearching] = useState(false);
   const [loadingText, setLoadingText] = useState('');
   const [popularSearches, setPopularSearches] = useState<string[]>(['NVDA', 'MSFT', 'TSLA', 'COST']);
+  
+  // State for the interactive concept card
+  const [selectedTicker, setSelectedTicker] = useState<keyof typeof DEMO_COMPANIES>('AAPL');
+  const activeData = DEMO_COMPANIES[selectedTicker];
 
   // Rotate popular searches every 5 seconds for a dynamic feel
   useEffect(() => {
-    // Initial shuffle on mount to prevent hydration errors
     setPopularSearches([...TICKER_POOL].sort(() => 0.5 - Math.random()).slice(0, 4));
 
     const interval = setInterval(() => {
@@ -41,23 +90,27 @@ export default function Home() {
     if (searchQuery.trim()) {
       setIsSearching(true);
       
-      // Simulate the AI "thinking" for a premium feel
       for (let i = 0; i < loadingSteps.length; i++) {
         setLoadingText(loadingSteps[i]);
-        await new Promise(r => setTimeout(r, 600)); // 600ms per step
+        await new Promise(r => setTimeout(r, 600)); 
       }
       
       router.push(`/company/${searchQuery.trim().toUpperCase()}`);
     }
   };
 
+  const getBadgeStyles = (color: string) => {
+    if (color === 'blue') return 'bg-blue-50 border-blue-200/60 text-blue-800';
+    return 'bg-emerald-50 border-emerald-200/60 text-emerald-800';
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col font-sans overflow-x-hidden">
+    <div className="min-h-screen bg-slate-50 flex flex-col font-sans overflow-x-hidden">
       
       {/* 1. TOP NAVIGATION */}
-      <nav className="bg-white border-b border-gray-200">
+      <nav className="bg-white/90 backdrop-blur-md border-b border-slate-200/60 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-          <div className="font-extrabold text-xl tracking-tight text-gray-900 flex items-center gap-2">
+          <div className="font-extrabold text-xl tracking-tight text-slate-900 flex items-center gap-2">
             Investment IQ
             <span className="flex gap-0.5">
               <span className="w-1 h-2.5 bg-blue-600 rounded-full"></span>
@@ -66,7 +119,7 @@ export default function Home() {
             </span>
           </div>
           <div className="flex items-center gap-4 md:gap-6">
-            <Link href="/login" className="text-sm font-bold text-gray-600 hover:text-gray-900 transition-colors hidden sm:block">
+            <Link href="/login" className="text-sm font-bold text-slate-600 hover:text-slate-900 transition-colors hidden sm:block">
               Sign In
             </Link>
             <Link href="/login" className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold px-4 md:px-5 py-2 md:py-2.5 rounded-xl transition-colors shadow-sm">
@@ -77,26 +130,29 @@ export default function Home() {
       </nav>
 
       {/* 2. HERO SECTION */}
-      <main className="flex-grow flex flex-col items-center pt-16 md:pt-24 pb-10 px-6">
+      <main className="flex-grow flex flex-col items-center pt-16 md:pt-24 pb-10 px-6 relative">
         
+        {/* Background Glow */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-blue-100/40 rounded-full blur-[100px] pointer-events-none -z-10"></div>
+
         {/* The Hook & The Who */}
         <div className="text-center max-w-4xl mx-auto mb-10">
-          <h1 className="text-4xl md:text-6xl font-extrabold text-gray-900 tracking-tight leading-tight mb-6">
+          <h1 className="text-4xl md:text-6xl font-extrabold text-slate-900 tracking-tight leading-tight mb-6">
             Don't just buy stocks. <br className="hidden md:block"/> 
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">Track your conviction.</span>
           </h1>
-          <p className="text-lg md:text-xl text-gray-900 font-bold mb-3">
+          <p className="text-lg md:text-xl text-slate-900 font-bold mb-3">
             Built for long-term investors who buy businesses—not charts.
           </p>
-          <p className="text-base md:text-lg text-gray-500 font-medium leading-relaxed px-4 md:px-0">
+          <p className="text-base md:text-lg text-slate-500 font-medium leading-relaxed px-4 md:px-0 max-w-2xl mx-auto">
             Investment IQ helps you understand great businesses, build your investment thesis, record why you invested, and use AI to identify what has changed since you invested.
           </p>
         </div>
 
-        {/* The Contextual Search Bar with Animation (Removed text above it) */}
+        {/* The Contextual Search Bar */}
         <div className="w-full max-w-2xl mx-auto mb-12 relative z-10">
           <form onSubmit={handleSearch} className="relative group mt-4">
-            <div className="absolute inset-y-0 left-0 pl-4 md:pl-5 flex items-center pointer-events-none text-gray-400 group-focus-within:text-blue-500 transition-colors">
+            <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-blue-500 transition-colors">
               <Search className="w-5 h-5 md:w-6 md:h-6" />
             </div>
             <input
@@ -105,12 +161,12 @@ export default function Home() {
               onChange={(e) => setSearchQuery(e.target.value)}
               disabled={isSearching}
               placeholder="Search company or ticker (e.g. Apple or AAPL)"
-              className="w-full bg-white border-2 border-gray-200 rounded-2xl py-4 md:py-5 pl-12 md:pl-14 pr-[130px] md:pr-[180px] text-gray-900 text-base md:text-lg font-bold placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-50 transition-all shadow-lg hover:shadow-xl disabled:bg-gray-50 disabled:text-gray-400"
+              className="w-full bg-white border-2 border-slate-200/80 rounded-2xl py-4 md:py-5 pl-14 pr-[130px] md:pr-[180px] text-slate-900 text-base md:text-lg font-bold placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-50 transition-all shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] disabled:bg-slate-50 disabled:text-slate-400"
             />
             <button 
               type="submit"
               disabled={isSearching}
-              className="absolute right-2 md:right-3 top-2 md:top-3 bottom-2 md:bottom-3 bg-gray-900 hover:bg-gray-800 disabled:bg-gray-400 text-white font-bold px-4 md:px-6 rounded-xl transition-all cursor-pointer text-sm md:text-base whitespace-nowrap flex items-center gap-2"
+              className="absolute right-2 md:right-3 top-2 md:top-3 bottom-2 md:bottom-3 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-400 text-white font-bold px-4 md:px-6 rounded-xl transition-all cursor-pointer text-sm md:text-base whitespace-nowrap flex items-center gap-2 shadow-sm"
             >
               {isSearching ? (
                 <>
@@ -130,10 +186,10 @@ export default function Home() {
                 {loadingText}
               </span>
             ) : (
-              <div className="flex flex-wrap items-center justify-center gap-2 md:gap-3 text-xs md:text-sm font-medium text-gray-400 transition-opacity duration-500">
-                <span className="hidden sm:inline font-bold text-gray-500">Popular Searches:</span>
+              <div className="flex flex-wrap items-center justify-center gap-2 md:gap-3 text-xs md:text-sm font-medium text-slate-400 transition-opacity duration-500">
+                <span className="hidden sm:inline font-bold text-slate-500">Popular Searches:</span>
                 {popularSearches.map(t => (
-                  <button key={t} onClick={() => router.push(`/company/${t}`)} className="bg-white border border-gray-200 px-3 py-1 rounded-lg hover:border-blue-300 hover:text-blue-600 transition-all cursor-pointer">
+                  <button key={t} onClick={() => router.push(`/company/${t}`)} className="bg-white border border-slate-200/80 px-3 py-1 rounded-lg hover:border-blue-300 hover:text-blue-600 shadow-sm transition-all cursor-pointer">
                     {t}
                   </button>
                 ))}
@@ -142,184 +198,196 @@ export default function Home() {
           </div>
         </div>
 
-        {/* The Credibility Strip (Now styled as a full-width banner) */}
-       {/* The Credibility Strip (Floating Pill Design) */}
+        {/* The Credibility Strip */}
         <div className="w-full mt-12 mb-32 relative z-10 flex flex-col items-center px-4">
-          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-5">
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-5">
             Research powered by primary sources
           </p>
           <div className="flex flex-wrap justify-center items-center gap-3 md:gap-4">
-            <div className="bg-white border border-gray-200 shadow-sm px-4 py-2 rounded-full text-xs md:text-sm font-bold text-gray-600 hover:border-blue-200 hover:text-blue-600 hover:shadow-md transition-all cursor-default flex items-center gap-2">
-              <span className="text-gray-300">✓</span> SEC Filings
+            <div className="bg-white border border-slate-200/60 shadow-[0_2px_10px_rgb(0,0,0,0.02)] px-4 py-2 rounded-full text-xs md:text-sm font-bold text-slate-600 flex items-center gap-2">
+              <span className="text-emerald-500">✓</span> SEC Filings
             </div>
-            <div className="bg-white border border-gray-200 shadow-sm px-4 py-2 rounded-full text-xs md:text-sm font-bold text-gray-600 hover:border-blue-200 hover:text-blue-600 hover:shadow-md transition-all cursor-default flex items-center gap-2">
-              <span className="text-gray-300">✓</span> Earnings Reports
+            <div className="bg-white border border-slate-200/60 shadow-[0_2px_10px_rgb(0,0,0,0.02)] px-4 py-2 rounded-full text-xs md:text-sm font-bold text-slate-600 flex items-center gap-2">
+              <span className="text-emerald-500">✓</span> Earnings Reports
             </div>
-            <div className="bg-white border border-gray-200 shadow-sm px-4 py-2 rounded-full text-xs md:text-sm font-bold text-gray-600 hover:border-blue-200 hover:text-blue-600 hover:shadow-md transition-all cursor-default flex items-center gap-2">
-              <span className="text-gray-300">✓</span> Financial Statements
+            <div className="bg-white border border-slate-200/60 shadow-[0_2px_10px_rgb(0,0,0,0.02)] px-4 py-2 rounded-full text-xs md:text-sm font-bold text-slate-600 flex items-center gap-2">
+              <span className="text-emerald-500">✓</span> Financial Statements
             </div>
-            <div className="bg-white border border-gray-200 shadow-sm px-4 py-2 rounded-full text-xs md:text-sm font-bold text-gray-600 hover:border-blue-200 hover:text-blue-600 hover:shadow-md transition-all cursor-default flex items-center gap-2">
-              <span className="text-gray-300">✓</span> Management Commentary
+            <div className="bg-white border border-slate-200/60 shadow-[0_2px_10px_rgb(0,0,0,0.02)] px-4 py-2 rounded-full text-xs md:text-sm font-bold text-slate-600 flex items-center gap-2">
+              <span className="text-emerald-500">✓</span> Management Commentary
             </div>
           </div>
         </div>
 
         {/* 3. THE "WHY" (The Pain Points) */}
         <div className="w-full max-w-5xl mx-auto mb-20 relative z-10">
-          
-          {/* New Punchy Header with massive breathing room */}
           <div className="text-center mb-14 px-4">
-            <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900 tracking-tight">Never lose track of why you invested</h2>
+            <h2 className="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight">Never lose track of why you invested</h2>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-10">
-            <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col text-center items-center hover:shadow-md transition-shadow">
-              <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center text-xl mb-4">🧠</div>
-              <h3 className="text-lg font-bold text-gray-900 mb-2">Remember Why You Invested</h3>
-              <p className="text-gray-500 text-sm font-medium">Record exactly why you bought a stock. Never panic sell because of short-term price moves.</p>
+            <div className="bg-white p-8 rounded-3xl border border-slate-200/60 shadow-[0_8px_30px_rgb(0,0,0,0.03)] flex flex-col text-center items-center hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-all">
+              <div className="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center text-2xl mb-5">🧠</div>
+              <h3 className="text-lg font-bold text-slate-900 mb-2">Remember Why You Invested</h3>
+              <p className="text-slate-500 text-sm font-medium leading-relaxed">Record exactly why you bought a stock. Never panic sell because of short-term price moves.</p>
             </div>
-            <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col text-center items-center hover:shadow-md transition-shadow">
-              <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center text-xl mb-4">🤖</div>
-              <h3 className="text-lg font-bold text-gray-900 mb-2">AI Monitors Every Update</h3>
-              <p className="text-gray-500 text-sm font-medium">Investment IQ reads every earnings report, SEC filing, and management commentary while you sleep.</p>
+            <div className="bg-white p-8 rounded-3xl border border-slate-200/60 shadow-[0_8px_30px_rgb(0,0,0,0.03)] flex flex-col text-center items-center hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-all">
+              <div className="w-14 h-14 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center text-2xl mb-5">🤖</div>
+              <h3 className="text-lg font-bold text-slate-900 mb-2">AI Monitors Every Update</h3>
+              <p className="text-slate-500 text-sm font-medium leading-relaxed">Investment IQ reads every earnings report, SEC filing, and management commentary while you sleep.</p>
             </div>
-            <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col text-center items-center hover:shadow-md transition-shadow">
-              <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center text-xl mb-4">📈</div>
-              <h3 className="text-lg font-bold text-gray-900 mb-2">Know When Your Thesis Changes</h3>
-              <p className="text-gray-500 text-sm font-medium">See instantly whether your original reasons for investing are fundamentally strengthening or breaking.</p>
+            <div className="bg-white p-8 rounded-3xl border border-slate-200/60 shadow-[0_8px_30px_rgb(0,0,0,0.03)] flex flex-col text-center items-center hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-all">
+              <div className="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center text-2xl mb-5">📈</div>
+              <h3 className="text-lg font-bold text-slate-900 mb-2">Know When Your Thesis Changes</h3>
+              <p className="text-slate-500 text-sm font-medium leading-relaxed">See instantly whether your original reasons for investing are fundamentally strengthening or breaking.</p>
             </div>
           </div>
         </div>
 
-  {/* 4. THE VISUAL PROOF (Apple Card Preview) */}
-        <div className="w-full max-w-4xl mx-auto mb-10 relative px-4 md:px-0 z-10">
+        {/* 4. THE VISUAL PROOF (INTERACTIVE PREVIEW CARD) */}
+        <div className="w-full max-w-3xl mx-auto mb-10 relative px-4 md:px-0 z-10">
           
-          {/* Enhanced Decorative Glow */}
-          <div className="absolute -inset-1 bg-gradient-to-r from-blue-200 via-indigo-100 to-emerald-100 rounded-[2.5rem] md:rounded-[3.5rem] blur-3xl opacity-60 mix-blend-multiply"></div>
+          <div className="absolute -inset-4 bg-gradient-to-r from-blue-100/50 via-indigo-50/50 to-emerald-100/50 rounded-[3rem] blur-2xl -z-10 pointer-events-none"></div>
 
-          {/* Card Container with subtle glass-morphism */}
-          <div className="relative bg-white/95 backdrop-blur-xl p-6 md:p-10 rounded-3xl border border-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col gap-8">
+          {/* MANUAL SELECTION PILLS */}
+          <div className="flex items-center justify-center gap-2 mb-8 flex-wrap">
+            {Object.keys(DEMO_COMPANIES).map((ticker) => {
+              const isActive = selectedTicker === ticker;
+              return (
+                <button
+                  key={ticker}
+                  onClick={() => setSelectedTicker(ticker as keyof typeof DEMO_COMPANIES)}
+                  className={`px-5 py-2.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                    isActive
+                      ? 'bg-slate-900 text-white shadow-md scale-105'
+                      : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/80'
+                  }`}
+                >
+                  {DEMO_COMPANIES[ticker as keyof typeof DEMO_COMPANIES].name.split(' ')[0]} ({ticker})
+                </button>
+              );
+            })}
+          </div>
 
-            {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-100 pb-8">
-              <div className="flex items-center gap-4">
-                {/* SVG Apple Logo (Will never break on Windows) */}
-                <div className="w-14 h-14 bg-gray-900 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-gray-900/20 shrink-0">
-                  <svg viewBox="0 0 384 512" className="w-6 h-6 fill-current" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z"></path>
-                  </svg>
+          <div className="bg-white rounded-[2rem] border border-slate-200/80 shadow-[0_20px_50px_rgba(0,0,0,0.06)] overflow-hidden font-sans transition-all duration-300">
+            
+            {/* 1. PREMIUM HEADER */}
+            <div className="p-8 pb-6 flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div>
+                <div className="flex items-center gap-3">
+                  <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">{activeData.name}</h2>
+                  <span className="text-xs font-bold text-slate-500 bg-slate-100 border border-slate-200/80 px-2.5 py-1 rounded-md">{activeData.ticker}</span>
                 </div>
-                <div>
-                  <h2 className="text-2xl font-extrabold text-gray-900 tracking-tight">Apple Inc.</h2>
-                  <p className="text-xs md:text-sm text-gray-500 font-bold uppercase tracking-wider">AAPL • Consumer Electronics</p>
-                </div>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-2">{activeData.sector}</p>
               </div>
-              <div className="inline-flex px-4 py-2 bg-emerald-50/80 text-emerald-700 rounded-xl font-bold text-sm items-center justify-center gap-2 border border-emerald-100 w-full md:w-auto shadow-sm">
-                <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.6)]"></span>
-                Thesis: Strengthening
+
+              <div className={`inline-flex items-center border px-4 py-2 rounded-full self-start md:self-auto ${getBadgeStyles(activeData.thesisColor)}`}>
+                <span className="text-xs font-extrabold uppercase tracking-wider flex items-center gap-1.5">
+                  <span className="animate-pulse text-[10px]">●</span> Thesis {activeData.thesis}
+                </span>
               </div>
             </div>
 
-            {/* Stats 2x2 Grid */}
-            <div className="grid grid-cols-2 gap-3 md:gap-4">
-              <div className="bg-gradient-to-b from-gray-50 to-white p-4 md:p-5 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
-                <p className="text-[10px] md:text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Business Quality</p>
-                <p className="font-extrabold text-gray-900 flex items-center gap-2 text-sm md:text-base">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]"></span> Excellent
-                </p>
-              </div>
-              <div className="bg-gradient-to-b from-gray-50 to-white p-4 md:p-5 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
-                <p className="text-[10px] md:text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Management</p>
-                <p className="font-extrabold text-gray-900 flex items-center gap-2 text-sm md:text-base">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]"></span> Trusted
-                </p>
-              </div>
-              <div className="bg-gradient-to-b from-gray-50 to-white p-4 md:p-5 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
-                <p className="text-[10px] md:text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Valuation</p>
-                <p className="font-extrabold text-gray-900 flex items-center gap-2 text-sm md:text-base">
-                  <span className="w-2.5 h-2.5 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.8)]"></span> Premium
-                </p>
-              </div>
-              <div className="bg-gradient-to-b from-gray-50 to-white p-4 md:p-5 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
-                <p className="text-[10px] md:text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Understandability</p>
-                <p className="font-extrabold text-gray-900 flex items-center gap-2 text-sm md:text-base">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]"></span> Easy
-                </p>
+            {/* 2. THE METRICS RIBBON */}
+            <div className="bg-slate-50/50 border-y border-slate-100">
+              <div className="grid grid-cols-2 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-slate-200/60">
+                <div className="p-5 flex flex-col justify-center">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+                    <Star className="w-3 h-3" /> Quality
+                  </p>
+                  <p className="text-sm font-extrabold text-slate-900">
+                    {activeData.pillars.quality}
+                  </p>
+                </div>
+                <div className="p-5 flex flex-col justify-center">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+                    <ShieldCheck className="w-3 h-3" /> Management
+                  </p>
+                  <p className="text-sm font-extrabold text-slate-900">
+                    {activeData.pillars.management}
+                  </p>
+                </div>
+                <div className="p-5 flex flex-col justify-center">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+                    <Activity className="w-3 h-3" /> Valuation
+                  </p>
+                  <p className="text-sm font-extrabold text-slate-900">
+                    {activeData.pillars.valuation}
+                  </p>
+                </div>
+                <div className="p-5 flex flex-col justify-center">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+                    <BookOpen className="w-3 h-3" /> Clarity
+                  </p>
+                  <p className="text-sm font-extrabold text-slate-900">
+                    {activeData.pillars.understandability}
+                  </p>
+                </div>
               </div>
             </div>
 
-            {/* Latest Changes List */}
-            <div>
-              <p className="text-[10px] md:text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Latest Changes</p>
-              <div className="flex flex-col gap-3">
-                
-                {/* Positive Item 1 */}
-                <div className="group flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 p-4 rounded-xl border bg-white border-gray-100 transition-all hover:shadow-md hover:border-blue-100 cursor-default">
-                  <div className="flex items-start gap-3">
-                    <div className="mt-1.5 w-2 h-2 rounded-full shrink-0 bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]"></div>
+            {/* 3. OVERALL ASSESSMENT */}
+            <div className="px-8 py-6 border-b border-slate-100 bg-white">
+              <h3 className="text-[11px] font-extrabold text-slate-400 uppercase tracking-widest mb-2">Overall Assessment</h3>
+              <p className="text-sm font-medium text-slate-800 leading-relaxed">
+                {activeData.overallAssessment}
+              </p>
+            </div>
+
+            {/* 4. LATEST CHANGES ACTIVITY FEED */}
+            <div className="p-8">
+              <h3 className="text-[11px] font-extrabold text-slate-400 uppercase tracking-widest mb-5">What Changed Since Last Earnings</h3>
+              
+              <div className="space-y-3">
+                {activeData.changes.map((item, idx) => (
+                  <div 
+                    key={idx}
+                    className={`p-4 rounded-xl border flex items-start gap-3 transition-all ${
+                      item.status === 'warning' 
+                        ? 'bg-amber-50/50 border-amber-200/60' 
+                        : 'bg-white border-slate-100 hover:border-slate-200 shadow-sm'
+                    }`}
+                  >
+                    <div className="mt-1">
+                      {item.status === 'warning' ? (
+                        <span className="text-amber-500 font-bold text-xs">⚠</span>
+                      ) : item.status === 'neutral' ? (
+                        <span className="text-slate-400 font-bold text-xs">—</span>
+                      ) : (
+                        <Circle className="w-2.5 h-2.5 fill-emerald-500 text-emerald-500 mt-1" />
+                      )}
+                    </div>
                     <div>
-                      <p className="text-sm font-bold text-gray-900 mb-0.5 group-hover:text-blue-600 transition-colors">Services revenue accelerated</p>
-                      <p className="text-xs font-medium text-gray-500">Supports long-term growth.</p>
+                      <p className={`text-sm font-bold mb-0.5 ${item.status === 'warning' ? 'text-amber-950' : 'text-slate-900'}`}>
+                        {item.text}
+                      </p>
+                      <p className={`text-xs font-medium ${item.status === 'warning' ? 'text-amber-700/80' : 'text-slate-500'}`}>
+                        {item.sub}
+                      </p>
                     </div>
                   </div>
-                  <span className="text-[11px] italic text-gray-400 pl-5 sm:pl-0 whitespace-nowrap">Updated 2 days ago</span>
-                </div>
-
-                {/* Positive Item 2 */}
-                <div className="group flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 p-4 rounded-xl border bg-white border-gray-100 transition-all hover:shadow-md hover:border-blue-100 cursor-default">
-                  <div className="flex items-start gap-3">
-                    <div className="mt-1.5 w-2 h-2 rounded-full shrink-0 bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]"></div>
-                    <div>
-                      <p className="text-sm font-bold text-gray-900 mb-0.5 group-hover:text-blue-600 transition-colors">Installed base reached new high</p>
-                      <p className="text-xs font-medium text-gray-500">Strengthens ecosystem moat.</p>
-                    </div>
-                  </div>
-                  <span className="text-[11px] italic text-gray-400 pl-5 sm:pl-0 whitespace-nowrap">Updated 5 days ago</span>
-                </div>
-
-                {/* Positive Item 3 */}
-                <div className="group flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 p-4 rounded-xl border bg-white border-gray-100 transition-all hover:shadow-md hover:border-blue-100 cursor-default">
-                  <div className="flex items-start gap-3">
-                    <div className="mt-1.5 w-2 h-2 rounded-full shrink-0 bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]"></div>
-                    <div>
-                      <p className="text-sm font-bold text-gray-900 mb-0.5 group-hover:text-blue-600 transition-colors">Share buybacks continued</p>
-                      <p className="text-xs font-medium text-gray-500">Management allocating capital well.</p>
-                    </div>
-                  </div>
-                  <span className="text-[11px] italic text-gray-400 pl-5 sm:pl-0 whitespace-nowrap">Updated 1 week ago</span>
-                </div>
-
-                {/* Warning Item */}
-                <div className="group flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 p-4 rounded-xl border bg-gradient-to-r from-amber-50/50 to-white border-amber-100/80 transition-all hover:shadow-md hover:border-amber-300 cursor-default">
-                  <div className="flex items-start gap-3">
-                    <div className="mt-1.5 w-2 h-2 rounded-full shrink-0 bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.8)] group-hover:animate-pulse"></div>
-                    <div>
-                      <p className="text-sm font-bold text-gray-900 mb-0.5 group-hover:text-amber-700 transition-colors">China demand remains soft</p>
-                      <p className="text-xs font-medium text-amber-700/70">Worth monitoring next earnings.</p>
-                    </div>
-                  </div>
-                  <span className="text-[11px] italic text-gray-400 pl-5 sm:pl-0 whitespace-nowrap">Updated 1 week ago</span>
-                </div>
-
+                ))}
               </div>
             </div>
 
-            {/* Footer Button */}
-            <button onClick={() => router.push('/company/AAPL')} className="w-full bg-gray-900 hover:bg-gray-800 text-white font-extrabold py-4 rounded-xl transition-all flex items-center justify-center gap-2 shadow-[0_8px_20px_rgb(0,0,0,0.12)] hover:shadow-[0_8px_25px_rgb(0,0,0,0.2)] group mt-2 border border-gray-800">
-              Research Snapshot <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-            </button>
-
+            {/* 5. PREMIUM FOOTER ACTION */}
+            <div className="p-6 bg-slate-50/80 border-t border-slate-100">
+              <button 
+                onClick={() => router.push(`/company/${activeData.ticker}`)}
+                className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-4 rounded-xl transition-all shadow-[0_4px_14px_rgb(0,0,0,0.1)] hover:shadow-[0_6px_20px_rgb(0,0,0,0.15)] flex items-center justify-center gap-2 text-sm group cursor-pointer"
+              >
+                View Full Research <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              </button>
+            </div>
           </div>
         </div>
-
-        
       </main>
       
       {/* 6. EXPANDED FOOTER */}
-      <footer className="w-full border-t border-gray-200 pt-16 pb-8 bg-white">
+      <footer className="w-full border-t border-slate-200/60 pt-16 pb-8 bg-white mt-auto">
         <div className="max-w-6xl mx-auto px-6 grid grid-cols-1 md:grid-cols-4 gap-8 mb-12 text-sm">
           <div className="col-span-1 md:col-span-2">
-            <div className="font-extrabold text-xl text-gray-900 flex items-center gap-2 mb-4">
+            <div className="font-extrabold text-xl text-slate-900 flex items-center gap-2 mb-4">
               Investment IQ
               <span className="flex gap-0.5 opacity-50">
                 <span className="w-1 h-2.5 bg-blue-600 rounded-full"></span>
@@ -327,29 +395,29 @@ export default function Home() {
                 <span className="w-1 h-5 bg-blue-600 rounded-full"></span>
               </span>
             </div>
-            <p className="text-gray-500 font-medium max-w-sm">
+            <p className="text-slate-500 font-medium max-w-sm leading-relaxed">
               The AI-powered journal for long-term investors. Track your conviction, not just price charts.
             </p>
           </div>
           <div>
-            <h4 className="font-bold text-gray-900 mb-4">Product</h4>
-            <ul className="space-y-3 text-gray-500 font-medium">
+            <h4 className="font-bold text-slate-900 mb-4">Product</h4>
+            <ul className="space-y-3 text-slate-500 font-medium">
               <li><button className="hover:text-blue-600 transition-colors">Research</button></li>
               <li><button className="hover:text-blue-600 transition-colors">Pricing</button></li>
               <li><button className="hover:text-blue-600 transition-colors">About</button></li>
             </ul>
           </div>
           <div>
-            <h4 className="font-bold text-gray-900 mb-4">Legal & Social</h4>
-            <ul className="space-y-3 text-gray-500 font-medium">
+            <h4 className="font-bold text-slate-900 mb-4">Legal & Social</h4>
+            <ul className="space-y-3 text-slate-500 font-medium">
               <li><button className="hover:text-blue-600 transition-colors">Privacy Policy</button></li>
               <li><button className="hover:text-blue-600 transition-colors">Terms of Service</button></li>
               <li><button className="hover:text-blue-600 transition-colors">Twitter / X</button></li>
             </ul>
           </div>
         </div>
-        <div className="max-w-6xl mx-auto px-6 pt-8 border-t border-gray-100 flex flex-col md:flex-row justify-between items-center gap-4">
-          <p className="text-sm font-medium text-gray-400">© {new Date().getFullYear()} Investment IQ. For educational purposes only.</p>
+        <div className="max-w-6xl mx-auto px-6 pt-8 border-t border-slate-100 flex flex-col md:flex-row justify-between items-center gap-4">
+          <p className="text-sm font-medium text-slate-400">© {new Date().getFullYear()} Investment IQ. For educational purposes only.</p>
         </div>
       </footer>
     </div>
