@@ -3,7 +3,9 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
+import { Building2, TrendingUp, TrendingDown, Globe, ArrowLeft, Sparkles, Loader2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { getCompanyProfile } from '@/lib/fmp';
 
 // --- REUSABLE PROGRESSIVE DISCLOSURE COMPONENT ---
 function ProgressiveCard({ 
@@ -27,7 +29,6 @@ function ProgressiveCard({
 }) {
   const [isOpen, setIsOpen] = useState(false);
 
-  // Adjusted styles for a more premium glow and subtle borders
   const styles = {
     green: { bg: 'bg-emerald-50/80', text: 'text-emerald-700', ring: 'ring-emerald-600/20', icon: '🟢' },
     yellow: { bg: 'bg-amber-50/80', text: 'text-amber-700', ring: 'ring-amber-600/20', icon: '🟡' },
@@ -45,13 +46,9 @@ function ProgressiveCard({
   return (
     <div className="bg-white rounded-[24px] border border-gray-200 shadow-sm overflow-hidden transition-all hover:shadow-md hover:border-gray-300">
       <div className="p-6 md:p-8">
-        
-        {/* NEW HEADER: Question & Badge are now inline */}
         <div className="flex flex-col sm:flex-row sm:items-start md:items-center justify-between gap-4 mb-6">
-          
           <div className="flex flex-wrap items-center gap-3">
             <h3 className="text-lg md:text-xl font-extrabold text-gray-900">{question}</h3>
-            {/* Status Badge moved up here! */}
             <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ring-1 ring-inset ${activeStyle.bg} ${activeStyle.text} ${activeStyle.ring} shadow-sm`}>
               <span className="scale-110 drop-shadow-sm">{activeStyle.icon}</span> {statusText}
             </div>
@@ -71,7 +68,6 @@ function ProgressiveCard({
           </p>
         </div>
 
-        {/* NEW PREMIUM BUTTON */}
         <button 
           onClick={() => setIsOpen(!isOpen)}
           className="mt-6 inline-flex items-center gap-2 px-5 py-2.5 text-xs font-bold text-gray-600 bg-gray-50 hover:bg-blue-50 hover:text-blue-700 border border-gray-200 hover:border-blue-200 rounded-xl transition-all shadow-sm group cursor-pointer"
@@ -88,7 +84,6 @@ function ProgressiveCard({
         </button>
       </div>
 
-      {/* NEW ANIMATED EVIDENCE DRAWER */}
       <div 
         className={`overflow-hidden transition-all duration-300 ease-in-out ${
           isOpen ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0'
@@ -120,16 +115,26 @@ export default function CompanyOverviewPage() {
 
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [hasThesis, setHasThesis] = useState(false);
+  
+  // LIVE API STATES
+  const [profile, setProfile] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [headerSearch, setHeaderSearch] = useState('');
 
+  // AI BRAIN STATES
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [aiData, setAiData] = useState<any>(null);
+
   useEffect(() => {
     async function initializeOverview() {
-      const { data: { session } } = await supabase.auth.getSession();
+      setIsLoading(true);
       
+      const liveData = await getCompanyProfile(ticker);
+      setProfile(liveData);
+
+      const { data: { session } } = await supabase.auth.getSession();
       if (session) {
         setIsLoggedIn(true);
-        // Checking if they have a thesis to update the UI badges
         const { data: thesis } = await supabase
           .from('theses')
           .select('id')
@@ -169,6 +174,30 @@ export default function CompanyOverviewPage() {
     }
   };
 
+  // --- NEW: CALLING THE AI BACKEND ---
+  const generateAIResearch = async () => {
+    if (!profile) return;
+    setIsAnalyzing(true);
+    
+    try {
+      const response = await fetch('/api/research', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ticker: profile.symbol, companyName: profile.companyName })
+      });
+      
+      const data = await response.json();
+      if (data) {
+        setAiData(data);
+      }
+    } catch (error) {
+      console.error("Error generating AI research:", error);
+    }
+    
+    setIsAnalyzing(false);
+  };
+
+  // --- LOADING STATE ---
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -176,6 +205,24 @@ export default function CompanyOverviewPage() {
       </div>
     );
   }
+
+  // --- ERROR STATE ---
+  if (!profile) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center font-sans text-slate-500">
+        <div className="w-16 h-16 bg-slate-200 rounded-2xl flex items-center justify-center mb-4">
+          <Globe className="w-8 h-8 text-slate-400" />
+        </div>
+        <h1 className="text-2xl font-extrabold text-slate-900 mb-2">Company Not Found</h1>
+        <p className="font-medium mb-6">We couldn't find live data for the ticker "{ticker}".</p>
+        <button onClick={() => router.back()} className="text-blue-600 font-bold hover:text-blue-800 transition-colors flex items-center gap-2">
+          <ArrowLeft className="w-4 h-4" /> Go back
+        </button>
+      </div>
+    );
+  }
+
+  const isPositiveChange = profile.changes >= 0;
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans text-gray-900 pb-24">
@@ -233,29 +280,81 @@ export default function CompanyOverviewPage() {
 
       <main className="max-w-6xl mx-auto px-6 pt-10">
         
-        {/* EXECUTIVE SUMMARY HERO */}
-        <div className="mb-10">
-          <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
-            <div className="flex items-center gap-3">
-              <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-gray-900">{ticker} Research Snapshot</h1>
-              <span className="bg-blue-100 text-blue-700 text-[10px] md:text-xs font-bold px-2.5 py-1 rounded-md uppercase tracking-wider hidden sm:block">Alpha Research</span>
+        {/* --- LIVE API COMPANY HERO --- */}
+        <div className="bg-white rounded-3xl border border-slate-200/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-8 md:p-10 mb-8">
+          <div className="flex flex-col md:flex-row md:items-start justify-between gap-8">
+            <div className="flex items-start gap-6">
+              <div className="w-20 h-20 bg-white border border-slate-100 rounded-2xl flex items-center justify-center shadow-sm shrink-0 overflow-hidden relative">
+                {profile.image ? (
+                  <img src={profile.image} alt={`${profile.companyName} logo`} className="w-full h-full object-contain p-2" />
+                ) : (
+                  <Building2 className="w-8 h-8 text-slate-300" />
+                )}
+              </div>
+              
+              <div>
+                <h1 className="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight leading-tight mb-2">
+                  {profile.companyName}
+                </h1>
+                <div className="flex flex-wrap items-center gap-2 md:gap-3 text-xs md:text-sm font-bold text-slate-500">
+                  <span className="bg-slate-100 text-slate-700 px-2.5 py-1 rounded-md border border-slate-200/60">{profile.symbol}</span>
+                  <span>•</span>
+                  <span>{profile.exchangeShortName}</span>
+                  <span>•</span>
+                  <span>{profile.sector || 'Equities'}</span>
+                </div>
+              </div>
             </div>
 
-            <div className="flex items-center gap-3">
-              {isLoggedIn && hasThesis && (
-                <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm">
-                  <span>🟢</span> Thesis Strengthening
-                </div>
-              )}
-              <button 
-                onClick={scrollToThesis}
-                className="flex items-center gap-1.5 bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer"
-              >
-                ↓ Jump to Thesis Engine
-              </button>
+            <div className="text-left md:text-right flex flex-row md:flex-col items-end justify-between md:justify-start w-full md:w-auto border-t md:border-t-0 border-slate-100 pt-6 md:pt-0 mt-2 md:mt-0">
+              <div className="flex items-center gap-3 mb-1.5 hidden md:flex justify-end">
+                {isLoggedIn && hasThesis && (
+                  <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 px-3 py-1 rounded-xl text-[10px] font-bold flex items-center gap-1.5 shadow-sm uppercase tracking-wider">
+                    <span>🟢</span> Thesis Strengthening
+                  </div>
+                )}
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Current Price</p>
+              </div>
+              
+              <p className="text-4xl font-extrabold text-slate-900 tracking-tight">
+                ${profile.price?.toFixed(2)}
+              </p>
+              <div className={`flex items-center gap-1.5 text-sm font-bold mt-1 justify-end ${isPositiveChange ? 'text-emerald-600' : 'text-rose-600'}`}>
+                {isPositiveChange ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
+                <span>{profile.changes > 0 ? '+' : ''}{profile.changes?.toFixed(2)}</span>
+                <span className="opacity-70">({profile.changes > 0 ? '+' : ''}{((profile.changes / (profile.price - profile.changes)) * 100).toFixed(2)}%)</span>
+              </div>
             </div>
           </div>
-          
+        </div>
+
+        {/* --- AI GENERATION TRIGGER --- */}
+        {!aiData && (
+          <div className="mb-8 bg-blue-50/50 border border-blue-100 rounded-3xl p-8 flex flex-col md:flex-row items-center justify-between gap-6 shadow-sm">
+            <div>
+              <h2 className="text-xl font-extrabold text-blue-950 mb-2 flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-blue-600" /> AI Fundamental Analysis
+              </h2>
+              <p className="text-sm text-blue-800/80 font-medium max-w-xl">
+                Our AI engine will read the latest SEC filings, earnings calls, and management commentary to instantly evaluate {profile.companyName}'s moat, management, and valuation.
+              </p>
+            </div>
+            <button
+              onClick={generateAIResearch}
+              disabled={isAnalyzing}
+              className="w-full md:w-auto shrink-0 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-extrabold px-8 py-3.5 rounded-xl transition-all shadow-[0_4px_14px_rgba(37,99,235,0.25)] flex items-center justify-center gap-2 cursor-pointer"
+            >
+              {isAnalyzing ? (
+                <><Loader2 className="w-5 h-5 animate-spin" /> Analyzing 10-Q...</>
+              ) : (
+                <><Sparkles className="w-5 h-5" /> Generate Research</>
+              )}
+            </button>
+          </div>
+        )}
+        
+     {/* 4 PILLARS & OVERALL ASSESSMENT (DYNAMIC VIA AI) */}
+        <div className="mb-10">
           <div className="bg-white p-8 md:p-10 rounded-3xl border border-gray-200 shadow-sm">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-10 lg:gap-16">
               
@@ -269,7 +368,7 @@ export default function CompanyOverviewPage() {
                   </div>
                   
                   <p className="text-sm md:text-base text-gray-600 font-medium leading-relaxed">
-                    {ticker} remains one of the highest-quality businesses globally, supported by a structural AI moat, dominant developer ecosystem, and stellar margin expansion. The key factor for investors to monitor is sustained capital expenditure levels against premium valuation multiples.
+                    {aiData?.overallAssessment || `${profile.companyName} remains one of the highest-quality businesses globally, supported by a structural AI moat, dominant developer ecosystem, and stellar margin expansion.`}
                   </p>
                 </div>
 
@@ -277,17 +376,33 @@ export default function CompanyOverviewPage() {
                   <div>
                     <p className="text-[11px] font-bold text-green-700 uppercase tracking-wider mb-3">Key Strengths</p>
                     <div className="space-y-2">
-                      <p className="text-sm text-gray-700 font-medium flex gap-1.5"><span className="text-green-500 font-bold">✓</span> Wide Moat & Software Lock-in</p>
-                      <p className="text-sm text-gray-700 font-medium flex gap-1.5"><span className="text-green-500 font-bold">✓</span> Exceptional Operating Margins</p>
-                      <p className="text-sm text-gray-700 font-medium flex gap-1.5"><span className="text-green-500 font-bold">✓</span> Durable Cash Flow Generation</p>
+                      {/* CRASH FIX: Added the question mark (aiData?.strengths?.map) */}
+                      {aiData?.strengths ? aiData.strengths.map((strength: string, i: number) => (
+                        <p key={i} className="text-sm text-gray-700 font-medium flex gap-1.5"><span className="text-green-500 font-bold">✓</span> {strength}</p>
+                      )) : (
+                        <>
+                          <p className="text-sm text-gray-700 font-medium flex gap-1.5"><span className="text-green-500 font-bold">✓</span> Wide Moat & Software Lock-in</p>
+                          <p className="text-sm text-gray-700 font-medium flex gap-1.5"><span className="text-green-500 font-bold">✓</span> Exceptional Operating Margins</p>
+                          <p className="text-sm text-gray-700 font-medium flex gap-1.5"><span className="text-green-500 font-bold">✓</span> Durable Cash Flow Generation
+
+</p>
+                        </>
+                      )}
                     </div>
                   </div>
                   <div>
                     <p className="text-[11px] font-bold text-amber-700 uppercase tracking-wider mb-3">Watch Points</p>
                     <div className="space-y-2">
-                      <p className="text-sm text-gray-700 font-medium flex gap-1.5"><span className="text-amber-500 font-bold">⚠</span> Premium Historical Valuation</p>
-                      <p className="text-sm text-gray-700 font-medium flex gap-1.5"><span className="text-amber-500 font-bold">⚠</span> Export Control Restrictions</p>
-                      <p className="text-sm text-gray-700 font-medium flex gap-1.5"><span className="text-amber-500 font-bold">⚠</span> High Customer Concentration</p>
+                      {/* CRASH FIX: Added the question mark (aiData?.risks?.map) */}
+                      {aiData?.risks ? aiData.risks.map((risk: string, i: number) => (
+                        <p key={i} className="text-sm text-gray-700 font-medium flex gap-1.5"><span className="text-amber-500 font-bold">⚠</span> {risk}</p>
+                      )) : (
+                        <>
+                          <p className="text-sm text-gray-700 font-medium flex gap-1.5"><span className="text-amber-500 font-bold">⚠</span> Premium Historical Valuation</p>
+                          <p className="text-sm text-gray-700 font-medium flex gap-1.5"><span className="text-amber-500 font-bold">⚠</span> Export Control Restrictions</p>
+                          <p className="text-sm text-gray-700 font-medium flex gap-1.5"><span className="text-amber-500 font-bold">⚠</span> High Customer Concentration</p>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -298,27 +413,29 @@ export default function CompanyOverviewPage() {
                 <div className="space-y-4">
                   <div className="flex justify-between items-center border-b border-gray-200/60 pb-3">
                     <span className="text-sm font-bold text-gray-600 uppercase">Business Quality</span>
-                    <span className="text-base font-extrabold text-green-700 flex items-center gap-1.5"><span className="text-sm">🟢</span> Excellent</span>
+                    <span className="text-base font-extrabold text-green-700 flex items-center gap-1.5"><span className="text-sm">🟢</span> {aiData?.pillars?.quality || 'Excellent'}</span>
                   </div>
                   <div className="flex justify-between items-center border-b border-gray-200/60 pb-3">
                     <span className="text-sm font-bold text-gray-600 uppercase">Management</span>
-                    <span className="text-base font-extrabold text-green-700 flex items-center gap-1.5"><span className="text-sm">🟢</span> Trusted</span>
+                    <span className="text-base font-extrabold text-green-700 flex items-center gap-1.5"><span className="text-sm">🟢</span> {aiData?.pillars?.management || 'Trusted'}</span>
                   </div>
                   <div className="flex justify-between items-center border-b border-gray-200/60 pb-3">
                     <span className="text-sm font-bold text-gray-600 uppercase">Valuation</span>
-                    <span className="text-base font-extrabold text-yellow-600 flex items-center gap-1.5"><span className="text-sm">🟡</span> Premium</span>
+                    <span className="text-base font-extrabold text-yellow-600 flex items-center gap-1.5"><span className="text-sm">🟡</span> {aiData?.pillars?.valuation || 'Premium'}</span>
                   </div>
                   <div className="flex justify-between items-center border-b border-gray-200/60 pb-3">
                     <span className="text-sm font-bold text-gray-600 uppercase">Understandability</span>
-                    <span className="text-base font-extrabold text-green-700 flex items-center gap-1.5"><span className="text-sm">🟢</span> Easy</span>
+                    <span className="text-base font-extrabold text-green-700 flex items-center gap-1.5"><span className="text-sm">🟢</span> {aiData?.pillars?.understandability || 'Easy'}</span>
                   </div>
+                  
+                  {/* RESTORED THE 2 MISSING PILLARS */}
                   <div className="flex justify-between items-center border-b border-gray-200/60 pb-3">
                     <span className="text-sm font-bold text-gray-600 uppercase">Financial Strength</span>
-                    <span className="text-base font-extrabold text-green-700 flex items-center gap-1.5"><span className="text-sm">🟢</span> Fortress</span>
+                    <span className="text-base font-extrabold text-green-700 flex items-center gap-1.5"><span className="text-sm">🟢</span> {aiData?.pillars?.financialStrength || 'Fortress'}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm font-bold text-gray-600 uppercase">Compounding Power</span>
-                    <span className="text-base font-extrabold text-green-700 flex items-center gap-1.5"><span className="text-sm">🟢</span> Exceptional</span>
+                    <span className="text-base font-extrabold text-green-700 flex items-center gap-1.5"><span className="text-sm">🟢</span> {aiData?.pillars?.compoundingPower || 'Exceptional'}</span>
                   </div>
                 </div>
               </div>
@@ -380,7 +497,7 @@ export default function CompanyOverviewPage() {
               thesisSupportText="✔ Supports Thesis"
               thesisSupportType="supports"
               showThesisBadge={hasThesis}
-              summary={`${ticker} benefits from predictable recurring revenue, exceptional returns on invested capital, and structural advantages over competitors.`}
+              summary={`${profile.companyName} benefits from predictable recurring revenue, exceptional returns on invested capital, and structural advantages over competitors.`}
               evidence={["Consistently high ROIC (Returns on Invested Capital)", "Recurring revenue acts as a highly predictable base", "Industry-leading unit economics"]}
             />
             
@@ -467,7 +584,7 @@ export default function CompanyOverviewPage() {
               </h2>
               
               <p className="text-blue-100/80 text-sm md:text-base font-medium leading-relaxed">
-                Record why you're investing in {ticker} today. Choose the fundamental reasons behind your investment, and Investment IQ automatically monitors whether they become stronger or weaker after every earnings report.
+                Record why you're investing in {profile.companyName} today. Choose the fundamental reasons behind your investment, and Investment IQ automatically monitors whether they become stronger or weaker after every earnings report.
               </p>
             </div>
 

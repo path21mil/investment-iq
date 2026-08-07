@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Search, Loader2, ArrowRight, Star, ShieldCheck, Activity, BookOpen, Circle } from 'lucide-react';
+import { searchCompanies } from '@/lib/fmp'; // <-- NEW: Importing our API logic!
 
 // Pool of tickers to randomly cycle through
-const TICKER_POOL = ['NVDA', 'MSFT', 'TSLA', 'COST', 'AAPL', 'AMZN', 'GOOGL', 'META', 'NFLX', 'CRM', 'PLTR', 'AMD'];
+const TICKER_POOL = ['NVDA', 'MSFT', 'TSLA', 'COST', 'AAPL', 'AMZN', 'GOOGL', 'META', 'NFLX', 'CRM', 'PLTR', 'AMD', 'AAOI'];
 
 // Mock dataset for the interactive landing page pills
 const DEMO_COMPANIES = {
@@ -38,18 +39,19 @@ const DEMO_COMPANIES = {
       { text: 'Export restriction risks elevated', sub: 'Potential headwinds in restricted regions.', status: 'warning' },
     ]
   },
-  MSFT: {
-    name: 'Microsoft Corp.',
-    ticker: 'MSFT',
-    sector: 'Enterprise Software',
-    thesis: 'Stable',
-    thesisColor: 'blue',
-    overallAssessment: 'Microsoft continues to successfully monetize its enterprise AI investments, though heavy capex requires monitoring.',
-    pillars: { quality: 'Excellent', management: 'Top-Tier', valuation: 'Fair', understandability: 'Easy' },
+  AAOI: {
+    name: 'Applied Optoelectronics',
+    ticker: 'AAOI',
+    sector: 'Optical Networking',
+    thesis: 'Strengthening',
+    thesisColor: 'emerald',
+    overallAssessment: 'AAOI’s turnaround thesis is rapidly strengthening. The company successfully executed its AI-driven 800G transition and achieved a pivotal return to non-GAAP profitability. While demand will outpace supply through mid-2027, management is aggressively mitigating this by scaling in-house manufacturing capacity to 650,000 units per month.',
+    pillars: { quality: 'Improving', management: 'Executing', valuation: 'Fair', understandability: 'Complex' },
     changes: [
-      { text: 'Azure AI ARR exceeded $10B milestone', sub: 'Monetization strategy validated.', status: 'positive' },
-      { text: 'Office 365 Copilot adoption expanding', sub: 'Higher ARPU across enterprise tier.', status: 'positive' },
-      { text: 'Capital expenditure increased sharply', sub: 'Heavy investment in AI datacenter infrastructure.', status: 'neutral' },
+      { text: 'Record revenue and return to profitability', sub: 'Q2 revenue hit $191.9M with $5.5M non-GAAP net income.', status: 'positive' },
+      { text: '800G transceiver volume doubled sequentially', sub: 'AI infrastructure demand remains robust.', status: 'positive' },
+      { text: 'Q3 forward guidance significantly raised', sub: 'Projecting $255M–$290M revenue.', status: 'positive' },
+      { text: 'Production capacity remains a bottleneck', sub: 'Scaling internal capacity to 650k units/mo to meet demand.', status: 'warning' },
     ]
   }
 };
@@ -61,21 +63,75 @@ export default function Home() {
   // Animation & Dynamic States
   const [isSearching, setIsSearching] = useState(false);
   const [loadingText, setLoadingText] = useState('');
-  const [popularSearches, setPopularSearches] = useState<string[]>(['NVDA', 'MSFT', 'TSLA', 'COST']);
+  const [popularSearches, setPopularSearches] = useState<string[]>(['NVDA', 'AAOI', 'AAPL', 'MSFT']);
   
   // State for the interactive concept card
-  const [selectedTicker, setSelectedTicker] = useState<keyof typeof DEMO_COMPANIES>('AAPL');
+  const [selectedTicker, setSelectedTicker] = useState<keyof typeof DEMO_COMPANIES>('AAOI');
   const activeData = DEMO_COMPANIES[selectedTicker];
 
-  // Rotate popular searches every 5 seconds for a dynamic feel
+  // --- NEW: Live FMP API Search States ---
+  const [liveResults, setLiveResults] = useState<any[]>([]);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+
+  // Rotate popular searches every 5 seconds
   useEffect(() => {
     setPopularSearches([...TICKER_POOL].sort(() => 0.5 - Math.random()).slice(0, 4));
-
     const interval = setInterval(() => {
       setPopularSearches([...TICKER_POOL].sort(() => 0.5 - Math.random()).slice(0, 4));
     }, 5000);
-
     return () => clearInterval(interval);
+  }, []);
+
+ // --- NEW: Debounced Live API Search (CRASH-PROOFED) ---
+  useEffect(() => {
+    const fetchResults = async () => {
+      if (searchQuery.trim().length >= 2) {
+        try {
+          const results = await searchCompanies(searchQuery);
+          console.log("🔥 LIVE DATA FROM FMP API:", results);
+          
+          // THE FIX: Only filter if the API successfully returned an Array
+          if (Array.isArray(results)) {
+            const filtered = results
+              .filter((r: any) => ['NASDAQ', 'NYSE', 'AMEX'].includes(r.exchangeShortName))
+              .slice(0, 5);
+            
+            setLiveResults(filtered);
+            setIsDropdownOpen(filtered.length > 0);
+          } else {
+            // If the API returns an error object (like rate limits), silently ignore it
+            console.warn("FMP API returned a non-array:", results);
+            setLiveResults([]);
+            setIsDropdownOpen(false);
+          }
+        } catch (error) {
+          setLiveResults([]);
+          setIsDropdownOpen(false);
+        }
+      } else {
+        setLiveResults([]);
+        setIsDropdownOpen(false);
+      }
+    };
+
+    // Wait 300ms after the user stops typing before calling the API
+    const debounceTimer = setTimeout(fetchResults, 300);
+    return () => clearTimeout(debounceTimer);
+  }, [searchQuery]);
+
+
+
+
+  // Close dropdown if user clicks outside of the search box
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   const loadingSteps = [
@@ -85,9 +141,12 @@ export default function Home() {
     "Generating research..."
   ];
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
+  const handleSearch = async (e?: React.FormEvent, forceTicker?: string) => {
+    if (e) e.preventDefault();
+    const finalQuery = forceTicker || searchQuery.trim();
+    
+    if (finalQuery) {
+      setIsDropdownOpen(false); // Close dropdown when submitting
       setIsSearching(true);
       
       for (let i = 0; i < loadingSteps.length; i++) {
@@ -95,7 +154,7 @@ export default function Home() {
         await new Promise(r => setTimeout(r, 600)); 
       }
       
-      router.push(`/company/${searchQuery.trim().toUpperCase()}`);
+      router.push(`/company/${finalQuery.toUpperCase()}`);
     }
   };
 
@@ -150,7 +209,7 @@ export default function Home() {
         </div>
 
         {/* The Contextual Search Bar */}
-        <div className="w-full max-w-2xl mx-auto mb-12 relative z-10">
+        <div className="w-full max-w-2xl mx-auto mb-12 relative z-20" ref={searchContainerRef}>
           <form onSubmit={handleSearch} className="relative group mt-4">
             <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-blue-500 transition-colors">
               <Search className="w-5 h-5 md:w-6 md:h-6" />
@@ -159,6 +218,7 @@ export default function Home() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              onFocus={() => { if (liveResults.length > 0) setIsDropdownOpen(true); }}
               disabled={isSearching}
               placeholder="Search company or ticker (e.g. Apple or AAPL)"
               className="w-full bg-white border-2 border-slate-200/80 rounded-2xl py-4 md:py-5 pl-14 pr-[130px] md:pr-[180px] text-slate-900 text-base md:text-lg font-bold placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-50 transition-all shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] disabled:bg-slate-50 disabled:text-slate-400"
@@ -177,6 +237,29 @@ export default function Home() {
                 'Start Research'
               )}
             </button>
+
+            {/* --- NEW: LIVE SEARCH DROPDOWN --- */}
+            {isDropdownOpen && liveResults.length > 0 && (
+              <div className="absolute top-full left-0 right-0 mt-2 bg-white/95 backdrop-blur-xl border border-slate-200/80 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.1)] overflow-hidden z-50">
+                {liveResults.map((result) => (
+                  <button
+                    key={result.symbol}
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery(result.symbol);
+                      handleSearch(undefined, result.symbol); // Instantly analyze when they click!
+                    }}
+                    className="w-full text-left px-5 py-4 hover:bg-slate-50 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-1 border-b border-slate-100 last:border-0 cursor-pointer group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="font-extrabold text-slate-900 group-hover:text-blue-600 transition-colors">{result.symbol}</span>
+                      <span className="text-sm font-medium text-slate-500 truncate max-w-[200px] md:max-w-xs">{result.name}</span>
+                    </div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{result.exchangeShortName}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </form>
 
           {/* Dynamic Loading Text OR Suggested Tags */}
@@ -283,7 +366,7 @@ export default function Home() {
 
               <div className={`inline-flex items-center border px-4 py-2 rounded-full self-start md:self-auto ${getBadgeStyles(activeData.thesisColor)}`}>
                 <span className="text-xs font-extrabold uppercase tracking-wider flex items-center gap-1.5">
-                  <span className="animate-pulse text-[10px]">●</span> Thesis {activeData.thesis}
+                  <span className={`animate-pulse text-[10px] ${activeData.thesisColor === 'emerald' ? 'text-emerald-500' : 'text-blue-500'}`}>●</span> Thesis {activeData.thesis}
                 </span>
               </div>
             </div>
@@ -374,7 +457,7 @@ export default function Home() {
             <div className="p-6 bg-slate-50/80 border-t border-slate-100">
               <button 
                 onClick={() => router.push(`/company/${activeData.ticker}`)}
-                className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-4 rounded-xl transition-all shadow-[0_4px_14px_rgb(0,0,0,0.1)] hover:shadow-[0_6px_20px_rgb(0,0,0,0.15)] flex items-center justify-center gap-2 text-sm group cursor-pointer"
+                className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3.5 rounded-xl transition-all shadow-[0_4px_14px_rgb(0,0,0,0.1)] hover:shadow-[0_6px_20px_rgb(0,0,0,0.15)] flex items-center justify-center gap-2 text-sm group cursor-pointer"
               >
                 View Full Research <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
               </button>
