@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import { Building2, TrendingUp, TrendingDown, Globe, ArrowLeft, Sparkles, Loader2 } from 'lucide-react';
+import { Building2, TrendingUp, TrendingDown, Globe, ArrowLeft, Sparkles, Loader2, AlertCircle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { getCompanyProfile } from '@/lib/fmp';
 
@@ -124,6 +124,7 @@ export default function CompanyOverviewPage() {
   // AI BRAIN STATES
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [aiData, setAiData] = useState<any>(null);
+  const [aiError, setAiError] = useState<string | null>(null); // NEW: Error state for Vercel
 
   useEffect(() => {
     async function initializeOverview() {
@@ -174,27 +175,43 @@ export default function CompanyOverviewPage() {
     }
   };
 
-  // --- NEW: CALLING THE AI BACKEND ---
-  const generateAIResearch = async () => {
+  // --- NEW: X-RAY VISION ERROR HANDLING ---
+  const handleGenerateResearch = async () => {
     if (!profile) return;
     setIsAnalyzing(true);
+    setAiError(null);
     
     try {
       const response = await fetch('/api/research', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ticker: profile.symbol, companyName: profile.companyName })
+        body: JSON.stringify({ 
+          ticker: profile.symbol, 
+          companyName: profile.companyName 
+        })
       });
       
-      const data = await response.json();
-      if (data) {
-        setAiData(data);
+      // 🔍 Check if Vercel returned HTML instead of JSON (Gateway Timeout, etc.)
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        const rawText = await response.text();
+        console.error("🚨 VERCEL RAW ERROR:", rawText);
+        throw new Error("Vercel Server Error: Open your browser console (F12) to see the exact block.");
       }
-    } catch (error) {
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to generate research');
+      }
+      
+      const data = await response.json();
+      setAiData(data);
+    } catch (error: any) {
       console.error("Error generating AI research:", error);
+      setAiError(error.message || "An unexpected error occurred.");
+    } finally {
+      setIsAnalyzing(false);
     }
-    
-    setIsAnalyzing(false);
   };
 
   // --- LOADING STATE ---
@@ -338,9 +355,16 @@ export default function CompanyOverviewPage() {
               <p className="text-sm text-blue-800/80 font-medium max-w-xl">
                 Our AI engine will read the latest SEC filings, earnings calls, and management commentary to instantly evaluate {profile.companyName}'s moat, management, and valuation.
               </p>
+              {/* NEW: Display errors to the user if they happen */}
+              {aiError && (
+                <div className="mt-4 flex items-start gap-2 text-red-600 bg-red-50 p-3 rounded-lg border border-red-200 text-sm font-medium">
+                  <AlertCircle className="w-5 h-5 shrink-0" />
+                  <p>{aiError}</p>
+                </div>
+              )}
             </div>
             <button
-              onClick={generateAIResearch}
+              onClick={handleGenerateResearch}
               disabled={isAnalyzing}
               className="w-full md:w-auto shrink-0 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-extrabold px-8 py-3.5 rounded-xl transition-all shadow-[0_4px_14px_rgba(37,99,235,0.25)] flex items-center justify-center gap-2 cursor-pointer"
             >
@@ -353,7 +377,7 @@ export default function CompanyOverviewPage() {
           </div>
         )}
         
-     {/* 4 PILLARS & OVERALL ASSESSMENT (DYNAMIC VIA AI) */}
+        {/* 4 PILLARS & OVERALL ASSESSMENT (DYNAMIC VIA AI) */}
         <div className="mb-10">
           <div className="bg-white p-8 md:p-10 rounded-3xl border border-gray-200 shadow-sm">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-10 lg:gap-16">
@@ -376,16 +400,13 @@ export default function CompanyOverviewPage() {
                   <div>
                     <p className="text-[11px] font-bold text-green-700 uppercase tracking-wider mb-3">Key Strengths</p>
                     <div className="space-y-2">
-                      {/* CRASH FIX: Added the question mark (aiData?.strengths?.map) */}
                       {aiData?.strengths ? aiData.strengths.map((strength: string, i: number) => (
                         <p key={i} className="text-sm text-gray-700 font-medium flex gap-1.5"><span className="text-green-500 font-bold">✓</span> {strength}</p>
                       )) : (
                         <>
                           <p className="text-sm text-gray-700 font-medium flex gap-1.5"><span className="text-green-500 font-bold">✓</span> Wide Moat & Software Lock-in</p>
                           <p className="text-sm text-gray-700 font-medium flex gap-1.5"><span className="text-green-500 font-bold">✓</span> Exceptional Operating Margins</p>
-                          <p className="text-sm text-gray-700 font-medium flex gap-1.5"><span className="text-green-500 font-bold">✓</span> Durable Cash Flow Generation
-
-</p>
+                          <p className="text-sm text-gray-700 font-medium flex gap-1.5"><span className="text-green-500 font-bold">✓</span> Durable Cash Flow Generation</p>
                         </>
                       )}
                     </div>
@@ -393,7 +414,6 @@ export default function CompanyOverviewPage() {
                   <div>
                     <p className="text-[11px] font-bold text-amber-700 uppercase tracking-wider mb-3">Watch Points</p>
                     <div className="space-y-2">
-                      {/* CRASH FIX: Added the question mark (aiData?.risks?.map) */}
                       {aiData?.risks ? aiData.risks.map((risk: string, i: number) => (
                         <p key={i} className="text-sm text-gray-700 font-medium flex gap-1.5"><span className="text-amber-500 font-bold">⚠</span> {risk}</p>
                       )) : (
