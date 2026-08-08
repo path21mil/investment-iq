@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
 
-// ⚡ THIS IS THE MAGIC FIX: Runs instantly on Vercel to prevent 10s timeouts
 export const runtime = 'edge';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
@@ -11,65 +10,75 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { ticker, companyName } = body;
 
-    if (!process.env.GEMINI_API_KEY) {
-      return NextResponse.json({ error: "Gemini API key not configured" }, { status: 500 });
-    }
+    const today = new Date();
+    const lastWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const toDate = today.toISOString().split('T')[0];
+    const fromDate = lastWeek.toISOString().split('T')[0];
 
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-
-    const mockContext = `
-      COMPANY: ${companyName} (${ticker})
-      RECENT PERFORMANCE: Revenue grew 14% year over year. Margins expanded to 28% due to software pricing power. 
-      However, the company faces rising costs in expanding its data center infrastructure and faces minor regulatory headwinds in Europe.
-      Management emphasized a strict return of capital to shareholders via buybacks.
-    `;
-
-    const prompt = `
-      You are a strict, objective financial analyst assessing ${companyName} (${ticker}).
-      Read the provided performance data and assess the company.
-
-      CRITICAL RULE: You MUST return EXACTLY 3 strengths and EXACTLY 3 risks in your arrays.
-
-      Return ONLY a valid JSON object matching this exact structure:
-      {
-        "overallAssessment": "A 2-sentence summary of the business quality.",
-        "strengths": [
-          "First major strength",
-          "Second major strength",
-          "Third major strength"
-        ],
-        "risks": [
-          "First major risk or watch point",
-          "Second major risk or watch point",
-          "Third major risk or watch point"
-        ],
-        "pillars": {
-          "quality": "Excellent", 
-          "management": "Trusted",
-          "valuation": "Fair",
-          "understandability": "Easy",
-          "financialStrength": "Fortress",
-          "compoundingPower": "Exceptional"
+    let newsText = "No recent major news found.";
+    const finnhubKey = process.env.NEXT_PUBLIC_FINNHUB_API_KEY;
+    
+    if (finnhubKey) {
+      const newsResponse = await fetch(`https://finnhub.io/api/v1/company-news?symbol=${ticker}&from=${fromDate}&to=${toDate}&token=${finnhubKey}`);
+      if (newsResponse.ok) {
+        const newsData = await newsResponse.json();
+        const topNews = newsData.slice(0, 8);
+        if (topNews.length > 0) {
+          newsText = topNews.map((article: any) => `HEADLINE: ${article.headline}\nSUMMARY: ${article.summary}`).join('\n\n');
         }
       }
+    }
 
-      DATA TO ANALYZE:
-      ${mockContext}
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-3.5-flash", 
+      generationConfig: { responseMimeType: "application/json" }
+    });
+
+    const prompt = `
+      Analyze ${companyName} (${ticker}) based on these news headlines: ${newsText}
+
+      Return a JSON object:
+      {
+        "ratingTitle": "Short 2-word title (e.g. 'Excellent Business', 'Speculative Play', 'Turnaround Case')",
+        "ratingBadge": "1-word status (e.g. 'High Quality', 'Speculative', 'High Risk')",
+        "overallAssessment": "2-sentence summary.",
+        "strengths": ["Strength 1", "Strength 2", "Strength 3"],
+        "risks": ["Risk 1", "Risk 2", "Risk 3"],
+        "pillars": {
+          "quality": { "label": "Excellent", "color": "green" },
+          "management": { "label": "Trusted", "color": "green" },
+          "valuation": { "label": "Premium", "color": "yellow" },
+          "understandability": { "label": "Medium", "color": "yellow" },
+          "financialStrength": { "label": "Fortress", "color": "green" },
+          "compoundingPower": { "label": "Exceptional", "color": "green" }
+        },
+        "updates": [
+          { "headline": "Text", "impact": "Text", "type": "positive" },
+          { "headline": "Text", "impact": "Text", "type": "negative" },
+          { "headline": "Text", "impact": "Text", "type": "neutral" },
+          { "headline": "Text", "impact": "Text", "type": "positive" }
+        ],
+        "deepDive": [
+          {
+            "question": "1. Is this a high-quality business?",
+            "statusText": "Status",
+            "statusType": "green", 
+            "summary": "Summary",
+            "evidence": ["Point 1", "Point 2", "Point 3"]
+          },
+          { "question": "2. Does it have a durable competitive advantage (moat)?", "statusText": "Status", "statusType": "green", "summary": "Summary", "evidence": ["Point 1", "Point 2", "Point 3"] },
+          { "question": "3. Can management be trusted?", "statusText": "Status", "statusType": "green", "summary": "Summary", "evidence": ["Point 1", "Point 2", "Point 3"] },
+          { "question": "4. Am I paying a reasonable price?", "statusText": "Status", "statusType": "yellow", "summary": "Summary", "evidence": ["Point 1", "Point 2", "Point 3"] },
+          { "question": "5. Can I understand this business well enough to own it?", "statusText": "Status", "statusType": "green", "summary": "Summary", "evidence": ["Point 1", "Point 2", "Point 3"] },
+          { "question": "6. What could go wrong?", "statusText": "Status", "statusType": "red", "summary": "Summary", "evidence": ["Point 1", "Point 2", "Point 3"] },
+          { "question": "7. Can this business keep growing for the next 5–10 years?", "statusText": "Status", "statusType": "green", "summary": "Summary", "evidence": ["Point 1", "Point 2", "Point 3"] }
+        ]
+      }
     `;
 
     const result = await model.generateContent(prompt);
-    const textResponse = result.response.text();
-    
-    // Smarter JSON extraction to prevent crashes
-    const cleanText = textResponse.replace(/```json/gi, '').replace(/```/gi, '').trim();
-    const startIndex = cleanText.indexOf('{');
-    const endIndex = cleanText.lastIndexOf('}') + 1;
-    const jsonString = cleanText.substring(startIndex, endIndex);
-    
-    return NextResponse.json(JSON.parse(jsonString));
-
-  } catch (error) {
-    console.error("AI Engine Error:", error);
-    return NextResponse.json({ error: "Failed to generate research" }, { status: 500 });
+    return NextResponse.json(JSON.parse(result.response.text()));
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
