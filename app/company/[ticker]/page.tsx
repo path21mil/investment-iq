@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Building2, TrendingUp, TrendingDown, Globe, ArrowLeft, Sparkles, Loader2, AlertCircle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { getCompanyProfile } from '@/lib/fmp';
+import SmartSearchBar from '@/components/SmartSearchBar';
 
 // --- REUSABLE PROGRESSIVE DISCLOSURE COMPONENT ---
 function ProgressiveCard({ question, statusText, statusType, thesisSupportText, thesisSupportType, summary, evidence, showThesisBadge = false }: any) {
@@ -103,7 +104,14 @@ export default function CompanyOverviewPage({ params }: { params: Promise<{ tick
   useEffect(() => {
     async function initializeOverview() {
       setIsLoading(true);
-      const liveData = await getCompanyProfile(ticker);
+      
+      let liveData: any = await getCompanyProfile(ticker);
+      
+      // 🛡️ NEW SAFEGUARD: If FMP returns an array of search results instead of a profile, just grab the first one!
+      if (Array.isArray(liveData) && liveData.length > 0) {
+        liveData = liveData[0];
+      }
+      
       setProfile(liveData);
 
       const { data: { session } } = await supabase.auth.getSession();
@@ -193,18 +201,20 @@ export default function CompanyOverviewPage({ params }: { params: Promise<{ tick
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 pb-24">
-      
-      {/* HEADER NAV */}
+
+    {/* HEADER NAV */}
       <nav className="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
         <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between gap-4">
           <Link href="/" className="font-extrabold text-xl tracking-tight flex items-center gap-2">
             Investment IQ
             <span className="flex gap-0.5"><span className="w-1 h-2.5 bg-blue-600 rounded-full"></span><span className="w-1 h-4 bg-blue-600 rounded-full"></span><span className="w-1 h-5 bg-blue-600 rounded-full"></span></span>
           </Link>
-          <form onSubmit={handleHeaderSearch} className="hidden sm:flex items-center relative">
-            <input type="text" value={headerSearch} onChange={(e) => setHeaderSearch(e.target.value)} placeholder="Search Ticker..." className="bg-slate-100 focus:bg-white text-xs font-bold py-2 pl-8 pr-3 rounded-xl border border-transparent focus:border-blue-500 focus:outline-none transition-all w-48 focus:w-64" />
-            <svg className="w-3.5 h-3.5 text-slate-400 absolute left-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-          </form>
+          
+          {/* ---> NEW SMART SEARCH BAR <--- */}
+          <div className="hidden sm:block">
+            <SmartSearchBar />
+          </div>
+          
           <div className="flex items-center gap-3">
             {isLoggedIn ? (
               <button onClick={() => router.push('/dashboard')} className="text-xs font-bold bg-blue-50 text-blue-700 px-4 py-2 rounded-xl border border-blue-200">← Dashboard</button>
@@ -335,17 +345,21 @@ export default function CompanyOverviewPage({ params }: { params: Promise<{ tick
                       parsedData = { label: rawData.label || defaultLabels[key], color: rawData.color || 'green' };
                     }
                     
-                    const dotColor = parsedData.color === 'green' ? 'bg-emerald-500' : parsedData.color === 'yellow' ? 'bg-amber-400' : parsedData.color === 'red' ? 'bg-rose-500' : 'bg-slate-300';
-                                     
-                    return (
-                      <div key={label} className="flex justify-between items-center border-b border-slate-200/50 pb-3.5 last:border-0 last:pb-0">
-                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">{label}</span>
-                        <span className="text-sm font-extrabold text-slate-900 flex items-center gap-2.5">
-                          <span className={`w-2 h-2 rounded-full ${dotColor} ring-2 ring-white shadow-sm`}></span> 
-                          {parsedData.label}
-                        </span>
-                      </div>
-                    );
+                 // We map the words to exact HEX color codes to bypass Tailwind purging
+const dotColorHex = parsedData.color === 'green' ? '#10b981' : 
+                    parsedData.color === 'yellow' ? '#fbbf24' : 
+                    parsedData.color === 'red' ? '#f43f5e' : '#cbd5e1';
+                 
+return (
+  <div key={label} className="flex justify-between items-center border-b border-slate-200/50 pb-3.5 last:border-0 last:pb-0">
+    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">{label}</span>
+    <span className="text-sm font-extrabold text-slate-900 flex items-center gap-2.5">
+      {/* Inline styles guarantee the dot renders perfectly every time */}
+      <span style={{ backgroundColor: dotColorHex, width: '10px', height: '10px', borderRadius: '50%', flexShrink: 0, boxShadow: '0 1px 2px rgba(0,0,0,0.1)' }}></span>
+      {parsedData.label}
+    </span>
+  </div>
+);
                   })}
                 </div>
               </div>
