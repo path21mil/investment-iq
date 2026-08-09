@@ -105,23 +105,59 @@ export default function CompanyOverviewPage({ params }: { params: Promise<{ tick
     async function initializeOverview() {
       setIsLoading(true);
       
+      // 1. Fetch Company Profile from FMP
       let liveData: any = await getCompanyProfile(ticker);
       
-      // 🛡️ NEW SAFEGUARD: If FMP returns an array of search results instead of a profile, just grab the first one!
+      // 🛡️ SAFEGUARD: If FMP returns an array of search results, grab the first one
       if (Array.isArray(liveData) && liveData.length > 0) {
         liveData = liveData[0];
       }
-      
       setProfile(liveData);
 
+      // 2. 🚀 NEW: Check Supabase for existing cached research!
+      try {
+        const { data: cacheData } = await supabase
+          .from('ai_cache')
+          .select('*')
+          .eq('ticker', ticker)
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .maybeSingle(); // Gets the single most recent row, or null if none exists
+
+        if (cacheData && cacheData.ai_data) {
+          let cachedPayload = cacheData.ai_data;
+          
+          // Parse if it's saved as a string
+          if (typeof cachedPayload === 'string') {
+            try { cachedPayload = JSON.parse(cachedPayload); } catch (e) {}
+          }
+          
+          // BOOM! We have data. This instantly hides the "Generate" button 
+          // and populates all the beautiful UI metrics!
+          setAiData(cachedPayload); 
+          console.log(`✅ Loaded cached research for ${ticker}`);
+        }
+      } catch (err) {
+        console.error("Error checking cache:", err);
+      }
+
+      // 3. Check User Session & Existing Thesis
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
         setIsLoggedIn(true);
-        const { data: thesis } = await supabase.from('theses').select('id').eq('ticker', ticker).eq('user_id', session.user.id).maybeSingle();
+        const { data: thesis } = await supabase
+          .from('theses')
+          .select('id')
+          .eq('ticker', ticker)
+          .eq('user_id', session.user.id)
+          .maybeSingle();
+          
         if (thesis) setHasThesis(true);
       }
+      
       setIsLoading(false);
     }
+    
     initializeOverview();
   }, [ticker]);
 
