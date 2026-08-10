@@ -2,6 +2,7 @@
 
 import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Loader2, ArrowRight, Check, Zap, Plus } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { getCompanyProfile } from '@/lib/fmp';
@@ -16,6 +17,9 @@ export default function BuildThesisPage({ params }: { params: Promise<{ ticker: 
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [profile, setProfile] = useState<any>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  // Smart Edit State
+  const [isEditing, setIsEditing] = useState<boolean>(false);
+  const [createdDate, setCreatedDate] = useState<string | null>(null);
 
   // AI Generated Data
   const [suggestedDrivers, setSuggestedDrivers] = useState<any[]>([]);
@@ -28,27 +32,70 @@ export default function BuildThesisPage({ params }: { params: Promise<{ ticker: 
   // Custom Inputs
   const [customInput, setCustomInput] = useState('');
 
+  // ✨ FIX 1: Clean up ugly OAuth hash from the URL bar immediately upon landing
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.hash.includes('access_token')) {
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+  }, []);
+
   useEffect(() => {
     async function init() {
       setIsLoading(true);
+      
+      // 1. Check for the user session
       const { data: { session } } = await supabase.auth.getSession();
-      if (session) setUserId(session.user.id);
+      
+      // 2. THE BOUNCER: If no user, kick them to login and remember this page
+      if (!session) {
+        router.push(`/login?redirect=/build-thesis/${ticker}`);
+        return; 
+      }
 
-      let liveProfile: any = await getCompanyProfile(ticker);
+      setUserId(session.user.id);
+      const cleanTicker = ticker.toUpperCase().trim();
+
+     // ==========================================
+      // 3. FETCH USER'S EXISTING THESIS
+      // ==========================================
+      const { data: existingThesis, error: dbError } = await supabase
+        .from('theses')
+        .select('drivers, risks, created_at') // ✨ Added created_at
+        .eq('user_id', session.user.id)
+        .eq('ticker', cleanTicker)
+        .maybeSingle();
+
+      if (existingThesis) {
+        setIsEditing(true); // ✨ Turn on Edit Mode
+        
+        // ✨ Format the date nicely (e.g., "October 14, 2023")
+        if (existingThesis.created_at) {
+          const dateString = new Date(existingThesis.created_at).toLocaleDateString('en-US', { 
+            month: 'long', day: 'numeric', year: 'numeric' 
+          });
+          setCreatedDate(dateString);
+        }
+
+        // Pre-populate the user's selections
+        if (existingThesis.drivers) setSelectedDrivers(existingThesis.drivers);
+        if (existingThesis.risks) setSelectedRisks(existingThesis.risks);
+      } // ==========================================
+
+      // 4. Load the company profile header
+      let liveProfile: any = await getCompanyProfile(cleanTicker);
       if (Array.isArray(liveProfile) && liveProfile.length > 0) liveProfile = liveProfile[0];
       setProfile(liveProfile);
 
-    try {
+      // 5. Fetch the AI options
+      try {
         const res = await fetch('/api/thesis-options', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ticker, companyName: liveProfile?.companyName || ticker })
+          body: JSON.stringify({ ticker: cleanTicker, companyName: liveProfile?.companyName || cleanTicker })
         });
         
-        // 🛡️ NEW SAFEGUARD: Check if the server actually sent JSON back
         const contentType = res.headers.get("content-type");
         if (!contentType || !contentType.includes("application/json")) {
-          // If it sent HTML, read it as text and log it so we can see the real error
           const textError = await res.text();
           console.error("🚨 Server sent HTML instead of JSON. Real error:", textError);
           throw new Error("API Route is misconfigured or missing (Check terminal).");
@@ -71,7 +118,7 @@ export default function BuildThesisPage({ params }: { params: Promise<{ ticker: 
       }
     }
     init();
-  }, [ticker]);
+  }, [ticker, router]); 
 
   const handleToggle = (id: string, type: 'driver' | 'risk') => {
     if (type === 'driver') {
@@ -117,10 +164,9 @@ export default function BuildThesisPage({ params }: { params: Promise<{ ticker: 
     }
   };
 
- const handleSaveAndFinish = async () => {
+  const handleSaveAndFinish = async () => {
     setIsSaving(true);
     try {
-      // 1. Safety Check: Ensure the user is logged in
       if (!userId) {
         alert("You must be logged in to save a thesis!");
         setIsSaving(false);
@@ -135,17 +181,14 @@ export default function BuildThesisPage({ params }: { params: Promise<{ ticker: 
         risks: selectedRisks,
       };
 
-      // 2. Attempt to save to Supabase
-      const { error } = await supabase.from('theses').upsert(payload);
+      const { error } = await supabase
+        .from('theses')
+        .upsert(payload, { onConflict: 'user_id,ticker' });
 
-      // If Supabase returns an error object, throw it so the catch block handles it
       if (error) throw error;
-
-      // 3. Success! Redirect to the company page
       router.push(`/company/${ticker}`);
 
     } catch (err: any) {
-      // 4. Force the error to turn into readable text instead of {}
       console.error("Supabase Save Error:", JSON.stringify(err, null, 2));
       alert(`Failed to save thesis: ${err.message || err.details || JSON.stringify(err)}`);
     } finally {
@@ -170,30 +213,67 @@ export default function BuildThesisPage({ params }: { params: Promise<{ ticker: 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
       
-      {/* TOP HEADER */}
-      {/* TOP HEADER */}
-      <div className="bg-white border-b border-slate-200 sticky top-0 z-50">
-        <div className="max-w-5xl mx-auto px-6 py-4 flex justify-between items-center">
-          <div className="font-extrabold text-lg text-slate-900 flex items-center gap-2">
-            Investment IQ
-          </div>
-          <button onClick={() => router.back()} className="text-sm font-bold text-slate-600 hover:text-slate-900 transition-colors cursor-pointer">
+      {/* ✨ FIX 2 & 3: NEW INTERACTIVE HEADER WITH DIRECT DASHBOARD ROUTING */}
+      <header className="border-b border-slate-200 bg-white/80 backdrop-blur-md sticky top-0 z-50">
+        <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
+          
+          {/* CLICKABLE LOGO */}
+          <Link 
+            href="/dashboard" 
+            className="flex items-center gap-2 group transition-opacity hover:opacity-80"
+          >
+            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-extrabold text-lg shadow-sm">
+              IQ
+            </div>
+            <span className="font-extrabold text-slate-900 tracking-tight text-lg">
+              Investment IQ
+            </span>
+          </Link>
+
+          {/* ATTRACTIVE & RELIABLE CANCEL BUTTON */}
+          <button
+            onClick={() => router.push('/dashboard')}
+            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 hover:text-slate-900 transition-all duration-150 border border-slate-200/60 shadow-sm active:scale-95 cursor-pointer"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
             Cancel
           </button>
+
         </div>
-      </div>
+      </header>
 
       <main className="flex-grow max-w-5xl mx-auto w-full px-6 pt-12 pb-32">
-        {/* PROGRESS HEADER */}
-        <div className="text-center mb-12">
+       {/* PROGRESS HEADER */}
+        <div className="text-center mb-12 flex flex-col items-center">
+          
+          {/* ✨ THE NEW EDIT BANNER */}
+          {isEditing && createdDate && (
+            <div className="inline-flex items-center gap-2 bg-blue-50/80 text-blue-700 px-4 py-2 rounded-full text-xs font-medium italic mb-4 border border-blue-100 shadow-sm">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              You added {ticker} to your portfolio on {createdDate}.
+            </div>
+          )}
+
           <p className="text-[10px] font-extrabold text-blue-600 uppercase tracking-widest mb-3">
             STEP {step} OF 2
           </p>
+          
           <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight mb-3">
-            {step === 1 ? `Why are you considering investing in ${ticker}?` : `What are the biggest risks to ${ticker}?`}
+            {isEditing 
+              ? (step === 1 ? `Update your ${ticker} Drivers` : `Update your ${ticker} Risks`)
+              : (step === 1 ? `Why are you considering investing in ${ticker}?` : `What are the biggest risks to ${ticker}?`)
+            }
           </h1>
-          <p className="text-sm font-medium text-slate-500">
-            Choose up to 5 {step === 1 ? 'drivers' : 'risks'}. These are suggested by Investment IQ based on {ticker}'s SEC filings.
+          
+          <p className="text-sm font-medium text-slate-500 max-w-lg mx-auto">
+            {isEditing 
+              ? `Review and modify the ${step === 1 ? 'drivers' : 'risks'} you are tracking below.`
+              : `Choose up to 5 ${step === 1 ? 'drivers' : 'risks'}. These are suggested by Investment IQ based on ${ticker}'s SEC filings.`
+            }
           </p>
         </div>
 
@@ -319,12 +399,14 @@ export default function BuildThesisPage({ params }: { params: Promise<{ ticker: 
               >
                 Back
               </button>
-              <button 
-                onClick={handleSaveAndFinish}
-                disabled={selectedRisks.length === 0 || isSaving}
-                className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white text-sm font-extrabold px-6 py-2.5 rounded-xl transition-colors flex items-center gap-2 cursor-pointer shadow-sm shadow-emerald-600/20"
-              >
-                {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save & Track Conviction'}
+           {/* ✅ NEW BUTTON (Paste this) */}
+            <button 
+              onClick={handleSaveAndFinish}
+              disabled={selectedRisks.length === 0 || isSaving}
+              className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white text-sm font-extrabold px-6 py-2.5 rounded-xl transition-colors flex items-center gap-2 cursor-pointer shadow-sm shadow-emerald-600/20"
+>
+              {/* ✨ Dynamic Button Text */}
+              {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : (isEditing ? 'Update Thesis' : 'Save & Track Conviction')}
               </button>
             </div>
           )}

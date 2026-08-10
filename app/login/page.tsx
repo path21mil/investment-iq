@@ -2,18 +2,24 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+// 1. ADDED: import useSearchParams to read the URL
+import { useRouter, useSearchParams } from 'next/navigation'; 
 import { supabase } from '@/lib/supabase';
 import { ArrowLeft, Mail, Lock } from 'lucide-react';
 
 export default function Login() {
   const router = useRouter();
+  
+  // 2. ADDED: Grab the redirect parameter, or default to dashboard
+  const searchParams = useSearchParams();
+  const returnUrl = searchParams.get('redirect') || '/dashboard';
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // 1. THIS CLEANS UP THE URL IF THEY JUST LOGGED IN VIA OAUTH
+  // THIS CLEANS UP THE URL IF THEY JUST LOGGED IN VIA OAUTH
   useEffect(() => {
     if (window.location.hash) {
       setTimeout(() => {
@@ -33,7 +39,10 @@ export default function Login() {
         password,
       });
       if (error) throw error;
-      router.push('/dashboard');
+      
+      // 3. ADDED: Redirect them to where they actually wanted to go!
+      router.push(returnUrl); 
+      
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -46,7 +55,8 @@ export default function Login() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/dashboard`
+          // 4. ADDED: Tell Google OAuth to send them to their intended page after auth
+          redirectTo: `${window.location.origin}${returnUrl}`
         }
       });
       if (error) throw error;

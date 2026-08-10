@@ -61,7 +61,7 @@ export default function Dashboard() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        router.push('/login'); 
+        router.push('/login?redirect=/dashboard');
         return;
       }
       
@@ -82,19 +82,23 @@ export default function Dashboard() {
         setPortfolio([]);
       } else {
         // Map the real database rows into your beautiful UI structure
+      
         const mappedPortfolio: TrackedCompany[] = dbTheses.map((t: any) => ({
           id: t.id,
           ticker: t.ticker,
           name: t.company_name || t.ticker,
           domain: `${t.ticker.toLowerCase()}.com`,
-          status: 'Strengthening', // Default until we build the AI updater
+          
+          // ✨ THE FIX: Read the real AI data from the database instead of hardcoding it!
+          status: t.status || 'Strengthening', 
           summaryBold: t.drivers?.[0]?.title || 'Active Thesis',
           summaryLight: t.drivers?.[0]?.whyThisMatters || 'Tracking your core investment drivers.',
           affectedDriver: t.drivers?.[0]?.title || '',
-          aiSummary: 'Tracking active. Awaiting next earnings call or SEC filing for new insights.',
-          updates: [], // Empty for now since it's freshly tracked
-          lastUpdated: new Date(t.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-          requiresAction: false,
+          aiSummary: t.ai_summary || 'Tracking active. Awaiting next earnings call or SEC filing for new insights.',
+          updates: typeof t.updates === 'string' ? JSON.parse(t.updates) : (t.updates || []), 
+          lastUpdated: new Date(t.last_scanned_at || t.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          requiresAction: t.requires_action || false,
+          
           price: 0
         }));
 
@@ -111,6 +115,30 @@ export default function Dashboard() {
     e.preventDefault();
     if (searchQuery.trim()) {
       router.push(`/company/${searchQuery.trim().toUpperCase()}`);
+    }
+  };
+
+  const triggerAIEngine = async () => {
+    setIsLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const res = await fetch('/api/engine', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: session.user.id })
+      });
+
+      if (!res.ok) throw new Error("Engine failed to run");
+      
+      // Reload the dashboard to see the new AI data!
+      await loadDashboard(); 
+    } catch (err) {
+      console.error(err);
+      alert("Failed to run AI Engine.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -194,6 +222,12 @@ export default function Dashboard() {
             {/* HERO: The Conviction Inbox Alert */}
             <div className="mb-10">
               <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-slate-900 mb-5">Welcome back, {userName} 👋</h1>
+              <button 
+  onClick={triggerAIEngine}
+  className="mb-4 bg-purple-600 text-white text-xs font-bold px-4 py-2 rounded-lg hover:bg-purple-700 shadow-sm"
+>
+  ⚙️ [DEV TEST] Run AI Update Engine
+</button>
               {actionItems.length > 0 ? (
                 <div className="flex items-center gap-3 text-rose-700 font-bold bg-rose-50 p-5 rounded-2xl border border-rose-100/80 shadow-sm">
                   <AlertTriangle className="w-5 h-5 shrink-0 text-rose-500" />
