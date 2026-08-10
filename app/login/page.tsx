@@ -1,16 +1,16 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+// 1. ADDED: Import Suspense from react
+import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
-// 1. ADDED: import useSearchParams to read the URL
 import { useRouter, useSearchParams } from 'next/navigation'; 
 import { supabase } from '@/lib/supabase';
 import { ArrowLeft, Mail, Lock } from 'lucide-react';
 
-export default function Login() {
+// 2. RENAME: Changed from "export default function Login()" to "function LoginContent()"
+function LoginContent() {
   const router = useRouter();
   
-  // 2. ADDED: Grab the redirect parameter, or default to dashboard
   const searchParams = useSearchParams();
   const returnUrl = searchParams.get('redirect') || '/dashboard';
 
@@ -40,7 +40,6 @@ export default function Login() {
       });
       if (error) throw error;
       
-      // 3. ADDED: Redirect them to where they actually wanted to go!
       router.push(returnUrl); 
       
     } catch (err: any) {
@@ -55,7 +54,6 @@ export default function Login() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          // 4. ADDED: Tell Google OAuth to send them to their intended page after auth
           redirectTo: `${window.location.origin}${returnUrl}`
         }
       });
@@ -68,7 +66,7 @@ export default function Login() {
   return (
     <div className="min-h-screen bg-slate-50 font-sans flex flex-col relative selection:bg-blue-100">
       
-     {/* THE FIX: Functional & Premium Back to Home Button */}
+     {/* Functional & Premium Back to Home Button */}
       <nav className="w-full absolute top-0 left-0 pt-6 z-20">
         <div className="max-w-6xl mx-auto px-6">
           <button 
@@ -187,5 +185,18 @@ export default function Login() {
         </div>
       </main>
     </div>
+  );
+}
+
+// 3. ADDED: The new default export that wraps the content in Suspense
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-slate-500 font-bold">Loading...</div>
+      </div>
+    }>
+      <LoginContent />
+    </Suspense>
   );
 }
