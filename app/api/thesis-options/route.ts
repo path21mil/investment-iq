@@ -2,10 +2,12 @@ import { NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { createClient } from '@supabase/supabase-js';
 
+// ❌ NOTHING HERE! Leave this area completely empty of API keys.
+
 export async function POST(req: Request) {
   try {
     const { ticker, companyName } = await req.json();
-
+    
     if (!ticker) {
       return NextResponse.json({ error: 'Ticker is required' }, { status: 400 });
     }
@@ -38,6 +40,7 @@ export async function POST(req: Request) {
     }
 
     // 2. 🧠 IF NOT IN CACHE, CALL OPENAI
+    // ✅ The OpenAI setup lives down here, safely inside the function!
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
       return NextResponse.json({ error: 'OPENAI_API_KEY is missing in .env.local' }, { status: 500 });
