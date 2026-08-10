@@ -2,11 +2,6 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import OpenAI from 'openai';
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!; 
-const supabase = createClient(supabaseUrl, supabaseKey);
-
 // ✨ THE FIX: We removed the client setups from up here!
 
 export async function POST(req: Request) {
