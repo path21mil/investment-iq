@@ -9,6 +9,13 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 console.log("🔑 Finnhub Key Loaded:", process.env.FINNHUB_API_KEY ? "YES" : "NO");
 export async function POST(req: Request) {
   try {
+    // ✨ THE FIX: We moved them INSIDE the function. 
+    // Now they won't crash the build server when it compiles the code.
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!; 
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
     const { userId } = await req.json();
     if (!userId) return NextResponse.json({ error: "Missing userId" }, { status: 400 });
 
