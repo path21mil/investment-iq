@@ -13,6 +13,7 @@ export default function SmartSearchBar({ variant = 'header' }: SmartSearchBarPro
   const [query, setQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -40,7 +41,7 @@ export default function SmartSearchBar({ variant = 'header' }: SmartSearchBarPro
           const data = await res.json();
           const rawResults = data.result || [];
           
-          // 🛡️ DEDUPLICATION: Remove any duplicate tickers returned by the API
+          // Deduplication: Remove any duplicate tickers returned by API
           const uniqueResults = rawResults.filter((item: any, index: number, self: any[]) =>
             index === self.findIndex((t) => t.symbol === item.symbol)
           );
@@ -64,7 +65,7 @@ export default function SmartSearchBar({ variant = 'header' }: SmartSearchBarPro
   }, [query]);
 
   const handleSelect = (symbol: string) => {
-    setQuery('');
+    setIsNavigating(true);
     setIsOpen(false);
     setErrorMessage('');
     router.push(`/company/${symbol.toUpperCase()}`);
@@ -92,13 +93,15 @@ export default function SmartSearchBar({ variant = 'header' }: SmartSearchBarPro
         handleSelect(results[0].symbol);
       } else {
         setErrorMessage(`No company found for "${cleanQuery}". Check spelling or try a symbol like AAPL or NVDA.`);
+        setIsLoading(false);
       }
     } catch (err) {
       setErrorMessage(`Could not verify "${cleanQuery}". Please try again.`);
-    } finally {
       setIsLoading(false);
     }
   };
+
+  const showSpinner = isLoading || isNavigating;
 
   return (
     <div ref={wrapperRef} className={`relative w-full z-[999] ${isHero ? 'max-w-2xl mx-auto' : 'max-w-xs sm:max-w-sm'}`}>
@@ -108,6 +111,7 @@ export default function SmartSearchBar({ variant = 'header' }: SmartSearchBarPro
         <input
           type="text"
           value={query}
+          disabled={isNavigating}
           onChange={(e) => {
             setQuery(e.target.value);
             setErrorMessage(''); 
@@ -129,14 +133,14 @@ export default function SmartSearchBar({ variant = 'header' }: SmartSearchBarPro
         {isHero && (
           <button 
             type="submit" 
-            disabled={isLoading}
+            disabled={showSpinner}
             className="absolute right-2 top-2 bottom-2 bg-slate-900 text-white text-sm font-bold px-6 rounded-xl hover:bg-slate-800 transition-colors flex items-center justify-center disabled:opacity-80 cursor-pointer"
           >
-            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Start Research'}
+            {showSpinner ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Start Research'}
           </button>
         )}
 
-        {!isHero && isLoading && (
+        {!isHero && showSpinner && (
           <Loader2 className="animate-spin absolute right-3 w-3.5 h-3.5 text-blue-600" />
         )}
       </form>
@@ -148,10 +152,9 @@ export default function SmartSearchBar({ variant = 'header' }: SmartSearchBarPro
         </div>
       )}
 
-      {isOpen && searchResults.length > 0 && (
+      {isOpen && searchResults.length > 0 && !isNavigating && (
         <div className={`absolute left-0 right-0 bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden z-[9999] ${isHero ? 'mt-3' : 'mt-2 top-full'}`}>
           <div className="p-1 space-y-0.5">
-            {/* 🛡️ ADDED INDEX TO KEY TO GUARANTEE REACT NEVER CRASHES HERE AGAIN */}
             {searchResults.map((item, idx) => (
               <button
                 key={`${item.symbol}-${idx}`}

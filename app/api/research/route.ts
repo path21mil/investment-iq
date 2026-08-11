@@ -2,11 +2,8 @@ import { NextResponse } from 'next/server';
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
 import { createClient } from '@supabase/supabase-js';
 
-export const runtime = 'edge';
-
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
-// Initialize Supabase to read/write the cache
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseKey);
@@ -17,61 +14,64 @@ export async function POST(request: Request) {
     const { ticker, companyName } = body;
 
     if (!process.env.GEMINI_API_KEY) {
-      return NextResponse.json({ error: "Gemini API key not configured" }, { status: 500 });
+      return NextResponse.json({ error: "Gemini API key not configured in .env" }, { status: 500 });
     }
 
     // ==========================================
     // 🛑 1. CHECK SUPABASE CACHE FIRST
     // ==========================================
-    const { data: cacheData } = await supabase
+    const { data: cacheData, error: cacheError } = await supabase
       .from('ai_cache')
       .select('*')
       .eq('ticker', ticker)
-      .single();
+      .maybeSingle();
 
     if (cacheData) {
       const lastUpdated = new Date(cacheData.updated_at).getTime();
       const now = new Date().getTime();
-      const hoursSinceUpdate = (now - lastUpdated) / (1000 * 60 * 60);
-
-      // If the cache is less than 24 hours old, return it instantly!
-      if (hoursSinceUpdate < 24) {
-        console.log(`✅ Loaded ${ticker} from Supabase Cache!`);
+      if ((now - lastUpdated) / (1000 * 60 * 60) < 24) {
         return NextResponse.json(cacheData.ai_data);
       }
     }
 
     // ==========================================
-    // 🟢 2. NO CACHE FOUND -> FETCH LIVE NEWS
+    // ⚡ 2. FETCH LIVE MARKET DATA
     // ==========================================
     const today = new Date();
     const lastWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-    const toDate = today.toISOString().split('T')[0];
-    const fromDate = lastWeek.toISOString().split('T')[0];
-
-    let newsText = "No recent major news found.";
     const finnhubKey = process.env.NEXT_PUBLIC_FINNHUB_API_KEY;
-    
+    let newsText = "No recent news.";
+    let profileSummary = "";
+
     if (finnhubKey) {
       try {
-        const newsResponse = await fetch(`https://finnhub.io/api/v1/company-news?symbol=${ticker}&from=${fromDate}&to=${toDate}&token=${finnhubKey}`);
-        if (newsResponse.ok) {
-          const newsData = await newsResponse.json();
+        const [newsRes, profileRes] = await Promise.all([
+          fetch(`https://finnhub.io/api/v1/company-news?symbol=${ticker}&from=${lastWeek.toISOString().split('T')[0]}&to=${today.toISOString().split('T')[0]}&token=${finnhubKey}`),
+          fetch(`https://finnhub.io/api/v1/stock/profile2?symbol=${ticker}&token=${finnhubKey}`)
+        ]);
+
+        if (newsRes.ok) {
+          const newsData = await newsRes.json();
           const topNews = newsData.slice(0, 8);
-          if (topNews.length > 0) {
-            newsText = topNews.map((article: any) => `HEADLINE: ${article.headline}\nSUMMARY: ${article.summary}`).join('\n\n');
-          }
+          if (topNews.length > 0) newsText = topNews.map((a: any) => `HEADLINE: ${a.headline}\nSUMMARY: ${a.summary}`).join('\n\n');
         }
-      } catch (newsError) {
-        console.error("Finnhub Fetch Error:", newsError);
+        if (profileRes.ok) {
+          const profileData = await profileRes.json();
+          if (profileData?.finnhubIndustry) profileSummary = `Industry: ${profileData.finnhubIndustry}, Market Cap: $${profileData.marketCapitalization}M`;
+        }
+      } catch (err) {
+        console.error("Finnhub Fetch Error (Ignored):", err);
       }
     }
 
+  // ==========================================
+    // 🧠 3. ASK GEMINI TO ANALYZE
     // ==========================================
+   // ==========================================
     // 🧠 3. ASK GEMINI TO ANALYZE
     // ==========================================
     const model = genAI.getGenerativeModel({ 
-      model: "gemini-3.5-flash", 
+      model: "gemini-3.5-flash", // ✨ FIX: Restored to your original modern model!
       generationConfig: { responseMimeType: "application/json" },
       safetySettings: [ 
         { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
@@ -82,12 +82,14 @@ export async function POST(request: Request) {
     });
 
     const prompt = `
-      Analyze ${companyName} (${ticker}) based on these news headlines: ${newsText}
+      Analyze ${companyName || ticker} (${ticker}).
+      Company Context: ${profileSummary}
+      Recent News Headlines: ${newsText}
 
-      Return a JSON object:
+      Return a JSON object exactly matching this structure:
       {
-        "ratingTitle": "Short 2-word title (e.g. 'Excellent Business', 'Speculative Play', 'Turnaround Case')",
-        "ratingBadge": "1-word status (e.g. 'High Quality', 'Speculative', 'High Risk')",
+        "ratingTitle": "Short 2-word title",
+        "ratingBadge": "1-word status",
         "overallAssessment": "2-sentence summary.",
         "strengths": ["Strength 1", "Strength 2", "Strength 3"],
         "risks": ["Risk 1", "Risk 2", "Risk 3"],
@@ -112,29 +114,42 @@ export async function POST(request: Request) {
           { "question": "4. Am I paying a reasonable price?", "statusText": "Status", "statusType": "yellow", "summary": "Summary", "evidence": ["Point 1", "Point 2", "Point 3"] },
           { "question": "5. Can I understand this business well enough to own it?", "statusText": "Status", "statusType": "green", "summary": "Summary", "evidence": ["Point 1", "Point 2", "Point 3"] },
           { "question": "6. What could go wrong?", "statusText": "Status", "statusType": "red", "summary": "Summary", "evidence": ["Point 1", "Point 2", "Point 3"] },
-          { "question": "7. Can this business keep growing for the next 5–10 years?", "statusText": "Status", "statusType": "green", "summary": "Summary", "evidence": ["Point 1", "Point 2", "Point 3"] }
+          { "question": "7. Can this business keep growing for the next 5-10 years?", "statusText": "Status", "statusType": "green", "summary": "Summary", "evidence": ["Point 1", "Point 2", "Point 3"] }
         ]
       }
     `;
 
     const result = await model.generateContent(prompt);
-    const finalJson = JSON.parse(result.response.text());
+    let rawText = result.response.text();
+
+    // Safely Extract JSON
+    const firstBrace = rawText.indexOf('{');
+    const lastBrace = rawText.lastIndexOf('}');
+    if (firstBrace === -1 || lastBrace === -1) {
+      return NextResponse.json({ error: "Gemini did not return valid JSON. Output was: " + rawText.substring(0, 50) + "..." }, { status: 500 });
+    }
+
+    rawText = rawText.substring(firstBrace, lastBrace + 1);
+    rawText = rawText.replace(/[\n\r\t]/g, ' '); // Strip newlines/tabs that break JSON.parse
+
+    let finalJson;
+    try {
+      finalJson = JSON.parse(rawText);
+    } catch (parseError: any) {
+      return NextResponse.json({ error: "JSON Parsing Failed: " + parseError.message }, { status: 500 });
+    }
 
     // ==========================================
-    // 💾 4. SAVE NEW DATA TO CACHE
+    // 💾 4. AWAIT THE CACHE SAVE
     // ==========================================
     await supabase
       .from('ai_cache')
-      .upsert({ 
-        ticker: ticker, 
-        ai_data: finalJson,
-        updated_at: new Date().toISOString()
-      });
+      .upsert({ ticker: ticker, ai_data: finalJson, updated_at: new Date().toISOString() });
 
     return NextResponse.json(finalJson);
 
   } catch (error: any) {
-    console.error("🚨 Backend AI Error:", error.message || error);
-    return NextResponse.json({ error: error.message || "Failed to generate research" }, { status: 500 });
+    console.error("API Route Error:", error);
+    return NextResponse.json({ error: `Backend crash: ${error.message || "Unknown error"}` }, { status: 500 });
   }
 }
