@@ -3,12 +3,15 @@
 import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Building2, TrendingUp, TrendingDown, Globe, ArrowLeft, Sparkles, Loader2, AlertCircle } from 'lucide-react';
+import { 
+  Building2, TrendingUp, TrendingDown, Globe, ArrowLeft, Sparkles, 
+  Loader2, AlertCircle, ShieldCheck, Plus, ArrowRight, Activity, Check 
+} from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { getCompanyProfile } from '@/lib/fmp';
 import SmartSearchBar from '@/components/SmartSearchBar';
 
-// --- REUSABLE PROGRESSIVE DISCLOSURE COMPONENT ---
+// --- REUSABLE PROGRESSIVE CARD COMPONENT ---
 function ProgressiveCard({ question, statusText, statusType, thesisSupportText, thesisSupportType, summary, evidence, showThesisBadge = false }: any) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -84,37 +87,38 @@ function ProgressiveCard({ question, statusText, statusType, thesisSupportText, 
   );
 }
 
-// --- MAIN PAGE COMPONENT ---
-export default function CompanyOverviewPage({ params }: { params: Promise<{ ticker: string }> }) {
+// --- MAIN CONTROLLER COMPONENT ---
+export default function CompanyPage({ params }: { params: Promise<{ ticker: string }> }) {
   const router = useRouter();
   const resolvedParams = use(params);
-  const rawTicker = resolvedParams.ticker || 'NVDA';
-  const ticker = rawTicker.toUpperCase();
+  const ticker = (resolvedParams.ticker || 'MSFT').toUpperCase();
 
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [hasThesis, setHasThesis] = useState(false);
-  const [profile, setProfile] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [headerSearch, setHeaderSearch] = useState('');
+  const [profile, setProfile] = useState<any>(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [viewMode, setViewMode] = useState<'dashboard' | 'research'>('dashboard');
 
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  // Thesis State
+  const [savedThesis, setSavedThesis] = useState<any>(null);
+  const [activeDrivers, setActiveDrivers] = useState<any[]>([]);
+  const [activeRisks, setActiveRisks] = useState<any[]>([]);
+  const [suggestedConsiderations, setSuggestedConsiderations] = useState<any[]>([]);
+
+  // AI Research State
   const [aiData, setAiData] = useState<any>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
 
   useEffect(() => {
-    async function initializeOverview() {
+    async function initPage() {
       setIsLoading(true);
-      
-      // 1. Fetch Company Profile from FMP
-      let liveData: any = await getCompanyProfile(ticker);
-      
-      // 🛡️ SAFEGUARD: If FMP returns an array of search results, grab the first one
-      if (Array.isArray(liveData) && liveData.length > 0) {
-        liveData = liveData[0];
-      }
-      setProfile(liveData);
 
-      // 2. 🚀 NEW: Check Supabase for existing cached research!
+      // 1. Fetch Live Company Profile
+      let liveProfile: any = await getCompanyProfile(ticker);
+      if (Array.isArray(liveProfile) && liveProfile.length > 0) liveProfile = liveProfile[0];
+      setProfile(liveProfile);
+
+      // 2. Fetch Cached AI Research (if available)
       try {
         const { data: cacheData } = await supabase
           .from('ai_cache')
@@ -122,52 +126,71 @@ export default function CompanyOverviewPage({ params }: { params: Promise<{ tick
           .eq('ticker', ticker)
           .order('updated_at', { ascending: false })
           .limit(1)
-          .maybeSingle(); // Gets the single most recent row, or null if none exists
+          .maybeSingle();
 
         if (cacheData && cacheData.ai_data) {
           let cachedPayload = cacheData.ai_data;
-          
-          // Parse if it's saved as a string
           if (typeof cachedPayload === 'string') {
             try { cachedPayload = JSON.parse(cachedPayload); } catch (e) {}
           }
-          
-          // BOOM! We have data. This instantly hides the "Generate" button 
-          // and populates all the beautiful UI metrics!
-          setAiData(cachedPayload); 
-          console.log(`✅ Loaded cached research for ${ticker}`);
+          setAiData(cachedPayload);
         }
       } catch (err) {
-        console.error("Error checking cache:", err);
+        console.error("Cache check failed:", err);
       }
 
-      // 3. Check User Session & Existing Thesis
+      // 3. Check Session & Saved Thesis
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
         setIsLoggedIn(true);
         const { data: thesis } = await supabase
           .from('theses')
-          .select('id')
-          .eq('ticker', ticker)
+          .select('*')
           .eq('user_id', session.user.id)
+          .eq('ticker', ticker)
           .maybeSingle();
-          
-        if (thesis) setHasThesis(true);
+
+        if (thesis) {
+          setSavedThesis(thesis);
+          setViewMode('dashboard');
+
+          // Pull driver/risk options cache to match titles
+          const { data: optionsCache } = await supabase
+            .from('thesis_options_cache')
+            .select('data')
+            .eq('ticker', ticker)
+            .maybeSingle();
+
+          if (optionsCache && optionsCache.data) {
+            const allDrivers = optionsCache.data.drivers || [];
+            const allRisks = optionsCache.data.risks || [];
+
+            const myDrivers = allDrivers.filter((d: any) => (thesis.drivers || []).includes(d.id));
+            const myRisks = allRisks.filter((r: any) => (thesis.risks || []).includes(r.id));
+            const unusedOptions = [
+              ...allDrivers.filter((d: any) => !(thesis.drivers || []).includes(d.id)),
+              ...allRisks.filter((r: any) => !(thesis.risks || []).includes(r.id))
+            ].slice(0, 2);
+
+            setActiveDrivers(myDrivers);
+            setActiveRisks(myRisks);
+            setSuggestedConsiderations(unusedOptions);
+          }
+        } else {
+          // Logged in, but NO thesis for this stock -> default to Research View!
+          setViewMode('research');
+        }
+      } else {
+        // Unauthenticated user -> default to Research View!
+        setIsLoggedIn(false);
+        setViewMode('research');
       }
-      
+
       setIsLoading(false);
     }
-    
-    initializeOverview();
-  }, [ticker]);
 
-  const handleHeaderSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (headerSearch.trim()) {
-      router.push(`/company/${headerSearch.trim().toUpperCase()}`);
-      setHeaderSearch('');
-    }
-  };
+    initPage();
+  }, [ticker]);
 
   const handleLaunchBuilder = () => {
     if (!isLoggedIn) {
@@ -192,7 +215,7 @@ export default function CompanyOverviewPage({ params }: { params: Promise<{ tick
         throw new Error("Server Error: Unable to reach AI endpoint.");
       }
       if (!response.ok) throw new Error('Failed to generate research');
-      
+
       const data = await response.json();
       setAiData(data);
     } catch (error: any) {
@@ -205,8 +228,8 @@ export default function CompanyOverviewPage({ params }: { params: Promise<{ tick
   if (isLoading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="text-slate-400 font-bold flex items-center gap-3 animate-pulse">
-          <Loader2 className="w-5 h-5 animate-spin" /> Fetching {ticker} Live Data...
+        <div className="text-slate-500 font-bold flex items-center gap-3 animate-pulse">
+          <Loader2 className="w-5 h-5 animate-spin" /> Loading {ticker}...
         </div>
       </div>
     );
@@ -214,7 +237,7 @@ export default function CompanyOverviewPage({ params }: { params: Promise<{ tick
 
   if (!profile) {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center font-sans text-slate-500">
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center text-slate-500">
         <Globe className="w-10 h-10 text-slate-300 mb-4" />
         <h1 className="text-2xl font-extrabold text-slate-900 mb-2">Company Not Found</h1>
         <button onClick={() => router.back()} className="text-blue-600 font-bold hover:underline">← Go back</button>
@@ -222,40 +245,231 @@ export default function CompanyOverviewPage({ params }: { params: Promise<{ tick
     );
   }
 
-  const isPositiveChange = profile.changes >= 0;
-
-  // --- SAFE FALLBACK DATA ---
+  // Fallback deep dive data
   const fallbackDeepDive = [
     { question: "1. Is this a high-quality business?", statusText: "Excellent", statusType: "green", summary: `${profile?.companyName} benefits from predictable recurring revenue, exceptional returns on invested capital, and structural advantages over competitors.`, evidence: ["Consistently high ROIC", "Predictable revenue base", "Industry-leading unit economics"] },
     { question: "2. Does it have a durable competitive advantage (moat)?", statusText: "Exceptional Moat", statusType: "green", summary: "A dominant moat built on scaled economics, customer loyalty, and high switching costs.", evidence: ["Unmatched economies of scale", "Deep brand trust", "High switching costs"] },
     { question: "3. Can management be trusted?", statusText: "Trusted", statusType: "green", summary: "Exceptional execution history with highly disciplined capital allocation.", evidence: ["History of over-delivering", "Consistent share buybacks", "Strong insider ownership"] },
     { question: "4. Am I paying a reasonable price?", statusText: "Premium", statusType: "yellow", summary: "The company trades at a premium valuation multiple, requiring flawless future execution.", evidence: ["Trading above historic averages", "High expectations priced in", "Requires double-digit growth"] },
-    { question: "5. Can I understand this business well enough to own it?", statusText: "Easy", statusType: "green", summary: "The business model is straightforward: generate revenue by offering exceptional value through scaled retail/software operations.", evidence: ["Clear, easy-to-read financial statements", "Simple core product offering", "No complex financial engineering"] },
-    { question: "6. What could go wrong?", statusText: "Monitor", statusType: "red", summary: "Macroeconomic slowdowns, heavy reliance on specific geographical markets, or an erosion of the core value proposition.", evidence: ["Consumer spending compression", "Rising labor and logistical costs", "Aggressive competitor discounting"] },
-    { question: "7. Can this business keep growing for the next 5–10 years?", statusText: "Strong Acceleration", statusType: "green", summary: "Management continues to identify and execute on massive adjacent total addressable markets (TAMs).", evidence: ["Expanding into rapidly growing markets", "Successfully passing pricing increases", "Significant runway for new products"] }
+    { question: "5. Can I understand this business well enough to own it?", statusText: "Easy", statusType: "green", summary: "The business model is straightforward: generate revenue by offering exceptional value through scaled operations.", evidence: ["Clear financial statements", "Simple core product offering", "No complex financial engineering"] },
+    { question: "6. What could go wrong?", statusText: "Monitor", statusType: "red", summary: "Macroeconomic slowdowns, heavy reliance on specific geographical markets, or an erosion of the core value proposition.", evidence: ["Consumer spending compression", "Rising operational costs", "Aggressive competitor discounting"] },
+    { question: "7. Can this business keep growing for the next 5–10 years?", statusText: "Strong Acceleration", statusType: "green", summary: "Management continues to identify and execute on massive adjacent market opportunities.", evidence: ["Expanding into growing adjacent markets", "Strong pricing power", "Long runway for product expansion"] }
   ];
+
+  const reviewDate = savedThesis ? new Date(savedThesis.updated_at || savedThesis.created_at).toLocaleDateString('en-US', { 
+    month: 'short', day: 'numeric', year: 'numeric' 
+  }) : '';
+
+  // --- RENDER VIEW 1: MY SAVED THESIS DASHBOARD ---
+  if (savedThesis && viewMode === 'dashboard') {
+    return (
+      <div className="min-h-screen bg-slate-50 font-sans pb-24">
+        <nav className="bg-white border-b border-slate-200 sticky top-0 z-50">
+          <div className="max-w-4xl mx-auto px-6 h-16 flex items-center justify-between">
+            <Link href="/dashboard" className="flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-slate-900 transition-colors">
+              <ArrowLeft className="w-4 h-4" /> Back to Portfolio
+            </Link>
+            <div className="flex items-center gap-4">
+              <button 
+                onClick={() => setViewMode('research')}
+                className="text-xs font-extrabold text-blue-600 hover:text-blue-800 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100"
+              >
+                View Fundamental Research
+              </button>
+              <div className="font-extrabold text-slate-900">Investment IQ</div>
+            </div>
+          </div>
+        </nav>
+
+        <main className="max-w-3xl mx-auto px-6 pt-10">
+          <div className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-4">
+            <div>
+              <h1 className="text-4xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+                {ticker}
+                <span className="text-2xl font-bold text-slate-400 font-normal">{profile?.companyName}</span>
+              </h1>
+            </div>
+            <div className="inline-flex items-center gap-2 bg-emerald-50 text-emerald-700 border border-emerald-200 px-4 py-2 rounded-full text-sm font-extrabold shadow-sm">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              Thesis Strengthening
+            </div>
+          </div>
+
+          <hr className="border-slate-200 mb-10" />
+
+          {/* MY INVESTMENT THESIS */}
+          <section className="mb-12">
+            <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-4">My Investment Thesis</p>
+            <div className="bg-white rounded-3xl p-8 border border-slate-200 shadow-sm relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-1.5 h-full bg-blue-500"></div>
+              <h3 className="text-sm font-extrabold text-slate-900 mb-2">Why I invested</h3>
+              <p className="text-slate-700 font-medium leading-relaxed">
+                {savedThesis.summary || "No summary provided."}
+              </p>
+            </div>
+          </section>
+
+          <hr className="border-slate-200 mb-12" />
+
+          {/* WHY I INVESTED (Drivers) */}
+          <section className="mb-12">
+            <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-4">Why I Invested</p>
+            <div className="space-y-4">
+              {activeDrivers.map((driver, idx) => (
+                <div key={idx} className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex flex-col sm:flex-row gap-6 items-start">
+                  <div className="flex-1">
+                    <h4 className="text-base font-extrabold text-slate-900 mb-1">{driver.title}</h4>
+                    <p className="text-sm font-medium text-slate-500">{driver.whyThisMatters}</p>
+                  </div>
+                  <div className="shrink-0 flex items-center gap-1.5 bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-lg text-xs font-bold border border-emerald-100">
+                    <TrendingUp className="w-3.5 h-3.5" /> Strengthening
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <hr className="border-slate-200 mb-12" />
+
+          {/* RISKS I'M WATCHING */}
+          <section className="mb-12">
+            <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-4">Risks I'm Watching</p>
+            <div className="space-y-4">
+              {activeRisks.map((risk, idx) => (
+                <div key={idx} className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex flex-col sm:flex-row gap-6 items-start">
+                  <div className="flex-1">
+                    <h4 className="text-base font-extrabold text-slate-900 mb-1">{risk.title}</h4>
+                    <p className="text-sm font-medium text-slate-500">{risk.whyThisMatters}</p>
+                  </div>
+                  <div className="shrink-0 flex items-center gap-1.5 bg-amber-50 text-amber-700 px-3 py-1.5 rounded-lg text-xs font-bold border border-amber-100">
+                    <AlertCircle className="w-3.5 h-3.5" /> Monitoring
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <hr className="border-slate-200 mb-12" />
+
+          {/* WHAT'S CHANGED */}
+          <section className="mb-12">
+            <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-4">What's Changed</p>
+            <div className="bg-slate-900 rounded-3xl p-8 text-white shadow-lg">
+              <h3 className="text-sm font-extrabold text-slate-300 mb-6">Latest earnings / filings</h3>
+              <ul className="space-y-4">
+                <li className="flex items-start gap-3">
+                  <Check className="w-5 h-5 text-emerald-400 shrink-0" />
+                  <span className="text-sm font-medium text-slate-200">Core metrics accelerated this quarter.</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <Check className="w-5 h-5 text-emerald-400 shrink-0" />
+                  <span className="text-sm font-medium text-slate-200">Market position continues expanding in key verticals.</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-amber-400 shrink-0" />
+                  <span className="text-sm font-medium text-slate-200">Short-term competitive pressures require ongoing monitoring.</span>
+                </li>
+              </ul>
+            </div>
+          </section>
+
+          {/* CONSIDERATIONS */}
+          {suggestedConsiderations.length > 0 && (
+            <>
+              <hr className="border-slate-200 mb-12" />
+              <section className="mb-12">
+                <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-4">You May Want To Consider</p>
+                <div className="grid gap-4 md:grid-cols-2">
+                  {suggestedConsiderations.map((item, idx) => (
+                    <div key={idx} className="bg-slate-50 rounded-2xl p-6 border border-slate-200/60 shadow-sm flex flex-col">
+                      <h4 className="text-sm font-extrabold text-slate-900 mb-2">{item.title}</h4>
+                      <p className="text-xs font-medium text-slate-500 mb-6 flex-grow">
+                        Recent developments could affect this assumption.
+                      </p>
+                      <Link 
+                        href={`/build-thesis/${ticker}`}
+                        className="inline-flex items-center justify-center gap-2 w-full py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-extrabold text-slate-700 hover:bg-slate-50 transition-colors"
+                      >
+                        <Plus className="w-3.5 h-3.5" /> Add to My Thesis
+                      </Link>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            </>
+          )}
+
+          <hr className="border-slate-200 mb-12" />
+
+          {/* THESIS STATUS */}
+          <section className="bg-white rounded-3xl p-8 border border-slate-200 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6">
+            <div>
+              <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-2">Thesis Status</p>
+              <div className="flex items-center gap-3">
+                <div className="w-3 h-3 rounded-full bg-emerald-500"></div>
+                <span className="text-lg font-extrabold text-slate-900">Strengthening</span>
+              </div>
+              <p className="text-xs font-medium text-slate-500 mt-2">Last reviewed: {reviewDate}</p>
+            </div>
+            
+            <div className="flex gap-3 w-full md:w-auto">
+              <button 
+                onClick={() => setViewMode('research')}
+                className="flex-1 md:flex-none px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-extrabold rounded-xl transition-colors"
+              >
+                Review Updates
+              </button>
+              <Link 
+                href={`/build-thesis/${ticker}`}
+                className="flex-1 md:flex-none inline-flex items-center justify-center px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white text-sm font-extrabold rounded-xl transition-colors shadow-md"
+              >
+                Modify Thesis
+              </Link>
+            </div>
+          </section>
+        </main>
+      </div>
+    );
+  }
+
+  // --- RENDER VIEW 2: GENERAL RESEARCH PAGE (For non-thesis stocks / new users) ---
+  const isPositiveChange = profile.changes >= 0;
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 pb-24">
-
-    {/* HEADER NAV */}
+      {/* NAVBAR */}
       <nav className="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
         <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between gap-4">
           <Link href="/" className="font-extrabold text-xl tracking-tight flex items-center gap-2">
             Investment IQ
-            <span className="flex gap-0.5"><span className="w-1 h-2.5 bg-blue-600 rounded-full"></span><span className="w-1 h-4 bg-blue-600 rounded-full"></span><span className="w-1 h-5 bg-blue-600 rounded-full"></span></span>
+            <span className="flex gap-0.5">
+              <span className="w-1 h-2.5 bg-blue-600 rounded-full"></span>
+              <span className="w-1 h-4 bg-blue-600 rounded-full"></span>
+              <span className="w-1 h-5 bg-blue-600 rounded-full"></span>
+            </span>
           </Link>
           
-          {/* ---> NEW SMART SEARCH BAR <--- */}
           <div className="hidden sm:block">
             <SmartSearchBar />
           </div>
           
           <div className="flex items-center gap-3">
+            {savedThesis && (
+              <button 
+                onClick={() => setViewMode('dashboard')}
+                className="text-xs font-extrabold bg-emerald-50 text-emerald-700 px-3.5 py-2 rounded-xl border border-emerald-200"
+              >
+                My Thesis Dashboard →
+              </button>
+            )}
             {isLoggedIn ? (
-              <button onClick={() => router.push('/dashboard')} className="text-xs font-bold bg-blue-50 text-blue-700 px-4 py-2 rounded-xl border border-blue-200">← Dashboard</button>
+              <button onClick={() => router.push('/dashboard')} className="text-xs font-bold bg-blue-50 text-blue-700 px-4 py-2 rounded-xl border border-blue-200">
+                ← Portfolio
+              </button>
             ) : (
-              <Link href="/login" className="bg-blue-600 text-white text-xs font-extrabold px-4 py-2 rounded-xl shadow-sm hover:bg-blue-700">Get Started</Link>
+              <Link href="/login" className="bg-blue-600 text-white text-xs font-extrabold px-4 py-2 rounded-xl shadow-sm hover:bg-blue-700">
+                Get Started
+              </Link>
             )}
           </div>
         </div>
@@ -297,7 +511,7 @@ export default function CompanyOverviewPage({ params }: { params: Promise<{ tick
                 <Sparkles className="w-6 h-6 text-blue-600" /> AI Fundamental Analysis
               </h2>
               <p className="text-sm text-blue-900/70 font-medium max-w-xl leading-relaxed">
-                Our AI engine will read the last 7 days of live market news to evaluate {profile.companyName}'s current trajectory, moat, and valuation.
+                Our AI engine evaluates {profile.companyName}'s trajectory, moat, and valuation based on recent market developments.
               </p>
               {aiError && (
                 <div className="mt-4 flex items-start gap-2 text-rose-600 bg-rose-50 p-3 rounded-xl border border-rose-200 text-sm font-bold">
@@ -306,23 +520,22 @@ export default function CompanyOverviewPage({ params }: { params: Promise<{ tick
               )}
             </div>
             <button onClick={handleGenerateResearch} disabled={isAnalyzing} className="w-full md:w-auto relative z-10 shrink-0 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-extrabold px-8 py-4 rounded-2xl transition-all shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2">
-              {isAnalyzing ? <><Loader2 className="w-5 h-5 animate-spin" /> Parsing Live News...</> : <><Sparkles className="w-5 h-5" /> Generate Research</>}
+              {isAnalyzing ? <><Loader2 className="w-5 h-5 animate-spin" /> Parsing Live Data...</> : <><Sparkles className="w-5 h-5" /> Generate Research</>}
             </button>
           </div>
         )}
-        
-        {/* TOP SPLIT: ASSESSMENT & SNAPSHOT */}
+
+        {/* OVERALL ASSESSMENT & SNAPSHOT */}
         <div className="mb-10">
           <div className="bg-white p-8 md:p-12 rounded-[32px] border border-slate-200 shadow-sm">
             <div className="grid grid-cols-1 md:grid-cols-5 gap-12 items-start">
               
-              {/* LEFT SIDE */}
               <div className="md:col-span-3 flex flex-col">
                 <div>
                   <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Overall Assessment</h2>
                   <div className="flex flex-wrap items-center gap-3 mb-5">
                     <span className="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight leading-none">
-                      {aiData?.ratingTitle || 'Excellent Business'}
+                      {aiData?.ratingTitle || 'High Quality Business'}
                     </span>
                     <span className={`text-[11px] font-extrabold px-3 py-1.5 rounded-full border shadow-sm uppercase tracking-widest ${
                       aiData?.ratingBadge === 'High Risk' ? 'bg-rose-50 text-rose-700 border-rose-200' : 
@@ -333,7 +546,7 @@ export default function CompanyOverviewPage({ params }: { params: Promise<{ tick
                     </span>
                   </div>
                   <p className="text-base text-slate-600 font-medium leading-relaxed max-w-2xl">
-                    {aiData?.overallAssessment || `${profile.companyName} remains one of the highest-quality businesses globally, supported by a structural AI moat, dominant developer ecosystem, and stellar margin expansion.`}
+                    {aiData?.overallAssessment || `${profile.companyName} remains a premier business, supported by robust market positioning, operating leverage, and sustained cash flow generation.`}
                   </p>
                 </div>
 
@@ -341,7 +554,7 @@ export default function CompanyOverviewPage({ params }: { params: Promise<{ tick
                   <div>
                     <p className="text-[11px] font-extrabold text-emerald-600 uppercase tracking-widest mb-4">Key Strengths</p>
                     <div className="space-y-3">
-                      {(aiData?.strengths || ["Wide Moat & Software Lock-in", "Exceptional Operating Margins", "Durable Cash Flow"]).map((strength: string, i: number) => (
+                      {(aiData?.strengths || ["Durable Market Moat", "Strong Balance Sheet", "Predictable Cash Flows"]).map((strength: string, i: number) => (
                         <p key={i} className="text-sm text-slate-700 font-medium flex gap-2"><span className="text-emerald-500 font-bold">✓</span> <span className="leading-snug">{strength}</span></p>
                       ))}
                     </div>
@@ -349,7 +562,7 @@ export default function CompanyOverviewPage({ params }: { params: Promise<{ tick
                   <div>
                     <p className="text-[11px] font-extrabold text-amber-600 uppercase tracking-widest mb-4">Watch Points</p>
                     <div className="space-y-3">
-                      {(aiData?.risks || ["Premium Historical Valuation", "Export Control Restrictions", "High Customer Concentration"]).map((risk: string, i: number) => (
+                      {(aiData?.risks || ["Macro Sensitivity", "Valuation Multiple", "Competitive Pressure"]).map((risk: string, i: number) => (
                         <p key={i} className="text-sm text-slate-700 font-medium flex gap-2"><span className="text-amber-500 font-bold">⚠</span> <span className="leading-snug">{risk}</span></p>
                       ))}
                     </div>
@@ -357,7 +570,7 @@ export default function CompanyOverviewPage({ params }: { params: Promise<{ tick
                 </div>
               </div>
 
-              {/* RIGHT SIDE */}
+              {/* SNAPSHOT PILLARS */}
               <div className="md:col-span-2 bg-slate-50/80 rounded-[24px] p-8 border border-slate-100 self-start w-full">
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-6">Quick Snapshot</p>
                 <div className="space-y-4">
@@ -381,21 +594,19 @@ export default function CompanyOverviewPage({ params }: { params: Promise<{ tick
                       parsedData = { label: rawData.label || defaultLabels[key], color: rawData.color || 'green' };
                     }
                     
-                 // We map the words to exact HEX color codes to bypass Tailwind purging
-const dotColorHex = parsedData.color === 'green' ? '#10b981' : 
-                    parsedData.color === 'yellow' ? '#fbbf24' : 
-                    parsedData.color === 'red' ? '#f43f5e' : '#cbd5e1';
-                 
-return (
-  <div key={label} className="flex justify-between items-center border-b border-slate-200/50 pb-3.5 last:border-0 last:pb-0">
-    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">{label}</span>
-    <span className="text-sm font-extrabold text-slate-900 flex items-center gap-2.5">
-      {/* Inline styles guarantee the dot renders perfectly every time */}
-      <span style={{ backgroundColor: dotColorHex, width: '10px', height: '10px', borderRadius: '50%', flexShrink: 0, boxShadow: '0 1px 2px rgba(0,0,0,0.1)' }}></span>
-      {parsedData.label}
-    </span>
-  </div>
-);
+                    const dotColorHex = parsedData.color === 'green' ? '#10b981' : 
+                                       parsedData.color === 'yellow' ? '#fbbf24' : 
+                                       parsedData.color === 'red' ? '#f43f5e' : '#cbd5e1';
+                    
+                    return (
+                      <div key={label} className="flex justify-between items-center border-b border-slate-200/50 pb-3.5 last:border-0 last:pb-0">
+                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">{label}</span>
+                        <span className="text-sm font-extrabold text-slate-900 flex items-center gap-2.5">
+                          <span style={{ backgroundColor: dotColorHex, width: '10px', height: '10px', borderRadius: '50%', flexShrink: 0, boxShadow: '0 1px 2px rgba(0,0,0,0.1)' }}></span>
+                          {parsedData.label}
+                        </span>
+                      </div>
+                    );
                   })}
                 </div>
               </div>
@@ -404,7 +615,7 @@ return (
           </div>
         </div>
 
-        {/* --- LIVE NEWS UPDATES SECTION --- */}
+        {/* LIVE EVALUATION */}
         <div className="mb-10 bg-slate-900 rounded-[32px] p-8 md:p-12 shadow-xl border border-slate-800">
           <div className="flex flex-wrap justify-between items-end gap-4 mb-8">
             <div>
@@ -418,10 +629,10 @@ return (
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 items-stretch">
             {(aiData?.updates || [
-              { headline: "Revenue guidance raised significantly", impact: "Validates Growth Demand", type: "positive" },
-              { headline: "Membership renewals show strong retention", impact: "Validates Moat Strength", type: "positive" },
-              { headline: "Gross margins expanded slightly", impact: "Validates Pricing Power", type: "neutral" },
-              { headline: "Supply chain expansion costs rising", impact: "Key Watch Item", type: "negative" }
+              { headline: "Revenue performance accelerates", impact: "Validates Demand", type: "positive" },
+              { headline: "Key unit economics remain strong", impact: "Validates Moat", type: "positive" },
+              { headline: "Operating margins remain steady", impact: "Pricing Power", type: "neutral" },
+              { headline: "Short-term supply dynamics monitored", impact: "Watch Item", type: "negative" }
             ]).map((update: any, i: number) => (
               <div key={i} className="flex flex-col h-full bg-slate-800/50 p-6 rounded-2xl border border-slate-700/50 hover:bg-slate-800 transition-colors">
                 <div className="flex items-start gap-3 mb-auto">
@@ -445,7 +656,7 @@ return (
           </div>
         </div>
 
-        {/* THE 7 DEEP DIVE QUESTIONS */}
+        {/* 7 DEEP DIVE QUESTIONS */}
         <div className="space-y-6">
           {(aiData?.deepDive || fallbackDeepDive).map((item: any, i: number) => (
             <ProgressiveCard 
@@ -453,19 +664,18 @@ return (
               question={item.question}
               statusText={item.statusText}
               statusType={item.statusType}
-              thesisSupportText={item.statusType === 'green' ? "✔ Supports Thesis" : item.statusType === 'red' ? "⚠ Thesis Risk" : "— Neutral to Thesis"}
+              thesisSupportText={item.statusType === 'green' ? "✔ Supports Thesis" : item.statusType === 'red' ? "⚠ Thesis Risk" : "— Neutral"}
               thesisSupportType={item.statusType === 'green' ? 'supports' : item.statusType === 'red' ? 'risk' : 'neutral'}
-              showThesisBadge={hasThesis}
+              showThesisBadge={!!savedThesis}
               summary={item.summary}
               evidence={item.evidence}
             />
           ))}
         </div>
 
-        {/* THESIS LAUNCHPAD (RESTORED!) */}
+        {/* THESIS BUILDER LAUNCHPAD */}
         <div id="build-thesis-section" className="mt-16 pt-10 border-t border-slate-200">
           <div className="bg-gradient-to-b from-slate-900 to-blue-950 text-white p-8 md:p-12 rounded-[32px] shadow-2xl border border-blue-900/50 max-w-4xl mx-auto relative overflow-hidden">
-            
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[80%] h-[200px] bg-blue-600/20 blur-[100px] rounded-full pointer-events-none"></div>
 
             <div className="text-center max-w-2xl mx-auto mb-10 relative z-10">
@@ -473,7 +683,7 @@ return (
                 Build Your Investment Thesis for {ticker}
               </h2>
               <p className="text-blue-100/80 text-sm md:text-base font-medium leading-relaxed">
-                Record why you're investing in {profile.companyName} today. Choose the fundamental reasons behind your investment, and Investment IQ automatically monitors whether they become stronger or weaker after every earnings report.
+                Record why you're investing in {profile.companyName}. Select key fundamental drivers and risks, and Investment IQ automatically tracks them after every earnings report.
               </p>
             </div>
 
@@ -488,15 +698,15 @@ return (
               <div className="bg-white/5 border border-white/10 rounded-2xl p-5 md:p-6 flex items-start gap-4 md:gap-5 transition-all hover:bg-white/10 hover:border-white/20">
                 <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-blue-600/30 text-blue-300 flex items-center justify-center font-bold shrink-0 border border-blue-500/30 text-sm md:text-base">2</div>
                 <div>
-                  <h3 className="font-extrabold text-white text-base md:text-lg mb-1">AI Monitors Every Quarter</h3>
-                  <p className="text-sm text-blue-200/70 font-medium">Earnings calls • SEC filings • Financials • Management</p>
+                  <h3 className="font-extrabold text-white text-base md:text-lg mb-1">AI Quarterly Tracking</h3>
+                  <p className="text-sm text-blue-200/70 font-medium">Earnings calls • SEC filings • Financials</p>
                 </div>
               </div>
               <div className="bg-white/5 border border-white/10 rounded-2xl p-5 md:p-6 flex items-start gap-4 md:gap-5 transition-all hover:bg-white/10 hover:border-white/20">
                 <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-blue-600/30 text-blue-300 flex items-center justify-center font-bold shrink-0 border border-blue-500/30 text-sm md:text-base">3</div>
                 <div>
-                  <h3 className="font-extrabold text-white text-base md:text-lg mb-1">Track Your Conviction</h3>
-                  <p className="text-sm text-blue-200/70 font-medium">Know when your conviction is strengthening, unchanged, or starting to break.</p>
+                  <h3 className="font-extrabold text-white text-base md:text-lg mb-1">Monitor Conviction</h3>
+                  <p className="text-sm text-blue-200/70 font-medium">Clear signals when your core assumptions strengthen or weaken.</p>
                 </div>
               </div>
             </div>
@@ -506,15 +716,15 @@ return (
                 <span className="text-emerald-400 font-bold text-base">✓</span>
                 <span>
                   {!isLoggedIn 
-                    ? "Sign in to save your thesis and receive automatic quarterly updates." 
-                    : "Launch the builder to finalize and track your thesis."}
+                    ? "Sign in to save your thesis and track it automatically." 
+                    : (savedThesis ? "Modify your active thesis drivers anytime." : "Launch builder to save your thesis.")}
                 </span>
               </div>
               <button
                 onClick={handleLaunchBuilder}
                 className="w-full md:w-auto shrink-0 bg-blue-600 hover:bg-blue-500 text-white text-sm md:text-base font-extrabold px-8 py-3.5 rounded-xl transition-all shadow-[0_0_20px_rgba(37,99,235,0.4)] hover:shadow-[0_0_30px_rgba(37,99,235,0.6)] cursor-pointer text-center"
               >
-                {isLoggedIn ? (hasThesis ? 'Update Saved Thesis →' : 'Build My Thesis →') : 'Build My Thesis →'}
+                {savedThesis ? 'Modify Saved Thesis →' : 'Build My Thesis →'}
               </button>
             </div>
           </div>
