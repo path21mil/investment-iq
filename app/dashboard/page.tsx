@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, ArrowRight, TrendingUp, TrendingDown, Info, X, ChevronDown, ChevronUp, AlertTriangle, Check, BookOpen } from 'lucide-react';
+import { Search, ArrowRight, Info, X, ChevronDown, ChevronUp, BookOpen, Trash2, Loader2, Activity } from 'lucide-react';
 import { createClient } from "@supabase/supabase-js";
 
 // Initialize Supabase safely
@@ -21,16 +21,12 @@ interface TrackedCompany {
   id: string;
   ticker: string;
   name: string;
-  domain: string;
   status: 'Strengthening' | 'Review Needed' | 'Weakening';
-  summaryBold: string;
-  summaryLight: string;
-  affectedDriver: string;
+  coreThesis: string;
   aiSummary: string;
   updates: CompanyUpdate[];
   lastUpdated: string;
   requiresAction: boolean;
-  price: number;
 }
 
 export default function Dashboard() {
@@ -42,6 +38,7 @@ export default function Dashboard() {
   
   const [reviewCompany, setReviewCompany] = useState<TrackedCompany | null>(null);
   const [expandedEvidenceIdx, setExpandedEvidenceIdx] = useState<number | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     setExpandedEvidenceIdx(null);
@@ -65,11 +62,9 @@ export default function Dashboard() {
         return;
       }
       
-      // Get user's first name
       const name = session.user.user_metadata?.full_name?.split(' ')[0] || 'Padam';
       setUserName(name);
 
-      // Fetch REAL theses from database
       const { data: dbTheses, error } = await supabase
         .from("theses")
         .select("*")
@@ -81,25 +76,16 @@ export default function Dashboard() {
       if (!dbTheses || dbTheses.length === 0) {
         setPortfolio([]);
       } else {
-        // Map the real database rows into your beautiful UI structure
-      
         const mappedPortfolio: TrackedCompany[] = dbTheses.map((t: any) => ({
           id: t.id,
           ticker: t.ticker,
           name: t.company_name || t.ticker,
-          domain: `${t.ticker.toLowerCase()}.com`,
-          
-          // ✨ THE FIX: Read the real AI data from the database instead of hardcoding it!
           status: t.status || 'Strengthening', 
-          summaryBold: t.drivers?.[0]?.title || 'Active Thesis',
-          summaryLight: t.drivers?.[0]?.whyThisMatters || 'Tracking your core investment drivers.',
-          affectedDriver: t.drivers?.[0]?.title || '',
+          coreThesis: t.drivers?.[0]?.title || 'Long-term growth compounding',
           aiSummary: t.ai_summary || 'Tracking active. Awaiting next earnings call or SEC filing for new insights.',
           updates: typeof t.updates === 'string' ? JSON.parse(t.updates) : (t.updates || []), 
           lastUpdated: new Date(t.last_scanned_at || t.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-          requiresAction: t.requires_action || false,
-          
-          price: 0
+          requiresAction: t.requires_action || false
         }));
 
         setPortfolio(mappedPortfolio);
@@ -123,16 +109,12 @@ export default function Dashboard() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
-
       const res = await fetch('/api/engine', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: session.user.id })
       });
-
       if (!res.ok) throw new Error("Engine failed to run");
-      
-      // Reload the dashboard to see the new AI data!
       await loadDashboard(); 
     } catch (err) {
       console.error(err);
@@ -142,32 +124,66 @@ export default function Dashboard() {
     }
   };
 
+  const handleDeleteThesis = async (id: string, ticker: string) => {
+    if (!confirm(`Are you sure you want to delete your investment thesis for ${ticker}?`)) return;
+    setDeletingId(id);
+    try {
+      const { error } = await supabase.from('theses').delete().eq('id', id);
+      if (error) throw error;
+      setPortfolio(prev => prev.filter(p => p.id !== id));
+    } catch (err) {
+      console.error("Delete Error:", err);
+      alert("Failed to delete thesis. Please try again.");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   const actionItems = portfolio.filter(p => p.requiresAction);
 
   const getStatusStyles = (status: TrackedCompany['status']) => {
     switch(status) {
-      case 'Strengthening': return { border: 'border-emerald-500', badge: 'bg-emerald-50/80 text-emerald-700 border-emerald-200/60', icon: '🟢', label: 'Thesis Strengthening' };
-      case 'Review Needed': return { border: 'border-amber-400', badge: 'bg-amber-50/80 text-amber-700 border-amber-200/60', icon: '🟡', label: 'Review Needed' };
-      case 'Weakening': return { border: 'border-rose-500', badge: 'bg-rose-50/80 text-rose-700 border-rose-200/60', icon: '🔴', label: 'Thesis Weakening' };
-      default: return { border: 'border-slate-500', badge: 'bg-slate-50/80 text-slate-700 border-slate-200/60', icon: '⚪', label: 'Active' };
+      case 'Strengthening': return { dotColor: 'text-emerald-500', label: 'Strengthening' };
+      case 'Review Needed': return { dotColor: 'text-amber-500', label: 'Review Needed' };
+      case 'Weakening': return { dotColor: 'text-rose-500', label: 'Weakening' };
+      default: return { dotColor: 'text-slate-400', label: 'Active' };
+    }
+  };
+
+  const getTrendIcon = (trend: string) => {
+    switch(trend) {
+      case 'up': return <span className="text-emerald-600 font-bold shrink-0 mt-0.5">↑</span>;
+      case 'down': return <span className="text-rose-600 font-bold shrink-0 mt-0.5">↓</span>;
+      default: return <span className="text-slate-400 font-bold shrink-0 mt-0.5">—</span>;
     }
   };
 
   if (isLoading) {
-    return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-sans text-slate-400">Loading inbox...</div>;
+    return (
+      <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center font-sans">
+        <div className="text-slate-500 font-bold flex items-center gap-3 animate-pulse">
+          <Loader2 className="w-5 h-5 animate-spin" /> Loading Portfolio...
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-900 pb-24 relative">
+    <div className="min-h-screen bg-[#F8FAFC] font-sans text-[#0F172A] pb-24 relative">
       
       {/* NAVIGATION */}
-      <nav className="w-full bg-white/90 backdrop-blur-md border-b border-slate-200/60 sticky top-0 z-40">
-        <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between gap-8">
-          <div className="font-extrabold text-xl tracking-tight flex items-center gap-2 cursor-pointer text-slate-900 shrink-0" onClick={() => router.push('/')}>
+      <nav className="w-full bg-white/90 backdrop-blur-md border-b border-slate-200 sticky top-0 z-40">
+        <div className="max-w-[960px] mx-auto px-6 py-3 flex items-center justify-between gap-8">
+          <div className="font-extrabold text-xl tracking-tight flex items-center gap-2.5 cursor-pointer text-[#0F172A] shrink-0" onClick={() => router.push('/')}>
             Investment IQ
+            <span className="flex items-center gap-1">
+              <span className="w-1.5 h-3 bg-blue-600 rounded-full"></span>
+              <span className="w-1.5 h-4 bg-blue-600 rounded-full"></span>
+              <span className="w-1.5 h-5 bg-blue-600 rounded-full"></span>
+            </span>
           </div>
           
-          <div className="flex-1 max-w-lg hidden md:block">
+          <div className="flex-1 max-w-sm hidden md:block">
             <form onSubmit={handleSearch} className="relative w-full">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input
@@ -175,7 +191,7 @@ export default function Dashboard() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search company..."
-                className="w-full bg-slate-50 border border-slate-200/60 rounded-lg py-2 pl-10 pr-4 text-sm font-medium focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all outline-none text-slate-900 placeholder-slate-400"
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 pl-10 pr-4 text-sm font-medium focus:bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all outline-none text-[#0F172A] placeholder-slate-400"
               />
             </form>
           </div>
@@ -187,82 +203,91 @@ export default function Dashboard() {
       </nav>
 
       {/* MAIN CONTAINER */}
-      <main className="max-w-5xl mx-auto px-6 pt-10 md:pt-14">
+      <main className="max-w-[960px] mx-auto px-6 pt-12 md:pt-16">
         
-        {/* ========================================= */}
-        {/* EMPTY STATE: NEW USER OR NO THESES        */}
-        {/* ========================================= */}
         {portfolio.length === 0 ? (
           <div className="text-center py-16">
-            <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-slate-900 mb-4">Welcome to Investment IQ, {userName} 👋</h1>
+            <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-[#0F172A] mb-4">Welcome to Investment IQ, {userName} 👋</h1>
             <p className="text-slate-500 mb-12 max-w-xl mx-auto text-lg">Your portfolio is empty. Let's build your first investment thesis so we can track risks and drivers on your behalf.</p>
             
-            <div className="bg-white p-10 rounded-3xl border border-slate-200/80 shadow-[0_4px_20px_rgb(0,0,0,0.03)] max-w-2xl mx-auto">
-              <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-blue-100">
-                <BookOpen className="w-8 h-8 text-blue-500" />
+            <div className="bg-white p-10 rounded-3xl border border-slate-200 shadow-sm max-w-xl mx-auto">
+              <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-slate-200">
+                <BookOpen className="w-8 h-8 text-slate-400" />
               </div>
-              <h2 className="text-xl font-bold text-slate-900 mb-6">Research a company to begin</h2>
-              <form onSubmit={handleSearch} className="max-w-md mx-auto relative">
+              <h2 className="text-xl font-bold text-[#0F172A] mb-6">Research a company to begin</h2>
+              <form onSubmit={handleSearch} className="relative">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="e.g. AAPL, TSLA, NVDA"
-                  className="w-full bg-slate-50 border border-slate-200/80 rounded-xl py-3.5 pl-11 pr-4 text-slate-900 font-bold placeholder-slate-400 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-50 transition-all shadow-inner"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3.5 pl-11 pr-4 text-[#0F172A] font-bold placeholder-slate-400 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all shadow-inner"
                 />
               </form>
             </div>
           </div>
         ) : (
-          /* ========================================= */
-          /* POPULATED STATE: USER HAS REAL THESES     */
-          /* ========================================= */
           <>
-            {/* HERO: The Conviction Inbox Alert */}
-            <div className="mb-10">
-              <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-slate-900 mb-5">Welcome back, {userName} 👋</h1>
+            {/* HERO */}
+            <div className="mb-16 flex flex-col md:flex-row md:items-end justify-between gap-6">
+              <div>
+                <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-[#0F172A] mb-3">Welcome back, {userName} 👋</h1>
+                {actionItems.length > 0 ? (
+                  <p className="text-slate-500 text-lg leading-relaxed">
+                    <span className="font-bold text-[#0F172A]">{actionItems.length} companies need your attention.</span><br/>
+                    Review the latest changes to your investment theses.
+                  </p>
+                ) : (
+                  <p className="text-slate-500 text-lg leading-relaxed">Your portfolio is healthy. No recent changes detected.</p>
+                )}
+              </div>
+              
               <button 
-  onClick={triggerAIEngine}
-  className="mb-4 bg-purple-600 text-white text-xs font-bold px-4 py-2 rounded-lg hover:bg-purple-700 shadow-sm"
->
-  ⚙️ [DEV TEST] Run AI Update Engine
-</button>
-              {actionItems.length > 0 ? (
-                <div className="flex items-center gap-3 text-rose-700 font-bold bg-rose-50 p-5 rounded-2xl border border-rose-100/80 shadow-sm">
-                  <AlertTriangle className="w-5 h-5 shrink-0 text-rose-500" />
-                  <span className="text-sm md:text-base">Portfolio requires attention. {actionItems.length} companies have new updates.</span>
-                </div>
-              ) : (
-                <div className="flex items-center gap-3 text-emerald-700 font-bold bg-emerald-50 p-5 rounded-2xl border border-emerald-100/80 shadow-sm">
-                  <Check className="w-5 h-5 shrink-0 text-emerald-500" />
-                  <span className="text-sm md:text-base">Your portfolio is healthy. No recent changes detected.</span>
-                </div>
-              )}
+                onClick={triggerAIEngine}
+                className="bg-white border border-slate-200 text-slate-700 text-xs font-bold px-4 py-2.5 rounded-lg hover:bg-slate-50 shadow-sm transition-colors flex items-center gap-2 shrink-0 self-start md:self-auto"
+              >
+                <Activity className="w-4 h-4 text-blue-600" />
+                [DEV] Run AI Engine
+              </button>
             </div>
 
-            {/* SECTION 1: LATEST THESIS UPDATES */}
+            {/* SECTION 1: WHAT CHANGED */}
             {actionItems.length > 0 && (
-              <div className="mb-16">
-                <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Latest Thesis Updates</h2>
-                <div className="flex flex-col gap-3">
+              <div className="mb-20">
+                <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-6">What Changed</h2>
+                <div className="flex flex-col gap-5">
                   {actionItems.map(company => (
-                    <div key={`alert-${company.ticker}`} className="flex flex-col sm:flex-row sm:items-center justify-between bg-white border border-slate-200/80 rounded-2xl p-5 shadow-[0_2px_10px_rgb(0,0,0,0.02)] gap-4">
-                      <div className="flex items-center gap-5">
-                        <span className="font-extrabold text-2xl text-slate-900 w-16">{company.ticker}</span>
-                        <div className="hidden sm:block w-px h-8 bg-slate-200"></div>
-                        <div>
-                          <span className={`text-[10px] font-extrabold uppercase tracking-widest px-2.5 py-1 rounded-md border inline-flex items-center gap-1.5 mb-1.5 ${getStatusStyles(company.status).badge}`}>
-                            {getStatusStyles(company.status).icon} {getStatusStyles(company.status).label}
-                          </span>
-                          <p className="text-sm text-slate-700"><span className="font-bold text-slate-900">{company.summaryBold}</span> {company.summaryLight}</p>
+                    /* ✨ Changed sm:items-start to sm:items-center so the button centers beautifully with the text block */
+                    <div key={`alert-${company.ticker}`} className="bg-white border border-slate-200 rounded-3xl p-6 md:p-8 flex flex-col sm:flex-row sm:items-center justify-between gap-6 shadow-sm hover:shadow-md transition-shadow">
+                      <div className="flex items-start gap-6 flex-grow">
+                        <div className="w-12 h-12 bg-white border border-slate-100 rounded-xl flex items-center justify-center shrink-0 overflow-hidden shadow-sm hidden sm:flex">
+                          <img 
+                            src={`https://financialmodelingprep.com/image-stock/${company.ticker}.png`} 
+                            alt={company.ticker}
+                            className="w-8 h-8 object-contain"
+                            onError={(e) => {
+                              e.currentTarget.src = `https://ui-avatars.com/api/?name=${company.ticker}&background=f8fafc&color=64748b&bold=true&font-size=0.35`;
+                              e.currentTarget.className = "w-full h-full object-cover";
+                            }}
+                          />
+                        </div>
+                        <div className="flex-grow">
+                          <div className="flex items-center gap-4 mb-2">
+                            <span className="font-extrabold text-xl text-[#0F172A]">{company.ticker}</span>
+                            <div className="text-[11px] font-bold text-slate-500 flex items-center gap-1.5 uppercase tracking-widest">
+                              <span className={getStatusStyles(company.status).dotColor}>●</span> {getStatusStyles(company.status).label}
+                            </div>
+                          </div>
+                          <p className="text-[13px] text-slate-700 font-medium leading-relaxed max-w-2xl line-clamp-2">{company.aiSummary}</p>
                         </div>
                       </div>
+                      {/* ✨ Updated to a small outlined button */}
                       <button 
                         onClick={() => setReviewCompany(company)}
-                        className="text-sm font-bold text-blue-600 hover:text-blue-800 transition-colors bg-blue-50/50 hover:bg-blue-50 px-5 py-2.5 rounded-xl border border-blue-100/50 whitespace-nowrap"
+                        className="px-4 py-2 border border-slate-200 rounded-lg text-[13px] font-bold text-[#0F172A] hover:bg-slate-50 hover:border-slate-300 transition-all whitespace-nowrap flex items-center gap-1.5 shrink-0"
                       >
-                        Quick Review →
+                        Review update →
                       </button>
                     </div>
                   ))}
@@ -272,61 +297,78 @@ export default function Dashboard() {
 
             {/* SECTION 2: MY CONVICTION PORTFOLIO */}
             <div className="mb-12">
-              <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6">My Conviction Portfolio</h2>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-6">My Conviction Portfolio</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {portfolio.map(company => {
                   const styles = getStatusStyles(company.status);
                   
                   return (
-                    <div key={`port-${company.ticker}`} className={`bg-white rounded-3xl border border-slate-200/80 shadow-[0_4px_20px_rgb(0,0,0,0.03)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] transition-all flex flex-col overflow-hidden`}>
-                      <div className={`h-1.5 w-full bg-slate-100 ${styles.border} border-t-2`}></div>
+                    <div key={`port-${company.ticker}`} className="bg-white rounded-3xl border border-slate-200 p-8 flex flex-col hover:border-slate-300 hover:shadow-sm transition-all h-full">
                       
-                      <div className="p-6 md:p-8 flex flex-col h-full">
-                        <div className="flex items-center justify-between mb-5">
-                          <h3 className="text-3xl font-extrabold text-slate-900 tracking-tight">{company.ticker}</h3>
-                          <div className={`px-3 py-1 rounded-md text-[10px] font-extrabold uppercase tracking-widest border ${styles.badge}`}>
-                            {styles.icon} {styles.label}
+                      {/* HEADER */}
+                      <div className="flex items-start justify-between mb-8">
+                        <div className="flex items-center gap-4">
+                          <div className="w-10 h-10 bg-white border border-slate-100 rounded-xl flex items-center justify-center shrink-0 overflow-hidden shadow-sm">
+                            <img 
+                              src={`https://financialmodelingprep.com/image-stock/${company.ticker}.png`} 
+                              alt={company.ticker}
+                              className="w-6 h-6 object-contain"
+                              onError={(e) => {
+                                e.currentTarget.src = `https://ui-avatars.com/api/?name=${company.ticker}&background=f8fafc&color=64748b&bold=true&font-size=0.35`;
+                                e.currentTarget.className = "w-full h-full object-cover";
+                              }}
+                            />
                           </div>
+                          <h3 className="text-xl font-extrabold text-[#0F172A] tracking-tight">{company.ticker}</h3>
                         </div>
-                        
-                        <div className="mb-6 flex-grow">
-                          <p className="text-base text-slate-900 font-bold mb-1 leading-snug">{company.summaryBold}</p>
-                          <p className="text-sm text-slate-500 leading-snug">{company.summaryLight}</p>
+                        <div className="text-[11px] font-bold text-slate-600 flex items-center gap-1.5 uppercase tracking-widest mt-1">
+                          <span className={styles.dotColor}>●</span> {styles.label}
                         </div>
-                        
-                        <div className="bg-slate-50/50 rounded-2xl p-4 border border-slate-100 mb-6">
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Key Changes</p>
-                          
-                          {/* HANDLES REAL DATA THAT HAS NO UPDATES YET */}
-                          {company.updates.length === 0 ? (
-                            <div className="flex items-center gap-2 py-1">
-                              <Info className="w-4 h-4 text-blue-400 shrink-0" />
-                              <p className="text-xs font-medium text-slate-500 italic">Tracking active. Awaiting next SEC filing.</p>
-                            </div>
-                          ) : (
-                            <div className="space-y-3">
-                              {company.updates.map((update, idx) => (
-                                <div key={idx} className="flex items-start gap-2.5">
-                                  {update.trend === 'up' && <TrendingUp className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />}
-                                  {update.trend === 'down' && <TrendingDown className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />}
-                                  {update.trend === 'neutral' && <span className="text-slate-400 font-bold shrink-0 mt-0.5 font-mono">—</span>}
-                                  <p className="text-xs font-bold text-slate-700 leading-snug">{update.text}</p>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
+                      </div>
+                      
+                      {/* CORE THESIS */}
+                      <div className="mb-8">
+                        <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Thesis</h4>
+                        <p className="text-[14px] font-bold text-[#0F172A] leading-snug">{company.coreThesis}</p>
+                      </div>
+                      
+                      {/* KEY CHANGES */}
+                      <div className="flex-grow mb-8">
+                        <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 border-t border-slate-100 pt-6">Key Changes</h4>
+                        {company.updates.length === 0 ? (
+                          <p className="text-[13px] font-medium text-slate-500 italic">No recent changes detected.</p>
+                        ) : (
+                          <div className="space-y-3">
+                            {company.updates.map((update, idx) => (
+                              <div key={idx} className="flex items-start gap-2.5">
+                                {getTrendIcon(update.trend)}
+                                <p className="text-[13px] font-medium text-slate-700 leading-relaxed">{update.text}</p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
 
-                        <div className="pt-4 flex flex-row items-center justify-between mt-auto">
+                      {/* FOOTER */}
+                      <div className="pt-6 border-t border-slate-100 flex flex-row items-center justify-between mt-auto">
+                        {/* ✨ Updated to a small outlined button */}
+                        <button 
+                          onClick={() => router.push(`/company/${company.ticker}`)}
+                          className="px-4 py-2 border border-slate-200 rounded-lg text-[13px] font-bold text-[#0F172A] hover:bg-slate-50 hover:border-slate-300 transition-all flex items-center gap-1.5"
+                        >
+                          Open Thesis →
+                        </button>
+                        
+                        <div className="text-right flex items-center gap-4">
+                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest hidden sm:block">Saved: {company.lastUpdated}</span>
                           <button 
-                            onClick={() => router.push(`/company/${company.ticker}`)}
-                            className="text-sm font-bold text-blue-600 hover:text-blue-800 transition-colors flex items-center gap-1.5"
+                            onClick={() => handleDeleteThesis(company.id, company.ticker)}
+                            disabled={deletingId === company.id}
+                            className="text-slate-300 hover:text-rose-600 transition-colors cursor-pointer disabled:opacity-50"
+                            title="Delete Thesis"
                           >
-                            Open Thesis <ArrowRight className="w-4 h-4" />
+                            {deletingId === company.id ? <Loader2 className="w-4 h-4 animate-spin text-rose-600" /> : <Trash2 className="w-4 h-4" />}
                           </button>
-                          <div className="text-right flex items-center gap-3">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Saved: {company.lastUpdated}</span>
-                          </div>
                         </div>
                       </div>
                     </div>
@@ -336,7 +378,7 @@ export default function Dashboard() {
             </div>
 
             <div className="mt-16 pt-10 border-t border-slate-200 text-center pb-16">
-              <p className="text-sm font-bold text-slate-500 mb-5">Research another company</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-5">Research another company</p>
               <form onSubmit={handleSearch} className="max-w-md mx-auto relative">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input
@@ -344,7 +386,7 @@ export default function Dashboard() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search by ticker..."
-                  className="w-full bg-white border border-slate-200/80 rounded-xl py-3.5 pl-11 pr-4 text-slate-900 font-bold placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-50 transition-all text-sm shadow-sm"
+                  className="w-full bg-white border border-slate-200 rounded-xl py-3.5 pl-11 pr-4 text-[#0F172A] font-bold placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-[13px] shadow-sm"
                 />
               </form>
             </div>
@@ -356,67 +398,77 @@ export default function Dashboard() {
       {reviewCompany && (
         <div className="fixed inset-0 z-[100] flex justify-end">
           <div 
-            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm cursor-pointer transition-opacity"
+            className="absolute inset-0 bg-[#0F172A]/40 backdrop-blur-sm cursor-pointer transition-opacity"
             onClick={() => {
               setReviewCompany(null);
               setExpandedEvidenceIdx(null);
             }}
           ></div>
 
-          <div className="relative w-full max-w-[440px] h-full bg-white shadow-2xl border-l border-slate-200/60 flex flex-col animate-[slideIn_0.3s_ease-out]">
+          <div className="relative w-full max-w-[440px] h-full bg-white shadow-2xl border-l border-slate-200 flex flex-col animate-[slideIn_0.3s_ease-out]">
             <div className="p-5 flex justify-end">
               <button 
                 onClick={() => {
                   setReviewCompany(null);
                   setExpandedEvidenceIdx(null);
                 }}
-                className="w-9 h-9 flex items-center justify-center rounded-full bg-slate-50 hover:bg-slate-100 text-slate-500 transition-colors border border-slate-100"
+                className="w-9 h-9 flex items-center justify-center rounded-full bg-slate-50 hover:bg-slate-100 text-slate-500 transition-colors border border-slate-200"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <div className="flex-1 overflow-y-auto px-8 pb-8">
-              <div className="flex items-center gap-4 mb-10">
-                <h2 className="text-4xl font-extrabold text-slate-900 tracking-tight">{reviewCompany.ticker}</h2>
-                <div className={`px-3 py-1.5 rounded-md text-xs font-bold inline-flex items-center gap-1.5 border ${getStatusStyles(reviewCompany.status).badge}`}>
-                  <span>{getStatusStyles(reviewCompany.status).icon}</span> {getStatusStyles(reviewCompany.status).label}
+              
+              <div className="flex items-center justify-between gap-4 mb-10">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-white border border-slate-100 rounded-xl flex items-center justify-center shrink-0 overflow-hidden shadow-sm">
+                    <img 
+                      src={`https://financialmodelingprep.com/image-stock/${reviewCompany.ticker}.png`} 
+                      alt={reviewCompany.ticker}
+                      className="w-8 h-8 object-contain"
+                      onError={(e) => {
+                        e.currentTarget.src = `https://ui-avatars.com/api/?name=${reviewCompany.ticker}&background=f8fafc&color=64748b&bold=true&font-size=0.35`;
+                        e.currentTarget.className = "w-full h-full object-cover";
+                      }}
+                    />
+                  </div>
+                  <h2 className="text-3xl font-extrabold text-[#0F172A] tracking-tight">{reviewCompany.ticker}</h2>
+                </div>
+                
+                <div className="text-[10px] font-bold uppercase tracking-widest text-slate-700 flex items-center gap-1.5">
+                  <span className={getStatusStyles(reviewCompany.status).dotColor}>●</span> {getStatusStyles(reviewCompany.status).label}
                 </div>
               </div>
 
               <div className="mb-10">
                 <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Affected Thesis</h4>
-                <div className="bg-blue-50/50 border border-blue-100/60 rounded-2xl p-5 border-l-4 border-l-blue-500 shadow-sm">
-                  <p className="font-extrabold text-blue-950 text-base mb-1">{reviewCompany.affectedDriver}</p>
-                  <p className="text-xs text-blue-700/80 font-medium">You selected this as one of your investment drivers.</p>
-                </div>
+                <p className="font-bold text-[#0F172A] text-[14px] leading-relaxed">{reviewCompany.coreThesis}</p>
               </div>
 
               <div className="mb-10">
-                <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">What Changed This Quarter</h4>
-                <p className="text-sm text-slate-700 leading-relaxed font-medium">
+                <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 border-t border-slate-100 pt-8">What Changed This Quarter</h4>
+                <p className="text-[13px] text-slate-700 leading-relaxed font-medium">
                   {reviewCompany.aiSummary}
                 </p>
               </div>
 
               <div className="mb-10">
-                <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Supporting Evidence</h4>
+                <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4 border-t border-slate-100 pt-8">Supporting Evidence</h4>
                 <div className="space-y-4">
                   {reviewCompany.updates.map((update, idx) => {
                     const isExpanded = expandedEvidenceIdx === idx;
                     return (
-                      <div key={idx} className="bg-white border border-slate-200/80 rounded-2xl overflow-hidden shadow-[0_4px_14px_rgb(0,0,0,0.02)] transition-all">
+                      <div key={idx} className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm transition-all">
                         <div className="p-4 flex flex-col gap-2">
                           <div className="flex items-start gap-2.5">
-                            {update.trend === 'up' && <TrendingUp className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />}
-                            {update.trend === 'down' && <TrendingDown className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />}
-                            {update.trend === 'neutral' && <span className="text-slate-400 font-bold shrink-0 mt-0.5 font-mono">—</span>}
-                            <p className="text-sm font-bold text-slate-900 leading-tight">{update.text}</p>
+                            {getTrendIcon(update.trend)}
+                            <p className="text-[13px] font-bold text-[#0F172A] leading-tight">{update.text}</p>
                           </div>
                           
                           <button 
                             onClick={() => setExpandedEvidenceIdx(isExpanded ? null : idx)}
-                            className="text-[11px] font-bold text-blue-600 hover:text-blue-800 transition-colors pl-6 self-start flex items-center gap-1 mt-1 cursor-pointer"
+                            className="text-[10px] font-bold text-blue-600 hover:text-blue-800 transition-colors pl-5 self-start flex items-center gap-1 mt-1 cursor-pointer"
                           >
                             {isExpanded ? 'Hide evidence' : 'View evidence'} 
                             {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
@@ -424,11 +476,11 @@ export default function Dashboard() {
                         </div>
 
                         {isExpanded && update.evidenceText && (
-                          <div className="bg-slate-50/80 px-5 py-4 border-t border-slate-100 border-l-2 border-l-blue-400">
-                            <p className="text-xs text-slate-600 font-medium italic leading-relaxed">
-                              {update.evidenceText}
+                          <div className="bg-slate-50 px-5 py-4 border-t border-slate-100">
+                            <p className="text-[13px] text-slate-600 font-medium italic leading-relaxed">
+                              "{update.evidenceText}"
                             </p>
-                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-3 flex items-center gap-1"><Info className="w-3 h-3" /> Source: SEC 10-Q Filing</p>
+                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-3 flex items-center gap-1"><Info className="w-3 h-3" /> Source: SEC Filing</p>
                           </div>
                         )}
                       </div>
@@ -438,27 +490,17 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="p-6 border-t border-slate-200/60 bg-white flex flex-col gap-3">
+            <div className="p-6 border-t border-slate-200 bg-white flex flex-col gap-3">
               <button 
                 onClick={() => router.push(`/build-thesis/${reviewCompany.ticker}`)}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-extrabold py-3.5 rounded-xl transition-all shadow-[0_4px_14px_rgba(37,99,235,0.25)] hover:shadow-[0_6px_20px_rgba(37,99,235,0.4)] text-sm cursor-pointer"
+                className="w-full bg-[#0F172A] hover:bg-slate-800 text-white font-bold py-3 rounded-xl transition-colors text-[13px] cursor-pointer"
               >
                 Modify My Thesis
               </button>
               
               <button 
-                onClick={() => {
-                  setReviewCompany(null);
-                  setExpandedEvidenceIdx(null);
-                }}
-                className="w-full bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold py-3.5 rounded-xl transition-colors text-sm border border-slate-200/80 cursor-pointer shadow-sm"
-              >
-                Keep Current Thesis
-              </button>
-              
-              <button 
                 onClick={() => router.push(`/company/${reviewCompany.ticker}`)}
-                className="w-full text-slate-500 hover:text-slate-900 font-bold py-2 rounded-xl transition-colors text-xs mt-1 cursor-pointer"
+                className="w-full text-blue-600 hover:text-blue-800 font-bold py-2 rounded-xl transition-colors text-[13px] mt-1 cursor-pointer"
               >
                 Open Full Research →
               </button>
@@ -466,13 +508,6 @@ export default function Dashboard() {
           </div>
         </div>
       )}
-
-      <style jsx global>{`
-        @keyframes slideIn {
-          from { transform: translateX(100%); }
-          to { transform: translateX(0); }
-        }
-      `}</style>
     </div>
   );
 }
