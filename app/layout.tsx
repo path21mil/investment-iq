@@ -18,8 +18,11 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.className}>
         {/* GLOBAL ALPHA BANNER */}
-        <div className="bg-yellow-400 text-yellow-900 px-4 py-2.5 text-center text-xs sm:text-sm font-bold z-50 sticky top-0 border-b border-yellow-500 shadow-sm">
-          🚧 Investment IQ is currently in Alpha. All thesis data is generated as a UI demonstration and does not reflect real financial data.
+        <div className="bg-[#FFFBEB] border-b border-amber-100/50 py-1.5 px-6 flex items-center justify-center gap-2 w-full z-[100] relative">
+          <span className="text-amber-500 text-[9px] mt-[1px]">●</span>
+          <p className="text-[11px] font-medium text-amber-900/60 text-center">
+            Investment IQ is currently in Alpha. All thesis data is generated as a UI demonstration and does not reflect real financial data.
+          </p>
         </div>
         
         {children}

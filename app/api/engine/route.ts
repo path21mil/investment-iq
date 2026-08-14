@@ -2,22 +2,18 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import OpenAI from 'openai';
 
-// ✨ THE FIX: We removed the client setups from up here!
-
 export async function POST(req: Request) {
   try {
-    // ✨ THE FIX: We moved them INSIDE the function. 
-    // Now they won't crash the build server when it compiles the code.
+    // Instantiate clients inside request handler to prevent build-time failures
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!; 
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const { userId } = await req.json();
     if (!userId) return NextResponse.json({ error: "Missing userId" }, { status: 400 });
 
-    // ... (Keep the rest of your code exactly the same from here down!)
-
+    // Fetch user's active portfolio / theses
     const { data: portfolio, error: fetchError } = await supabase
       .from('theses')
       .select('*')
@@ -27,90 +23,165 @@ export async function POST(req: Request) {
 
     let totalUpdates = 0;
 
-    // Loop through each company they track
     for (const company of portfolio) {
-      
-      // ==========================================
-      // 1. THE EYES (LIVE FINNHUB INTEGRATION)
-      // ==========================================
-      const today = new Date();
-      const threeDaysAgo = new Date(today);
-      threeDaysAgo.setDate(today.getDate() - 3);
+      const ticker = company.ticker.toUpperCase();
 
-      // Finnhub requires dates in YYYY-MM-DD format
-      const formatDate = (date: Date) => date.toISOString().split('T')[0];
-      
-      let liveNewsString = "";
+      // =================================================================
+      // LAYER 1: GLOBAL COMPANY INTELLIGENCE (Finnhub + Cache + Circuit Breaker)
+      // =================================================================
+      let { data: companyCache } = await supabase
+        .from('company_intelligence_cache')
+        .select('*')
+        .eq('ticker', ticker)
+        .maybeSingle();
 
-      try {
-        const finnhubUrl = `https://finnhub.io/api/v1/company-news?symbol=${company.ticker}&from=${formatDate(threeDaysAgo)}&to=${formatDate(today)}&token=${process.env.FINNHUB_API_KEY}`;
-        const newsRes = await fetch(finnhubUrl);
-        const newsData = await newsRes.json();
+      const now = new Date();
+      const cacheAgeHours = companyCache
+        ? (now.getTime() - new Date(companyCache.last_scanned_at).getTime()) / (1000 * 60 * 60)
+        : 999;
 
-        if (newsData && newsData.length > 0) {
-          // Grab only the top 3 most recent articles to save OpenAI tokens
-          const topArticles = newsData.slice(0, 3);
-          liveNewsString = topArticles.map((article: any) => 
-            `Headline: ${article.headline}\nSummary: ${article.summary}`
-          ).join("\n\n");
-        } else {
-          liveNewsString = "No major news reported in the last 3 days.";
+      let companyFacts = companyCache?.raw_intelligence;
+
+      // Check if cache is missing or older than 24 hours
+      if (!companyCache || cacheAgeHours >= 24) {
+        console.log(`[Layer 1] Cache stale/missing for ${ticker} (${cacheAgeHours.toFixed(1)}h old). Checking Finnhub...`);
+
+        const today = new Date();
+        const threeDaysAgo = new Date(today);
+        threeDaysAgo.setDate(today.getDate() - 3);
+        const formatDate = (date: Date) => date.toISOString().split('T')[0];
+
+        let articlesFound = false;
+        let liveNewsString = "";
+
+        try {
+          const finnhubUrl = `https://finnhub.io/api/v1/company-news?symbol=${ticker}&from=${formatDate(threeDaysAgo)}&to=${formatDate(today)}&token=${process.env.FINNHUB_API_KEY}`;
+          const newsRes = await fetch(finnhubUrl);
+          const newsData = await newsRes.json();
+
+          if (Array.isArray(newsData) && newsData.length > 0) {
+            articlesFound = true;
+            const topArticles = newsData.slice(0, 5);
+            liveNewsString = topArticles.map((article: any) =>
+              `Headline: ${article.headline}\nSummary: ${article.summary}`
+            ).join("\n\n");
+          }
+        } catch (err) {
+          console.error(`Failed to fetch Finnhub news for ${ticker}:`, err);
         }
-      } catch (err) {
-        console.error(`Failed to fetch Finnhub news for ${company.ticker}:`, err);
-        liveNewsString = "Unable to retrieve real-time news at this moment.";
+
+        // ✨ ZERO-COST CIRCUIT BREAKER:
+        // If there is NO new news from Finnhub, skip OpenAI entirely!
+        if (!articlesFound) {
+          console.log(`[Zero-Cost Skip] No new articles for ${ticker}. Bypassing OpenAI ($0 spent).`);
+
+          // Touch timestamp so we don't re-check Finnhub for another 24 hours
+          await supabase
+            .from('company_intelligence_cache')
+            .upsert({
+              ticker,
+              company_name: company.company_name || ticker,
+              raw_intelligence: companyCache?.raw_intelligence || { recentFacts: ["No recent material news reported."] },
+              last_scanned_at: new Date().toISOString()
+            }, { onConflict: 'ticker' });
+
+          companyFacts = companyCache?.raw_intelligence || { recentFacts: ["No recent material news reported."] };
+        } else {
+          // Only pay OpenAI if actual news articles were returned!
+          const layer1Prompt = `
+            You are a senior equity research analyst. Summarize recent material financial events and news for ${ticker} into objective company facts.
+            
+            Recent Finnhub News:
+            "${liveNewsString}"
+
+            Respond ONLY in JSON format:
+            {
+              "recentFacts": ["fact 1", "fact 2"],
+              "newsSummary": "Concise summary of market sentiment and events from the last 3 days."
+            }
+          `;
+
+          const layer1Response = await openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            response_format: { type: "json_object" },
+            messages: [{ role: "system", content: layer1Prompt }],
+          });
+
+          companyFacts = JSON.parse(layer1Response.choices[0].message.content || "{}");
+
+          // Save into global company intelligence cache
+          const { data: updatedCache } = await supabase
+            .from('company_intelligence_cache')
+            .upsert({
+              ticker,
+              company_name: company.company_name || ticker,
+              raw_intelligence: companyFacts,
+              last_scanned_at: new Date().toISOString()
+            }, { onConflict: 'ticker' })
+            .select()
+            .single();
+
+          companyCache = updatedCache;
+        }
+      } else {
+        console.log(`[Layer 1] Reusing cached company intelligence for ${ticker} ($0 API Cost)`);
       }
 
-      console.log(`📰 LIVE NEWS FOR ${company.ticker}:`, liveNewsString);
+      // =================================================================
+      // LAYER 2: PRIVATE USER THESIS EVALUATION (Personalized)
+      // =================================================================
+      console.log(`[Layer 2] Evaluating private thesis for user ${userId} on ${ticker}...`);
 
-      // ==========================================
-      // 2. THE BRAIN (OPENAI ANALYSIS)
-      // ==========================================
-      const aiPrompt = `
-        You are an expert financial AI. 
-        The user holds this stock: ${company.ticker}.
-        Their core investment drivers are: ${JSON.stringify(company.drivers)}.
-        Their core investment risks are: ${JSON.stringify(company.risks)}.
+      const layer2Prompt = `
+        You are an expert financial AI evaluating an investor's private thesis. 
+        The user holds stock: ${ticker}.
+        Core investment drivers: ${JSON.stringify(company.drivers)}.
+        Core investment risks: ${JSON.stringify(company.risks)}.
         
-        Recent News for ${company.ticker}: 
-        "${liveNewsString}"
+        Recent Material Facts for ${ticker}: 
+        "${JSON.stringify(companyFacts)}"
         
-        Did this news Strengthen, Weaken, or have a Neutral effect on their specific drivers/risks?
-        Respond ONLY in JSON format matching this structure exactly:
+        Determine if these recent company facts Strengthen, Weaken, or require a Review for their specific drivers and risks.
+        
+        Respond ONLY in JSON format matching this structure:
         {
           "status": "Strengthening" | "Weakening" | "Review Needed",
           "aiSummary": "A 2-sentence explanation of how the news impacts their specific thesis.",
           "updates": [
-             { "text": "Short headline of the change", "trend": "up" | "down" | "neutral" }
+             { 
+               "text": "Short headline of the change", 
+               "trend": "up" | "down" | "neutral",
+               "evidenceText": "Optional direct quote or stat supporting this change"
+             }
           ]
         }
       `;
 
-      const aiResponse = await openai.chat.completions.create({
+      const layer2Response = await openai.chat.completions.create({
         model: "gpt-4o-mini",
         response_format: { type: "json_object" },
-        messages: [{ role: "system", content: aiPrompt }],
+        messages: [{ role: "system", content: layer2Prompt }],
       });
 
-      const analysis = JSON.parse(aiResponse.choices[0].message.content || "{}");
-      console.log(`🧠 AI DECIDED FOR ${company.ticker}:`, analysis);
+      const analysis = JSON.parse(layer2Response.choices[0].message.content || "{}");
 
-      // ==========================================
-      // 3. THE MOUTH (UPDATE SUPABASE)
-      // ==========================================
+      // Update the user's specific thesis
       const { error: updateError } = await supabase
         .from('theses')
         .update({
           status: analysis.status,
           ai_summary: analysis.aiSummary,
-          updates: analysis.updates,
+          updates: JSON.stringify(analysis.updates || []),
           requires_action: analysis.status === "Weakening" || analysis.status === "Review Needed",
           last_scanned_at: new Date().toISOString()
         })
         .eq('id', company.id);
 
-      if (updateError) console.error(`Failed to update ${company.ticker}`, updateError);
-      else totalUpdates++;
+      if (updateError) {
+        console.error(`Failed to update thesis for ${ticker}`, updateError);
+      } else {
+        totalUpdates++;
+      }
     }
 
     return NextResponse.json({ success: true, updatedCount: totalUpdates });

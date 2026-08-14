@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, ArrowRight, Info, X, ChevronDown, ChevronUp, BookOpen, Trash2, Loader2, Activity } from 'lucide-react';
+import Link from 'next/link';
+import { Search, ArrowRight, Info, ChevronDown, ChevronUp, BookOpen, Trash2, Loader2, RefreshCw, User, Settings, LogOut, X, Check } from 'lucide-react';
 import { createClient } from "@supabase/supabase-js";
 
 // Initialize Supabase safely
@@ -10,7 +11,6 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// 1. DATA STRUCTURE
 interface CompanyUpdate {
   text: string;
   trend: 'up' | 'down' | 'neutral';
@@ -26,12 +26,26 @@ interface TrackedCompany {
   aiSummary: string;
   updates: CompanyUpdate[];
   lastUpdated: string;
+  rawUpdatedAt: string; 
   requiresAction: boolean;
+}
+
+function getTimeAgo(dateString: string | null) {
+  if (!dateString) return 'Never updated';
+  const now = new Date();
+  const past = new Date(dateString);
+  const diffInMinutes = Math.floor((now.getTime() - past.getTime()) / 60000);
+
+  if (diffInMinutes < 1) return 'Updated just now';
+  if (diffInMinutes < 60) return `Updated ${diffInMinutes} min ago`;
+  if (diffInMinutes < 1440) return `Updated ${Math.floor(diffInMinutes / 60)} hours ago`;
+  return `Updated ${Math.floor(diffInMinutes / 1440)} days ago`;
 }
 
 export default function Dashboard() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [portfolio, setPortfolio] = useState<TrackedCompany[]>([]);
   const [userName, setUserName] = useState('Investor');
@@ -39,6 +53,9 @@ export default function Dashboard() {
   const [reviewCompany, setReviewCompany] = useState<TrackedCompany | null>(null);
   const [expandedEvidenceIdx, setExpandedEvidenceIdx] = useState<number | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  
+  // ✨ NEW: State for our premium toast notification
+  const [toastMessage, setToastMessage] = useState<{title: string, description: string} | null>(null);
 
   useEffect(() => {
     setExpandedEvidenceIdx(null);
@@ -54,7 +71,7 @@ export default function Dashboard() {
     }
   }, []);
 
-  const loadDashboard = async () => {
+const loadDashboard = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
@@ -85,17 +102,68 @@ export default function Dashboard() {
           aiSummary: t.ai_summary || 'Tracking active. Awaiting next earnings call or SEC filing for new insights.',
           updates: typeof t.updates === 'string' ? JSON.parse(t.updates) : (t.updates || []), 
           lastUpdated: new Date(t.last_scanned_at || t.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          rawUpdatedAt: t.last_scanned_at || t.updated_at || t.created_at, 
           requiresAction: t.requires_action || false
         }));
 
         setPortfolio(mappedPortfolio);
+
+        // ✨ THE NEW LAZY REFRESH TRIGGER ✨
+        // Find the oldest update in the portfolio
+        const oldestUpdate = new Date(
+          Math.min(...mappedPortfolio.map(p => new Date(p.rawUpdatedAt).getTime()))
+        );
+        
+        const now = new Date();
+        const diffInHours = (now.getTime() - oldestUpdate.getTime()) / (1000 * 60 * 60);
+
+        // If any stock hasn't been checked in over 24 hours, quietly run the engine
+        if (diffInHours >= 24) {
+          console.log("Lazy refresh triggered in background...");
+          
+          // We don't await this or set isSyncing=true so it doesn't block the UI!
+          fetch('/api/engine', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: session.user.id })
+          }).then(async (response) => {
+             const result = await response.json();
+             if (result.success && result.updatedCount > 0) {
+                // If the engine actually found changes, silently refresh the UI data
+                const { data: refreshedTheses } = await supabase
+                  .from("theses")
+                  .select("*")
+                  .eq("user_id", session.user.id)
+                  .order("created_at", { ascending: false });
+                
+                if (refreshedTheses) {
+               // Optional: You could even fire off a toast notification here 
+                  // saying "We just found some new updates for you!"
+                  // setToastMessage({ title: "Updates Found", description: `Updated ${result.updatedCount} companies.` });
+                  setPortfolio(refreshedTheses.map((t: any) => ({
+                    id: t.id,
+                    ticker: t.ticker,
+                    name: t.company_name || t.ticker,
+                    status: t.status || 'Strengthening', 
+                    coreThesis: t.drivers?.[0]?.title || 'Long-term growth compounding',
+                    aiSummary: t.ai_summary || 'Tracking active. Awaiting next earnings call or SEC filing for new insights.',
+                    updates: typeof t.updates === 'string' ? JSON.parse(t.updates) : (t.updates || []), 
+                    lastUpdated: new Date(t.last_scanned_at || t.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                    rawUpdatedAt: t.last_scanned_at || t.updated_at || t.created_at, 
+                    requiresAction: t.requires_action || false
+                  })));
+          
+   }
+              }
+            });
+          }
+        }
+      } catch (err) {
+        console.error("Dashboard Load Error:", err);
+      } finally {
+        setIsLoading(false);
       }
-    } catch (err) {
-      console.error("Dashboard Load Error:", err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    };
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -104,23 +172,46 @@ export default function Dashboard() {
     }
   };
 
-  const triggerAIEngine = async () => {
-    setIsLoading(true);
+  // ✨ UPDATED: The 7.5 second delay and premium Toast UI
+  const handleSmartSync = async () => {
+    setIsSyncing(true);
     try {
+      if (mostRecentTime) {
+        const now = new Date();
+        const lastUpdate = new Date(mostRecentTime);
+        const diffInHours = (now.getTime() - lastUpdate.getTime()) / (1000 * 60 * 60);
+
+        if (diffInHours < 24) {
+          // A realistic 7.5 second delay so the user feels the system "working"
+          await new Promise(resolve => setTimeout(resolve, 7500));
+          
+          // Trigger the beautiful SaaS toast
+          setToastMessage({
+            title: "Portfolio up to date",
+            description: `All investment drivers are current. Next scheduled market sync is in ${Math.ceil(24 - diffInHours)} hours.`
+          });
+          
+          // Auto-hide the toast after 6 seconds
+          setTimeout(() => setToastMessage(null), 6000);
+          
+          return; 
+        }
+      }
+
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
-      const res = await fetch('/api/engine', {
+      
+      await fetch('/api/engine', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: session.user.id })
       });
-      if (!res.ok) throw new Error("Engine failed to run");
+      
       await loadDashboard(); 
     } catch (err) {
       console.error(err);
-      alert("Failed to run AI Engine.");
     } finally {
-      setIsLoading(false);
+      setIsSyncing(false);
     }
   };
 
@@ -140,6 +231,12 @@ export default function Dashboard() {
   };
 
   const actionItems = portfolio.filter(p => p.requiresAction);
+
+  const mostRecentTime = portfolio.length > 0 
+    ? portfolio.reduce((latest, company) => 
+        new Date(company.rawUpdatedAt) > new Date(latest.rawUpdatedAt) ? company : latest
+      ).rawUpdatedAt 
+    : null;
 
   const getStatusStyles = (status: TrackedCompany['status']) => {
     switch(status) {
@@ -169,36 +266,63 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] font-sans text-[#0F172A] pb-24 relative">
-      
-      {/* NAVIGATION */}
-      <nav className="w-full bg-white/90 backdrop-blur-md border-b border-slate-200 sticky top-0 z-40">
-        <div className="max-w-[960px] mx-auto px-6 py-3 flex items-center justify-between gap-8">
-          <div className="font-extrabold text-xl tracking-tight flex items-center gap-2.5 cursor-pointer text-[#0F172A] shrink-0" onClick={() => router.push('/')}>
-            Investment IQ
-            <span className="flex items-center gap-1">
-              <span className="w-1.5 h-3 bg-blue-600 rounded-full"></span>
-              <span className="w-1.5 h-4 bg-blue-600 rounded-full"></span>
-              <span className="w-1.5 h-5 bg-blue-600 rounded-full"></span>
-            </span>
+    <div className="min-h-screen bg-[#F8FAFC] font-sans text-[#0F172A] pb-24 relative overflow-hidden">
+
+      {/* NAVIGATION HEADER */}
+      <nav className="w-full bg-white/90 backdrop-blur-md border-b border-slate-200 sticky top-0 z-40 h-[56px] flex items-center">
+        <div className="max-w-[960px] w-full mx-auto px-6 flex items-center justify-between gap-6">
+          
+          <div className="flex items-center gap-8 shrink-0">
+            <Link href="/" className="font-extrabold text-lg tracking-tight flex items-center gap-2 cursor-pointer text-[#0F172A]">
+              Investment IQ
+              <span className="flex items-center gap-0.5">
+                <span className="w-1.5 h-2.5 bg-blue-600 rounded-full"></span>
+                <span className="w-1.5 h-3.5 bg-blue-600 rounded-full"></span>
+                <span className="w-1.5 h-4.5 bg-blue-600 rounded-full"></span>
+              </span>
+            </Link>
+            <div className="hidden sm:flex items-center gap-6">
+              <Link href="/dashboard" className="text-[13px] font-bold text-[#0F172A]">Portfolio</Link>
+            </div>
           </div>
           
-          <div className="flex-1 max-w-sm hidden md:block">
+          <div className="flex-1 max-w-[360px] hidden md:block">
             <form onSubmit={handleSearch} className="relative w-full">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search company..."
-                className="w-full bg-slate-50 border border-slate-200 rounded-lg py-2 pl-10 pr-4 text-sm font-medium focus:bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all outline-none text-[#0F172A] placeholder-slate-400"
+                placeholder="Search company or ticker..."
+                className="w-full h-[36px] bg-slate-50 border border-slate-200 rounded-lg pl-9 pr-4 text-[13px] font-medium focus:bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all outline-none text-[#0F172A] placeholder-slate-400"
               />
             </form>
           </div>
 
-          <button onClick={() => supabase.auth.signOut().then(() => router.push('/'))} className="text-sm font-bold text-slate-500 hover:text-slate-900 transition-colors shrink-0">
-            Sign Out
-          </button>
+          <div className="relative group shrink-0 py-4 cursor-pointer">
+            <div className="flex items-center gap-1.5 text-[13px] font-bold text-slate-600 hover:text-[#0F172A] transition-colors">
+              {userName} <ChevronDown className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600 transition-colors" />
+            </div>
+            
+            <div className="absolute right-0 top-[45px] w-48 bg-white border border-slate-200 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.08)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 ease-out transform origin-top-right scale-95 group-hover:scale-100 z-50">
+              <div className="p-2 space-y-0.5">
+                <div className="px-3 py-2 text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-1">{userName}</div>
+                <button className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] font-bold text-slate-600 hover:text-[#0F172A] hover:bg-slate-50 rounded-xl transition-colors text-left">
+                  <User className="w-4 h-4 text-slate-400" /> Account
+                </button>
+                <button className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] font-bold text-slate-600 hover:text-[#0F172A] hover:bg-slate-50 rounded-xl transition-colors text-left">
+                  <Settings className="w-4 h-4 text-slate-400" /> Settings
+                </button>
+                <div className="h-px bg-slate-100 my-1.5"></div>
+                <button 
+                  onClick={() => supabase.auth.signOut().then(() => router.push('/'))} 
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] font-bold text-rose-600 hover:bg-rose-50 rounded-xl transition-colors text-left"
+                >
+                  <LogOut className="w-4 h-4 text-rose-500" /> Sign out
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </nav>
 
@@ -234,22 +358,28 @@ export default function Dashboard() {
               <div>
                 <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-[#0F172A] mb-3">Welcome back, {userName} 👋</h1>
                 {actionItems.length > 0 ? (
-                  <p className="text-slate-500 text-lg leading-relaxed">
+                  <p className="text-slate-500 text-[15px] font-medium leading-relaxed">
                     <span className="font-bold text-[#0F172A]">{actionItems.length} companies need your attention.</span><br/>
                     Review the latest changes to your investment theses.
                   </p>
                 ) : (
-                  <p className="text-slate-500 text-lg leading-relaxed">Your portfolio is healthy. No recent changes detected.</p>
+                  <p className="text-slate-500 text-[15px] font-medium leading-relaxed">Your portfolio is healthy. No recent changes detected.</p>
                 )}
               </div>
               
+              <div className="flex items-center gap-4 shrink-0 self-start md:self-auto">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest hidden sm:block">
+                  {getTimeAgo(mostRecentTime)}
+                </span>
               <button 
-                onClick={triggerAIEngine}
-                className="bg-white border border-slate-200 text-slate-700 text-xs font-bold px-4 py-2.5 rounded-lg hover:bg-slate-50 shadow-sm transition-colors flex items-center gap-2 shrink-0 self-start md:self-auto"
-              >
-                <Activity className="w-4 h-4 text-blue-600" />
-                [DEV] Run AI Engine
-              </button>
+  onClick={handleSmartSync}
+  disabled={isSyncing}
+  className="bg-white border border-slate-200 text-[#0F172A] text-[13px] font-bold px-4 py-2 rounded-lg hover:bg-slate-50 hover:border-slate-300 shadow-sm transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+>
+  <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-blue-600' : 'text-slate-400'}`} />
+  {isSyncing ? 'Checking...' : 'Check for updates'}
+</button>
+              </div>
             </div>
 
             {/* SECTION 1: WHAT CHANGED */}
@@ -258,7 +388,6 @@ export default function Dashboard() {
                 <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-6">What Changed</h2>
                 <div className="flex flex-col gap-5">
                   {actionItems.map(company => (
-                    /* ✨ Changed sm:items-start to sm:items-center so the button centers beautifully with the text block */
                     <div key={`alert-${company.ticker}`} className="bg-white border border-slate-200 rounded-3xl p-6 md:p-8 flex flex-col sm:flex-row sm:items-center justify-between gap-6 shadow-sm hover:shadow-md transition-shadow">
                       <div className="flex items-start gap-6 flex-grow">
                         <div className="w-12 h-12 bg-white border border-slate-100 rounded-xl flex items-center justify-center shrink-0 overflow-hidden shadow-sm hidden sm:flex">
@@ -282,7 +411,6 @@ export default function Dashboard() {
                           <p className="text-[13px] text-slate-700 font-medium leading-relaxed max-w-2xl line-clamp-2">{company.aiSummary}</p>
                         </div>
                       </div>
-                      {/* ✨ Updated to a small outlined button */}
                       <button 
                         onClick={() => setReviewCompany(company)}
                         className="px-4 py-2 border border-slate-200 rounded-lg text-[13px] font-bold text-[#0F172A] hover:bg-slate-50 hover:border-slate-300 transition-all whitespace-nowrap flex items-center gap-1.5 shrink-0"
@@ -305,7 +433,6 @@ export default function Dashboard() {
                   return (
                     <div key={`port-${company.ticker}`} className="bg-white rounded-3xl border border-slate-200 p-8 flex flex-col hover:border-slate-300 hover:shadow-sm transition-all h-full">
                       
-                      {/* HEADER */}
                       <div className="flex items-start justify-between mb-8">
                         <div className="flex items-center gap-4">
                           <div className="w-10 h-10 bg-white border border-slate-100 rounded-xl flex items-center justify-center shrink-0 overflow-hidden shadow-sm">
@@ -326,13 +453,11 @@ export default function Dashboard() {
                         </div>
                       </div>
                       
-                      {/* CORE THESIS */}
                       <div className="mb-8">
                         <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Thesis</h4>
                         <p className="text-[14px] font-bold text-[#0F172A] leading-snug">{company.coreThesis}</p>
                       </div>
                       
-                      {/* KEY CHANGES */}
                       <div className="flex-grow mb-8">
                         <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 border-t border-slate-100 pt-6">Key Changes</h4>
                         {company.updates.length === 0 ? (
@@ -349,9 +474,7 @@ export default function Dashboard() {
                         )}
                       </div>
 
-                      {/* FOOTER */}
                       <div className="pt-6 border-t border-slate-100 flex flex-row items-center justify-between mt-auto">
-                        {/* ✨ Updated to a small outlined button */}
                         <button 
                           onClick={() => router.push(`/company/${company.ticker}`)}
                           className="px-4 py-2 border border-slate-200 rounded-lg text-[13px] font-bold text-[#0F172A] hover:bg-slate-50 hover:border-slate-300 transition-all flex items-center gap-1.5"
@@ -455,7 +578,7 @@ export default function Dashboard() {
 
               <div className="mb-10">
                 <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4 border-t border-slate-100 pt-8">Supporting Evidence</h4>
-                <div className="space-y-4">
+             <div className="space-y-4">
                   {reviewCompany.updates.map((update, idx) => {
                     const isExpanded = expandedEvidenceIdx === idx;
                     return (
@@ -466,13 +589,16 @@ export default function Dashboard() {
                             <p className="text-[13px] font-bold text-[#0F172A] leading-tight">{update.text}</p>
                           </div>
                           
-                          <button 
-                            onClick={() => setExpandedEvidenceIdx(isExpanded ? null : idx)}
-                            className="text-[10px] font-bold text-blue-600 hover:text-blue-800 transition-colors pl-5 self-start flex items-center gap-1 mt-1 cursor-pointer"
-                          >
-                            {isExpanded ? 'Hide evidence' : 'View evidence'} 
-                            {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                          </button>
+                          {/* ✨ FIX: Only render the toggle button if evidenceText actually exists! */}
+                          {update.evidenceText && (
+                            <button 
+                              onClick={() => setExpandedEvidenceIdx(isExpanded ? null : idx)}
+                              className="text-[10px] font-bold text-blue-600 hover:text-blue-800 transition-colors pl-5 self-start flex items-center gap-1 mt-1 cursor-pointer"
+                            >
+                              {isExpanded ? 'Hide evidence' : 'View evidence'} 
+                              {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                            </button>
+                          )}
                         </div>
 
                         {isExpanded && update.evidenceText && (
@@ -499,7 +625,7 @@ export default function Dashboard() {
               </button>
               
               <button 
-                onClick={() => router.push(`/company/${reviewCompany.ticker}`)}
+                onClick={() => router.push(`/company/${reviewCompany.ticker}?view=research`)}
                 className="w-full text-blue-600 hover:text-blue-800 font-bold py-2 rounded-xl transition-colors text-[13px] mt-1 cursor-pointer"
               >
                 Open Full Research →
@@ -508,6 +634,27 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
+      {/* ✨ NEW: PREMIUM TOAST NOTIFICATION */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-[200] animate-[slideIn_0.3s_ease-out]">
+          <div className="bg-white border border-slate-200 shadow-[0_8px_30px_rgb(0,0,0,0.08)] rounded-2xl p-5 flex gap-4 max-w-sm items-start">
+            <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center shrink-0 border border-emerald-100 mt-0.5">
+              <Check className="w-4 h-4 text-emerald-600" />
+            </div>
+            <div className="flex-1 pr-2">
+              <h4 className="text-[14px] font-bold text-[#0F172A] mb-1">{toastMessage.title}</h4>
+              <p className="text-[13px] font-medium text-slate-500 leading-relaxed">
+                {toastMessage.description}
+              </p>
+            </div>
+            <button onClick={() => setToastMessage(null)} className="text-slate-400 hover:text-slate-600 transition-colors cursor-pointer mt-0.5">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

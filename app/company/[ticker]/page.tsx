@@ -1,14 +1,15 @@
 'use client';
 
 import { useState, useEffect, use } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { 
-  Building2, TrendingUp, TrendingDown, Globe, Loader2, AlertCircle, Plus, Activity, Check, Info, ChevronDown, ChevronUp 
+  Building2, TrendingUp, TrendingDown, Globe, Loader2, AlertCircle, Plus, Activity, Check, Info, ChevronDown, ChevronUp, Share2 
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { getCompanyProfile } from '@/lib/fmp';
 import SmartSearchBar from '@/components/SmartSearchBar';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { ShareModal } from '@/components/ShareModal';
 
 function ProgressiveCard({ question, statusText, statusType, thesisSupportText, thesisSupportType, summary, evidence, showThesisBadge = false }: any) {
   const [isOpen, setIsOpen] = useState(false);
@@ -78,12 +79,14 @@ function ProgressiveCard({ question, statusText, statusType, thesisSupportText, 
 export default function CompanyPage({ params }: { params: Promise<{ ticker: string }> }) {
   const router = useRouter();
   const resolvedParams = use(params);
+  const searchParams = useSearchParams();
   const ticker = (resolvedParams.ticker || 'MSFT').toUpperCase();
 
   const [isLoading, setIsLoading] = useState(true);
   const [profile, setProfile] = useState<any>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [viewMode, setViewMode] = useState<'dashboard' | 'research'>('dashboard');
+  const [isShareOpen, setIsShareOpen] = useState(false);
 
   const [savedThesis, setSavedThesis] = useState<any>(null);
   const [activeDrivers, setActiveDrivers] = useState<any[]>([]);
@@ -146,9 +149,12 @@ export default function CompanyPage({ params }: { params: Promise<{ ticker: stri
 
         if (thesis) {
           setSavedThesis(thesis);
-          setViewMode('dashboard');
+          
+          // ✨ FIX: Check the URL. If it says ?view=research, open the research view!
+          const requestedView = searchParams.get('view');
+          setViewMode(requestedView === 'research' ? 'research' : 'dashboard');
+          
           const { data: optionsCache } = await supabase.from('thesis_options_cache').select('data').ilike('ticker', ticker).maybeSingle();
-
           if (optionsCache && optionsCache.data) {
             const allDrivers = optionsCache.data.drivers || [];
             const allRisks = optionsCache.data.risks || [];
@@ -315,12 +321,46 @@ export default function CompanyPage({ params }: { params: Promise<{ ticker: stri
               /* ✨ WIDTH FIX: Removed max-w-[800px] so it fills the 960px container perfectly */
               <div className="w-full">
                 
-                <div className="mb-12 flex justify-end">
+               {/* ACTION BAR: SHARE BUTTON & STATUS BADGE */}
+                <div className="mb-12 flex items-center justify-between">
+                  <button 
+                    onClick={() => setIsShareOpen(true)}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-extrabold text-slate-700 bg-white border border-slate-200 shadow-sm hover:bg-slate-50 transition-all active:scale-95 cursor-pointer"
+                  >
+                    <Share2 className="w-3.5 h-3.5 text-blue-600" />
+                    Share Thesis ↗
+                  </button>
+
                   <div className="text-[11px] font-bold text-slate-500 flex items-center gap-1.5 uppercase tracking-widest bg-white border border-slate-200 px-4 py-2 rounded-full shadow-sm">
                     <span className={isHighRisk ? 'text-rose-500' : 'text-emerald-500'}>●</span>
                     {isHighRisk ? 'Thesis Under Pressure' : 'Thesis Strengthening'}
                   </div>
                 </div>
+
+              {/* 1. Calculate the percentage move safely */}
+{(() => {
+  const currentPrice = profile?.price || 0;
+  const priceChange = profile?.changes || 0;
+  const previousClose = currentPrice - priceChange;
+  
+  // Prevent division by zero, calculate the actual percentage
+  const percentMove = previousClose > 0 ? (priceChange / previousClose) * 100 : 0;
+
+  return (
+    <ShareModal
+      isOpen={isShareOpen}
+      onClose={() => setIsShareOpen(false)}
+      ticker={ticker}
+      // Pass the calculated math right into the modal!
+      percentMove={percentMove} 
+      // Keep your dynamic thesis status
+      status={isHighRisk ? 'weakening' : 'strengthening'}
+      // Use the latest AI headline as the evidence
+      evidence={aiData?.updates?.[0]?.headline || "Monitoring SEC filings and key performance drivers."}
+      username="investor" // (You can map this to their real username later!)
+    />
+  );
+})()}
 
                 {/* MY INVESTMENT THESIS */}
                 <section className="mb-16">

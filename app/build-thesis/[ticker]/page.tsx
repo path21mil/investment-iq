@@ -222,7 +222,7 @@ export default function BuildThesisPage({ params }: { params: Promise<{ ticker: 
         company_name: profile?.companyName || ticker,
         drivers: selectedDrivers,
         risks: selectedRisks,
-        summary: summaryDraft, // ✨ NEW: Saves their edited summary to Supabase!
+        summary: summaryDraft, 
       };
 
       const { error } = await supabase
@@ -230,6 +230,16 @@ export default function BuildThesisPage({ params }: { params: Promise<{ ticker: 
         .upsert(payload, { onConflict: 'user_id,ticker' });
 
       if (error) throw error;
+
+      // ✨ NEW: INSTANT BACKGROUND SYNC ✨
+      // We fire this without 'await' so it runs silently in the background
+      // while the user is instantly redirected to the next page!
+      fetch('/api/engine', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId })
+      }).catch(err => console.log("Silent engine trigger failed:", err));
+
       router.push(`/company/${ticker}`);
 
     } catch (err: any) {
