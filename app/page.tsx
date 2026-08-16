@@ -6,6 +6,7 @@ import Link from 'next/link';
 import SmartSearchBar from '@/components/SmartSearchBar';
 import { Search, Loader2, ArrowRight, Star, ShieldCheck, Activity, BookOpen, Circle } from 'lucide-react';
 import { supabase } from '@/lib/supabase'; // <-- 1. Import Supabase!
+import { getCompanyProfile } from '@/lib/fmp';
 
 const TICKER_POOL = ['NVDA', 'MSFT', 'TSLA', 'COST', 'AAPL', 'AMZN', 'GOOGL', 'META', 'NFLX', 'CRM', 'PLTR', 'AMD', 'AAOI'];
 
@@ -82,6 +83,24 @@ export default function Home() {
         if (data && data.length > 0) {
           const liveFormattedData: any = {};
           const liveTickers: string[] = [];
+          
+          // ✨ NEW: Dynamically fetch real company names for these specific 4 tickers
+          const dynamicNames: Record<string, string> = {};
+          try {
+            const uniqueTickers = [...new Set(data.map(r => r.ticker))];
+            const profiles = await Promise.all(uniqueTickers.map(t => getCompanyProfile(t)));
+            
+            profiles.forEach((profileResult, idx) => {
+              const ticker = uniqueTickers[idx];
+              // getCompanyProfile usually returns an array
+              const profile = Array.isArray(profileResult) ? profileResult[0] : profileResult;
+              if (profile && profile.companyName) {
+                dynamicNames[ticker] = profile.companyName;
+              }
+            });
+          } catch (nameErr) {
+            console.warn("Could not fetch live names from FMP, falling back to DB", nameErr);
+          }
 
           // 🛡️ HELPER FUNCTION: Safely extracts the text label from the DB object
           const extractLabel = (pillar: any, fallback: string) => {
@@ -103,14 +122,17 @@ export default function Home() {
               
               const rawPillars = aiPayload.pillars || {};
               
+              // ✨ THE FIX: Uses the dynamic name from FMP first, then cleans it!
+              let rawName = dynamicNames[row.ticker] || aiPayload.companyName || row.company_name || row.ticker;
+              let cleanName = rawName.replace(/(?:\s+Inc\.?|\s+Corp\.?|\s+Ltd\.?|\s+LLC|\s+PLC)$/i, '').trim();
+              
               liveFormattedData[row.ticker] = {
-                name: row.ticker, // Defaulting to ticker for name
+                name: cleanName, 
                 ticker: row.ticker,
                 sector: 'Community Research',
                 thesis: 'Generated Live',
                 thesisColor: 'blue',
                 overallAssessment: aiPayload.overallAssessment || 'AI Assessment complete.',
-                // 🛡️ USING THE HELPER FUNCTION HERE TO PREVENT CRASHES
                 pillars: { 
                   quality: extractLabel(rawPillars.quality, '-'), 
                   management: extractLabel(rawPillars.management, '-'), 
@@ -141,6 +163,8 @@ export default function Home() {
 
     fetchRecentCommunityResearch();
   }, []);
+
+
   const activeData = communityData[selectedTicker] || DEMO_COMPANIES['AAOI'];
 
   const getBadgeStyles = (color: string) => {
@@ -273,22 +297,45 @@ export default function Home() {
           {/* PREVIEW CARD */}
           {!isLoadingCommunity && activeData && (
             <div className="bg-white rounded-[2rem] border border-slate-200/80 shadow-[0_20px_50px_rgba(0,0,0,0.06)] overflow-hidden font-sans transition-all duration-300 min-h-[400px]">
-              {/* 1. PREMIUM HEADER */}
+             
+{/* 1. PREMIUM HEADER */}
               <div className="p-8 pb-6 flex flex-col md:flex-row md:items-center justify-between gap-6">
-                <div>
-                  <div className="flex items-center gap-3">
-                    <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">{activeData.name}</h2>
-                    <span className="text-xs font-bold text-slate-500 bg-slate-100 border border-slate-200/80 px-2.5 py-1 rounded-md">{activeData.ticker}</span>
+                
+                {/* ✨ THE NEW LOGO & TITLE SECTION ✨ */}
+                <div className="flex items-center gap-4">
+                  
+                  {/* Naked Logo */}
+                  <div className="w-12 h-12 flex items-center justify-center shrink-0 relative">
+                    <span className="absolute text-2xl font-extrabold text-slate-300 select-none">
+                      {activeData.ticker[0]}
+                    </span>
+                    <img 
+                      src={`https://financialmodelingprep.com/image-stock/${activeData.ticker}.png`} 
+                      alt={activeData.ticker}
+                      className="w-full h-full object-contain relative z-10"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
                   </div>
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-2">{activeData.sector}</p>
+
+                  {/* Title & Sector */}
+                  <div className="flex flex-col">
+                    <div className="flex items-center gap-3">
+                      <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">{activeData.name}</h2>
+                      <span className="text-xs font-bold text-slate-500 bg-slate-100 border border-slate-200/80 px-2.5 py-1 rounded-md">{activeData.ticker}</span>
+                    </div>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-2">{activeData.sector}</p>
+                  </div>
                 </div>
+
+                {/* Generated Live Badge / Thesis Status */}
                 <div className={`inline-flex items-center border px-4 py-2 rounded-full self-start md:self-auto ${getBadgeStyles(activeData.thesisColor)}`}>
                   <span className="text-xs font-extrabold uppercase tracking-wider flex items-center gap-1.5">
                     <span className={`animate-pulse text-[10px] ${activeData.thesisColor === 'emerald' ? 'text-emerald-500' : 'text-blue-500'}`}>●</span> {activeData.thesis}
                   </span>
                 </div>
               </div>
-
               {/* 2. THE METRICS RIBBON */}
               <div className="bg-slate-50/50 border-y border-slate-100">
                 <div className="grid grid-cols-2 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-slate-200/60">
