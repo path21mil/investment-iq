@@ -154,17 +154,38 @@ export default function CompanyPage({ params }: { params: Promise<{ ticker: stri
           const requestedView = searchParams.get('view');
           setViewMode(requestedView === 'research' ? 'research' : 'dashboard');
           
-          const { data: optionsCache } = await supabase.from('thesis_options_cache').select('data').ilike('ticker', ticker).maybeSingle();
+   const { data: optionsCache } = await supabase.from('thesis_options_cache').select('data').ilike('ticker', ticker).maybeSingle();
           if (optionsCache && optionsCache.data) {
             const allDrivers = optionsCache.data.drivers || [];
             const allRisks = optionsCache.data.risks || [];
-            setActiveDrivers(allDrivers.filter((d: any) => (thesis.drivers || []).includes(d.id)));
-            setActiveRisks(allRisks.filter((r: any) => (thesis.risks || []).includes(r.id)));
+
+            // ✨ THE FIX: Safely parse strings into arrays before checking!
+            const isSelected = (item: any, savedData: any) => {
+              let arr = savedData;
+              
+              // If Supabase returned stringified JSON, parse it into an array
+              if (typeof arr === 'string') {
+                try { arr = JSON.parse(arr); } catch(e) { arr = []; }
+              }
+              
+              // Failsafe: if it's still not an array, treat it as empty
+              if (!Array.isArray(arr)) arr = [];
+
+              return arr.some((saved: any) => {
+                if (typeof saved === 'string') return saved === item.id; 
+                return saved?.title === item.title; 
+              });
+            };
+
+            setActiveDrivers(allDrivers.filter((d: any) => isSelected(d, thesis.drivers)));
+            setActiveRisks(allRisks.filter((r: any) => isSelected(r, thesis.risks)));
+            
             setSuggestedConsiderations([
-              ...allDrivers.filter((d: any) => !(thesis.drivers || []).includes(d.id)), 
-              ...allRisks.filter((r: any) => !(thesis.risks || []).includes(r.id))
+              ...allDrivers.filter((d: any) => !isSelected(d, thesis.drivers)), 
+              ...allRisks.filter((r: any) => !isSelected(r, thesis.risks))
             ].slice(0, 2));
           }
+        
         } else setViewMode('research');
       } else {
         setIsLoggedIn(false);
@@ -266,17 +287,23 @@ export default function CompanyPage({ params }: { params: Promise<{ ticker: stri
         {/* COMMON HERO SECTION */}
         <div className="mb-12 flex flex-col md:flex-row justify-between md:items-start gap-8">
           <div className="flex items-center gap-6">
-            <div className="w-16 h-16 bg-white border border-slate-200 rounded-xl flex items-center justify-center shrink-0 overflow-hidden shadow-sm">
-              <img 
-                src={`https://financialmodelingprep.com/image-stock/${ticker}.png`} 
-                alt={ticker}
-                className="w-10 h-10 object-contain"
-                onError={(e) => {
-                  e.currentTarget.src = `https://ui-avatars.com/api/?name=${ticker}&background=f8fafc&color=64748b&bold=true&font-size=0.35`;
-                  e.currentTarget.className = "w-full h-full object-cover";
-                }}
-              />
-            </div>
+            <div className="w-16 h-16 bg-white border border-slate-200 rounded-xl flex items-center justify-center shrink-0 overflow-hidden shadow-sm relative">
+            {/* ✨ 1. The Fallback Letter (Sits behind the image) */}
+            <span className="absolute text-2xl font-extrabold text-slate-300 select-none">
+              {ticker[0]}
+            </span>
+            
+            {/* ✨ 2. The Logo (Sits in front) */}
+            <img 
+              src={`https://financialmodelingprep.com/image-stock/${ticker}.png`} 
+              alt={ticker}
+              className="w-10 h-10 object-contain relative z-10"
+              onError={(e) => {
+                // If it actually 404s, we just hide the image tag entirely so the letter behind it shows perfectly
+                e.currentTarget.style.display = 'none';
+              }}
+            />
+          </div>
             <div>
               <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight mb-2">{profile.companyName}</h1>
               <div className="flex items-center gap-2 text-xs font-bold text-slate-500">

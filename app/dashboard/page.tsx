@@ -452,17 +452,24 @@ const loadDashboard = async () => {
                       
                       <div className="flex items-start justify-between mb-8">
                         <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 bg-white border border-slate-100 rounded-xl flex items-center justify-center shrink-0 overflow-hidden shadow-sm">
-                            <img 
-                              src={`https://financialmodelingprep.com/image-stock/${company.ticker}.png`} 
-                              alt={company.ticker}
-                              className="w-6 h-6 object-contain"
-                              onError={(e) => {
-                                e.currentTarget.src = `https://ui-avatars.com/api/?name=${company.ticker}&background=f8fafc&color=64748b&bold=true&font-size=0.35`;
-                                e.currentTarget.className = "w-full h-full object-cover";
-                              }}
-                            />
-                          </div>
+                          <div className="w-10 h-10 bg-white border border-slate-100 rounded-xl flex items-center justify-center shrink-0 overflow-hidden shadow-sm relative">
+  {/* ✨ 1. The Fallback Letter (Sits behind the image) */}
+  <span className="absolute text-lg font-extrabold text-slate-300 select-none">
+    {company.ticker[0]}
+  </span>
+  
+  {/* ✨ 2. The Logo (Sits in front) */}
+  <img 
+    src={`https://financialmodelingprep.com/image-stock/${company.ticker}.png`} 
+    alt={company.ticker}
+    className="w-6 h-6 object-contain relative z-10"
+    onError={(e) => {
+      // Hide the broken image tag completely so the letter shows through
+      e.currentTarget.style.display = 'none';
+    }}
+  />
+</div>
+                          
                           <h3 className="text-xl font-extrabold text-[#0F172A] tracking-tight">{company.ticker}</h3>
                         </div>
                         <div className="text-[11px] font-bold text-slate-600 flex items-center gap-1.5 uppercase tracking-widest mt-1">
