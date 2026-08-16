@@ -216,13 +216,40 @@ export default function BuildThesisPage({ params }: { params: Promise<{ ticker: 
         return;
       }
 
+      // ✨ NEW: Map the selected IDs back to the real text from suggested options!
+      const formattedDrivers = selectedDrivers.map(id => {
+        const found = suggestedDrivers.find(d => d.id === id);
+        return {
+          title: found ? found.title : "Core Driver",
+          status: "on_track" // Day 1 default for Share Card dots
+        };
+      });
+
+      const formattedRisks = selectedRisks.map(id => {
+        const found = suggestedRisks.find(r => r.id === id);
+        return {
+          title: found ? found.title : "Macroeconomic Risk",
+        };
+      });
+
+      // Grab the first risk to use as the primary risk on the Share Card
+      const primaryRiskText = formattedRisks.length > 0 
+        ? formattedRisks[0].title 
+        : "Macroeconomic pressures and sector rotation";
+
       const payload = {
         user_id: userId,
         ticker: ticker.toUpperCase(),
         company_name: profile?.companyName || ticker,
-        drivers: selectedDrivers,
-        risks: selectedRisks,
+        
+        // ✨ Save the actual formatted data, not just the "d0" IDs!
+        drivers: formattedDrivers,
+        risks: formattedRisks,
+        primary_risk: primaryRiskText,
+        
         summary: summaryDraft, 
+        status: 'Strengthening', // Day 1 Default
+        requires_action: false
       };
 
       const { error } = await supabase
@@ -231,9 +258,7 @@ export default function BuildThesisPage({ params }: { params: Promise<{ ticker: 
 
       if (error) throw error;
 
-      // ✨ NEW: INSTANT BACKGROUND SYNC ✨
-      // We fire this without 'await' so it runs silently in the background
-      // while the user is instantly redirected to the next page!
+      // INSTANT BACKGROUND SYNC
       fetch('/api/engine', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

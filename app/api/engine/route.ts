@@ -132,7 +132,7 @@ export async function POST(req: Request) {
       // =================================================================
       console.log(`[Layer 2] Evaluating private thesis for user ${userId} on ${ticker}...`);
 
-      const layer2Prompt = `
+   const layer2Prompt = `
         You are an expert financial AI evaluating an investor's private thesis. 
         The user holds stock: ${ticker}.
         Core investment drivers: ${JSON.stringify(company.drivers)}.
@@ -143,7 +143,7 @@ export async function POST(req: Request) {
         
         Determine if these recent company facts Strengthen, Weaken, or require a Review for their specific drivers and risks.
         
-        Respond ONLY in JSON format matching this structure:
+        Respond ONLY in JSON format matching this exact structure:
         {
           "status": "Strengthening" | "Weakening" | "Review Needed",
           "aiSummary": "A 2-sentence explanation of how the news impacts their specific thesis.",
@@ -153,7 +153,14 @@ export async function POST(req: Request) {
                "trend": "up" | "down" | "neutral",
                "evidenceText": "Optional direct quote or stat supporting this change"
              }
-          ]
+          ],
+          "drivers": [
+             { 
+               "title": "Name of the key driver", 
+               "status": "strengthening" | "on_track" | "monitoring" | "weakening" 
+             }
+          ],
+          "primaryRisk": "The single biggest macroeconomic or company-specific risk for this stock."
         }
       `;
 
@@ -172,6 +179,8 @@ export async function POST(req: Request) {
           status: analysis.status,
           ai_summary: analysis.aiSummary,
           updates: JSON.stringify(analysis.updates || []),
+          drivers: analysis.drivers ? JSON.stringify(analysis.drivers) : company.drivers, // ✨ NEW: Saves the 3 drivers
+          primary_risk: analysis.primaryRisk, // ✨ NEW: Saves the key risk
           requires_action: analysis.status === "Weakening" || analysis.status === "Review Needed",
           last_scanned_at: new Date().toISOString()
         })

@@ -3,13 +3,20 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Search, ArrowRight, Info, ChevronDown, ChevronUp, BookOpen, Trash2, Loader2, RefreshCw, User, Settings, LogOut, X, Check } from 'lucide-react';
+import { Search, ArrowRight, Info, ChevronDown, ChevronUp, BookOpen, Trash2, Loader2, RefreshCw, User, Settings, LogOut, X, Check, Share2 } from 'lucide-react';
+import { PortfolioShareModal } from '@/components/PortfolioShareModal'; // <-- Add this
 import { createClient } from "@supabase/supabase-js";
 
 // Initialize Supabase safely
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const supabase = createClient(supabaseUrl, supabaseKey);
+
+interface Driver {
+  title: string;
+  description?: string;
+  status?: string;
+}
 
 interface CompanyUpdate {
   text: string;
@@ -25,6 +32,8 @@ interface TrackedCompany {
   coreThesis: string;
   aiSummary: string;
   updates: CompanyUpdate[];
+  drivers: Driver[];       // ✨ NEW: Passed directly to Share Card
+  primaryRisk?: string;    // ✨ NEW: Passed directly to Share Card
   lastUpdated: string;
   rawUpdatedAt: string; 
   requiresAction: boolean;
@@ -53,6 +62,7 @@ export default function Dashboard() {
   const [reviewCompany, setReviewCompany] = useState<TrackedCompany | null>(null);
   const [expandedEvidenceIdx, setExpandedEvidenceIdx] = useState<number | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [shareCompany, setShareCompany] = useState<TrackedCompany | null>(null); // ✨ ADD THIS
   
   // ✨ NEW: State for our premium toast notification
   const [toastMessage, setToastMessage] = useState<{title: string, description: string} | null>(null);
@@ -93,7 +103,7 @@ const loadDashboard = async () => {
       if (!dbTheses || dbTheses.length === 0) {
         setPortfolio([]);
       } else {
-        const mappedPortfolio: TrackedCompany[] = dbTheses.map((t: any) => ({
+       const mappedPortfolio: TrackedCompany[] = dbTheses.map((t: any) => ({
           id: t.id,
           ticker: t.ticker,
           name: t.company_name || t.ticker,
@@ -101,6 +111,11 @@ const loadDashboard = async () => {
           coreThesis: t.drivers?.[0]?.title || 'Long-term growth compounding',
           aiSummary: t.ai_summary || 'Tracking active. Awaiting next earnings call or SEC filing for new insights.',
           updates: typeof t.updates === 'string' ? JSON.parse(t.updates) : (t.updates || []), 
+          
+          // ✨ YOUR NEW LINES GO HERE:
+          drivers: typeof t.drivers === 'string' ? JSON.parse(t.drivers) : (t.drivers || []),
+          primaryRisk: t.primary_risk || (typeof t.risks === 'string' ? JSON.parse(t.risks)?.[0]?.title : t.risks?.[0]?.title) || undefined,
+
           lastUpdated: new Date(t.last_scanned_at || t.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
           rawUpdatedAt: t.last_scanned_at || t.updated_at || t.created_at, 
           requiresAction: t.requires_action || false
@@ -145,6 +160,8 @@ const loadDashboard = async () => {
                     ticker: t.ticker,
                     name: t.company_name || t.ticker,
                     status: t.status || 'Strengthening', 
+                    drivers: typeof t.drivers === 'string' ? JSON.parse(t.drivers) : (t.drivers || []),
+                    primaryRisk: t.primary_risk || (typeof t.risks === 'string' ? JSON.parse(t.risks)?.[0]?.title : t.risks?.[0]?.title) || undefined,
                     coreThesis: t.drivers?.[0]?.title || 'Long-term growth compounding',
                     aiSummary: t.ai_summary || 'Tracking active. Awaiting next earnings call or SEC filing for new insights.',
                     updates: typeof t.updates === 'string' ? JSON.parse(t.updates) : (t.updates || []), 
@@ -474,15 +491,26 @@ const loadDashboard = async () => {
                         )}
                       </div>
 
-                      <div className="pt-6 border-t border-slate-100 flex flex-row items-center justify-between mt-auto">
+                   <div className="pt-6 border-t border-slate-100 flex flex-row items-center justify-between mt-auto">
+                        {/* LEFT: Open Thesis */}
                         <button 
                           onClick={() => router.push(`/company/${company.ticker}`)}
-                          className="px-4 py-2 border border-slate-200 rounded-lg text-[13px] font-bold text-[#0F172A] hover:bg-slate-50 hover:border-slate-300 transition-all flex items-center gap-1.5"
+                          className="px-4 py-2 border border-slate-200 rounded-lg text-[13px] font-bold text-[#0F172A] hover:bg-slate-50 hover:border-slate-300 transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
                         >
                           Open Thesis →
                         </button>
+
+                        {/* MIDDLE: Share Button */}
+                        <button
+                          onClick={() => setShareCompany(company)}
+                          className="flex items-center gap-2 px-4 py-2 text-[13px] font-[800] text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+                        >
+                          <Share2 className="w-4 h-4" />
+                          Share
+                        </button>
                         
-                        <div className="text-right flex items-center gap-4">
+                        {/* RIGHT: Saved Date & Delete */}
+                        <div className="text-right flex items-center gap-4 shrink-0">
                           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest hidden sm:block">Saved: {company.lastUpdated}</span>
                           <button 
                             onClick={() => handleDeleteThesis(company.id, company.ticker)}
@@ -635,7 +663,7 @@ const loadDashboard = async () => {
         </div>
       )}
 
-      {/* ✨ NEW: PREMIUM TOAST NOTIFICATION */}
+     {/* ✨ NEW: PREMIUM TOAST NOTIFICATION */}
       {toastMessage && (
         <div className="fixed bottom-6 right-6 z-[200] animate-[slideIn_0.3s_ease-out]">
           <div className="bg-white border border-slate-200 shadow-[0_8px_30px_rgb(0,0,0,0.08)] rounded-2xl p-5 flex gap-4 max-w-sm items-start">
@@ -655,6 +683,15 @@ const loadDashboard = async () => {
         </div>
       )}
 
-    </div>
+      {/* 🚀 PLACE YOUR MODAL EXACTLY HERE */}
+      {shareCompany && (
+        <PortfolioShareModal 
+          isOpen={!!shareCompany} 
+          onClose={() => setShareCompany(null)} 
+          company={shareCompany} 
+        />
+      )}
+
+    </div> // <-- This is the final closing div of your Dashboard component
   );
 }
