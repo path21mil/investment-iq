@@ -148,15 +148,15 @@ export const PortfolioShareCard = forwardRef<HTMLDivElement, PortfolioShareCardP
           <h2 className="text-[14px] font-semibold uppercase tracking-widest text-[#8E99AA] mb-4">What Changed</h2>
           <div className="grid grid-cols-3 gap-6">
             {updates.slice(0, 3).map((update, idx) => (
-              <div key={idx} className="flex items-center gap-3">
+              <div key={idx} className="flex items-center gap-4">
                 <div className="shrink-0 flex items-center justify-center">
-                  {update.type === 'positive' && <span className="text-[36px] font-semibold text-[#22C55E]">↑</span>}
-                  {update.type === 'negative' && <span className="text-[36px] font-semibold text-[#FF3B4D]">↓</span>}
-                  {update.type === 'warning' && <span className="text-[36px] font-semibold text-[#EAB308]">⚠</span>}
+                  {update.type === 'positive' && <span className="text-[30px] font-semibold text-[#22C55E]">↑</span>}
+                  {update.type === 'negative' && <span className="text-[30px] font-semibold text-[#FF3B4D]">↓</span>}
+                  {update.type === 'warning' && <span className="text-[30px] font-semibold text-[#EAB308]">⚠</span>}
                 </div>
                 <div>
                   {/* ✨ MAJOR HEADLINE: Inter 700 (bold) */}
-                  <h3 className="text-[26px] font-bold text-[#F5F7FA] leading-tight">{update.headline}</h3>
+                  <h3 className="text-[26px] font-semibold text-[#F5F7FA] leading-tight">{update.headline}</h3>
                 </div>
               </div>
             ))}
@@ -170,12 +170,12 @@ export const PortfolioShareCard = forwardRef<HTMLDivElement, PortfolioShareCardP
           <h2 className="text-[14px] font-semibold uppercase tracking-widest text-[#8E99AA] mb-4">Thesis Drivers</h2>
           <div className="grid grid-cols-3 gap-6">
             {drivers.slice(0, 3).map((driver, idx) => (
-              <div key={idx} className="flex items-start gap-3">
+              <div key={idx} className="flex items-start gap-4">
                 <div className="shrink-0 h-[28px] flex items-center justify-center">
                   {getDriverDot(driver.status)}
                 </div>
                 {/* ✨ MAJOR HEADLINE: Inter 700 (bold) */}
-                <span className="text-[20px] font-bold text-[#F5F7FA] leading-tight">{driver.name}</span>
+                <span className="text-[20px] font-semibold text-[#F5F7FA] leading-tight">{driver.name}</span>
               </div>
             ))}
           </div>
@@ -187,12 +187,12 @@ export const PortfolioShareCard = forwardRef<HTMLDivElement, PortfolioShareCardP
           <div className="bg-[#080A0D] border border-[#FF3B4D]/20 rounded-xl p-5">
             {/* ✨ SECTION HEADING: Inter 600 (semibold) */}
             <h2 className="text-[14px] font-semibold uppercase tracking-widest text-[#8E99AA] mb-4">Key Risk</h2>
-            <div className="flex items-start gap-3">
+            <div className="flex items-start gap-4">
               <div className="shrink-0 h-[30px] flex items-center justify-center">
                 <span className="w-4 h-4 rounded-full bg-[#FF3B4D] shadow-[0_0_6px_#FF3B4D] block" />
               </div>
               {/* ✨ MAJOR HEADLINE: Inter 700 (bold) */}
-              <h3 className="text-[22px] font-bold text-[#F5F7FA] leading-tight">{keyRisk}</h3>
+              <h3 className="text-[22px] font-semibold text-[#F5F7FA] leading-tight">{keyRisk}</h3>
             </div>
           </div>
         )}
