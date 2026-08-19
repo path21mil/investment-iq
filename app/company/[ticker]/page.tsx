@@ -11,6 +11,40 @@ import SmartSearchBar from '@/components/SmartSearchBar';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ShareModal } from '@/components/ShareModal';
 
+export function CompanyLogo({ ticker, containerClass }: { ticker: string, containerClass: string }) {
+  const [imgSrc, setImgSrc] = useState(`https://financialmodelingprep.com/image-stock/${ticker}.png`);
+  const [isFallback, setIsFallback] = useState(false);
+
+  // If the ticker changes, reset the image source
+  useEffect(() => {
+    setImgSrc(`https://financialmodelingprep.com/image-stock/${ticker}.png`);
+    setIsFallback(false);
+  }, [ticker]);
+
+  return (
+    // Completely transparent container wrapper
+    <div className={`flex items-center justify-center shrink-0 ${containerClass}`}>
+      <img 
+        src={imgSrc} 
+        alt={ticker}
+        className={`w-full h-full ${
+          isFallback 
+            ? 'object-cover rounded-xl shadow-sm border border-slate-200' 
+            // ✨ THE MAGIC FIX: drop-shadow traces the actual logo shape, making white text visible!
+            : 'object-contain drop-shadow-[0_1px_3px_rgba(0,0,0,0.3)]'
+        }`}
+        onError={() => {
+          // When FMP fails, swap to the generated letter (which includes its own background)
+          if (!isFallback) {
+            setImgSrc(`https://ui-avatars.com/api/?name=${ticker}&background=f8fafc&color=0f172a&bold=true&font-size=0.45`);
+            setIsFallback(true);
+          }
+        }}
+      />
+    </div>
+  );
+}
+
 function ProgressiveCard({ question, statusText, statusType, thesisSupportText, thesisSupportType, summary, evidence, showThesisBadge = false }: any) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -287,23 +321,8 @@ export default function CompanyPage({ params }: { params: Promise<{ ticker: stri
         {/* COMMON HERO SECTION */}
         <div className="mb-12 flex flex-col md:flex-row justify-between md:items-start gap-8">
           <div className="flex items-center gap-6">
-            <div className="w-16 h-16 bg-white border border-slate-200 rounded-xl flex items-center justify-center shrink-0 overflow-hidden shadow-sm relative">
-            {/* ✨ 1. The Fallback Letter (Sits behind the image) */}
-            <span className="absolute text-2xl font-extrabold text-slate-300 select-none">
-              {ticker[0]}
-            </span>
-            
-            {/* ✨ 2. The Logo (Sits in front) */}
-            <img 
-              src={`https://financialmodelingprep.com/image-stock/${ticker}.png`} 
-              alt={ticker}
-              className="w-10 h-10 object-contain relative z-10"
-              onError={(e) => {
-                // If it actually 404s, we just hide the image tag entirely so the letter behind it shows perfectly
-                e.currentTarget.style.display = 'none';
-              }}
-            />
-          </div>
+           
+           <CompanyLogo ticker={ticker} containerClass="w-14 h-14" />
             <div>
               <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight mb-2">{profile.companyName}</h1>
               <div className="flex items-center gap-2 text-xs font-bold text-slate-500">

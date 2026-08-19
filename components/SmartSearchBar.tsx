@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Loader2, Building2, AlertCircle } from 'lucide-react';
+import { Search, Loader2, Building2, Info } from 'lucide-react';
 
 interface SmartSearchBarProps {
   variant?: 'header' | 'hero';
@@ -106,7 +106,9 @@ export default function SmartSearchBar({ variant = 'header' }: SmartSearchBarPro
   return (
     <div ref={wrapperRef} className={`relative w-full z-[999] ${isHero ? 'max-w-2xl mx-auto' : 'max-w-xs sm:max-w-sm'}`}>
       <form onSubmit={handleSubmit} className="relative flex items-center w-full">
-        <Search className={`absolute pointer-events-none text-slate-400 ${isHero ? 'w-5 h-5 left-5' : 'w-4 h-4 left-3'}`} />
+        <Search className={`absolute pointer-events-none transition-colors ${
+          errorMessage ? 'text-rose-400' : 'text-slate-400'
+        } ${isHero ? 'w-5 h-5 left-5' : 'w-4 h-4 left-3'}`} />
         
         <input
           type="text"
@@ -120,13 +122,19 @@ export default function SmartSearchBar({ variant = 'header' }: SmartSearchBarPro
           onFocus={() => {
             if (searchResults.length > 0) setIsOpen(true);
           }}
-          placeholder={isHero ? "Search ticker or company (e.g. Apple, NVDA)..." : "Search..."}
+          placeholder={isHero ? "Search AAPL, TSLA, etc..." : "Search..."}
           className={`w-full focus:outline-none transition-all shadow-sm ${
-            errorMessage ? 'border-red-500 focus:border-red-500 ring-2 ring-red-100' : ''
-          } ${
             isHero 
-              ? 'bg-white text-slate-900 border-slate-200 focus:border-blue-500 py-4 pl-14 pr-[150px] rounded-2xl text-base border-2' 
-              : 'bg-slate-100 focus:bg-white border-transparent focus:border-blue-500 text-xs font-bold py-2.5 pl-9 pr-8 rounded-xl border'
+              ? `py-4 pl-14 pr-[150px] rounded-2xl text-[13px] sm:text-[14px] md:text-base placeholder:text-[12px] sm:placeholder:text-[14px] md:placeholder:text-base border ${
+                  errorMessage 
+                    ? 'bg-white border-rose-300 text-[#0F172A] focus:border-rose-400 focus:ring-4 focus:ring-rose-500/10' 
+                    : 'bg-white text-slate-900 border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10'
+                }`
+              : `py-2.5 pl-9 pr-8 rounded-xl text-xs font-bold border ${
+                  errorMessage
+                    ? 'bg-white border-rose-300 text-[#0F172A] focus:border-rose-400'
+                    : 'bg-slate-100 focus:bg-white border-transparent focus:border-blue-500'
+                }`
           }`}
         />
 
@@ -134,7 +142,7 @@ export default function SmartSearchBar({ variant = 'header' }: SmartSearchBarPro
           <button 
             type="submit" 
             disabled={showSpinner}
-            className="absolute right-2 top-2 bottom-2 bg-slate-900 text-white text-sm font-bold px-6 rounded-xl hover:bg-slate-800 transition-colors flex items-center justify-center disabled:opacity-80 cursor-pointer"
+            className="absolute right-2 top-2 bottom-2 bg-slate-900 text-white text-[13px] sm:text-[14px] font-bold px-5 sm:px-6 rounded-xl hover:bg-slate-800 transition-colors flex items-center justify-center disabled:opacity-80 cursor-pointer"
           >
             {showSpinner ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Start Research'}
           </button>
@@ -145,10 +153,13 @@ export default function SmartSearchBar({ variant = 'header' }: SmartSearchBarPro
         )}
       </form>
 
+      {/* THE ULTRA-PREMIUM INLINE ERROR MESSAGE */}
       {errorMessage && (
-        <div className="mt-3 p-3 bg-red-50 border border-red-200/80 rounded-xl flex items-center gap-2.5 text-red-700 text-xs font-bold shadow-sm animate-in fade-in slide-in-from-top-1 duration-200">
-          <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
-          <span>{errorMessage}</span>
+        <div className={`flex items-start gap-2 px-2 animate-[slideIn_0.2s_ease-out] text-left ${isHero ? 'mt-2.5' : 'mt-1.5'}`}>
+          <Info className="w-4 h-4 text-rose-500 mt-0.5 shrink-0" />
+          <p className="text-[13px] font-medium text-slate-600 leading-relaxed">
+            {errorMessage}
+          </p>
         </div>
       )}
 

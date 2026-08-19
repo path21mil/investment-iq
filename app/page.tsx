@@ -45,6 +45,27 @@ const DEMO_COMPANIES: any = {
   }
 };
 
+function CompanyLogo({ ticker, containerClass, textClass }: { ticker: string, containerClass: string, textClass: string }) {
+  const [hasError, setHasError] = useState(false);
+
+  return (
+    <div className={`bg-white border border-slate-100 flex items-center justify-center shrink-0 overflow-hidden shadow-sm ${containerClass}`}>
+      {!hasError ? (
+        <img 
+          src={`https://financialmodelingprep.com/image-stock/${ticker}.png`} 
+          alt={ticker}
+          className="w-full h-full object-contain p-2"
+          onError={() => setHasError(true)}
+        />
+      ) : (
+        <span className={`font-extrabold text-slate-300 select-none ${textClass}`}>
+          {ticker[0]}
+        </span>
+      )}
+    </div>
+  );
+}
+
 export default function Home() {
   const router = useRouter();
   const [popularSearches, setPopularSearches] = useState<string[]>(['NVDA', 'AAOI', 'AAPL', 'MSFT']);
@@ -305,19 +326,11 @@ export default function Home() {
                 <div className="flex items-center gap-4">
                   
                   {/* Naked Logo */}
-                  <div className="w-12 h-12 flex items-center justify-center shrink-0 relative">
-                    <span className="absolute text-2xl font-extrabold text-slate-300 select-none">
-                      {activeData.ticker[0]}
-                    </span>
-                    <img 
-                      src={`https://financialmodelingprep.com/image-stock/${activeData.ticker}.png`} 
-                      alt={activeData.ticker}
-                      className="w-full h-full object-contain relative z-10"
-                      onError={(e) => {
-                        e.currentTarget.style.display = 'none';
-                      }}
-                    />
-                  </div>
+          <CompanyLogo 
+  ticker={activeData.ticker} 
+  containerClass="w-12 h-12 rounded-xl" 
+  textClass="text-2xl" 
+/>
 
                   {/* Title & Sector */}
                   <div className="flex flex-col">

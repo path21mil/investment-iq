@@ -12,6 +12,7 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
+
 interface Driver {
   title: string;
   description?: string;
@@ -49,6 +50,40 @@ function getTimeAgo(dateString: string | null) {
   if (diffInMinutes < 60) return `Updated ${diffInMinutes} min ago`;
   if (diffInMinutes < 1440) return `Updated ${Math.floor(diffInMinutes / 60)} hours ago`;
   return `Updated ${Math.floor(diffInMinutes / 1440)} days ago`;
+}
+
+export function CompanyLogo({ ticker, containerClass }: { ticker: string, containerClass: string }) {
+  const [imgSrc, setImgSrc] = useState(`https://financialmodelingprep.com/image-stock/${ticker}.png`);
+  const [isFallback, setIsFallback] = useState(false);
+
+  // If the ticker changes, reset the image source
+  useEffect(() => {
+    setImgSrc(`https://financialmodelingprep.com/image-stock/${ticker}.png`);
+    setIsFallback(false);
+  }, [ticker]);
+
+  return (
+    // Completely transparent container wrapper
+    <div className={`flex items-center justify-center shrink-0 ${containerClass}`}>
+      <img 
+        src={imgSrc} 
+        alt={ticker}
+        className={`w-full h-full ${
+          isFallback 
+            ? 'object-cover rounded-xl shadow-sm border border-slate-200' 
+            // ✨ THE MAGIC FIX: drop-shadow traces the actual logo shape, making white text visible!
+            : 'object-contain drop-shadow-[0_1px_3px_rgba(0,0,0,0.3)]'
+        }`}
+        onError={() => {
+          // When FMP fails, swap to the generated letter (which includes its own background)
+          if (!isFallback) {
+            setImgSrc(`https://ui-avatars.com/api/?name=${ticker}&background=f8fafc&color=0f172a&bold=true&font-size=0.45`);
+            setIsFallback(true);
+          }
+        }}
+      />
+    </div>
+  );
 }
 
 export default function Dashboard() {
@@ -290,7 +325,7 @@ const loadDashboard = async () => {
         <div className="max-w-[960px] w-full mx-auto px-6 flex items-center justify-between gap-6">
           
           <div className="flex items-center gap-8 shrink-0">
-            <Link href="/" className="font-extrabold text-lg tracking-tight flex items-center gap-2 cursor-pointer text-[#0F172A]">
+            <Link href="/dashboard" className="font-extrabold text-lg tracking-tight flex items-center gap-2 cursor-pointer text-[#0F172A]">
               Investment IQ
               <span className="flex items-center gap-0.5">
                 <span className="w-1.5 h-2.5 bg-blue-600 rounded-full"></span>
@@ -407,17 +442,10 @@ const loadDashboard = async () => {
                   {actionItems.map(company => (
                     <div key={`alert-${company.ticker}`} className="bg-white border border-slate-200 rounded-3xl p-6 md:p-8 flex flex-col sm:flex-row sm:items-center justify-between gap-6 shadow-sm hover:shadow-md transition-shadow">
                       <div className="flex items-start gap-6 flex-grow">
-                        <div className="w-12 h-12 bg-white border border-slate-100 rounded-xl flex items-center justify-center shrink-0 overflow-hidden shadow-sm hidden sm:flex">
-                          <img 
-                            src={`https://financialmodelingprep.com/image-stock/${company.ticker}.png`} 
-                            alt={company.ticker}
-                            className="w-8 h-8 object-contain"
-                            onError={(e) => {
-                              e.currentTarget.src = `https://ui-avatars.com/api/?name=${company.ticker}&background=f8fafc&color=64748b&bold=true&font-size=0.35`;
-                              e.currentTarget.className = "w-full h-full object-cover";
-                            }}
-                          />
-                        </div>
+                       <CompanyLogo 
+  ticker={company.ticker} 
+  containerClass="w-12 h-12 rounded-xl" 
+/>
                         <div className="flex-grow">
                           <div className="flex items-center gap-4 mb-2">
                             <span className="font-extrabold text-xl text-[#0F172A]">{company.ticker}</span>
@@ -452,24 +480,11 @@ const loadDashboard = async () => {
                       
                       <div className="flex items-start justify-between mb-8">
                         <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 bg-white border border-slate-100 rounded-xl flex items-center justify-center shrink-0 overflow-hidden shadow-sm relative">
-  {/* ✨ 1. The Fallback Letter (Sits behind the image) */}
-  <span className="absolute text-lg font-extrabold text-slate-300 select-none">
-    {company.ticker[0]}
-  </span>
-  
-  {/* ✨ 2. The Logo (Sits in front) */}
-  <img 
-    src={`https://financialmodelingprep.com/image-stock/${company.ticker}.png`} 
-    alt={company.ticker}
-    className="w-6 h-6 object-contain relative z-10"
-    onError={(e) => {
-      // Hide the broken image tag completely so the letter shows through
-      e.currentTarget.style.display = 'none';
-    }}
-  />
-</div>
-                          
+            
+       <CompanyLogo 
+  ticker={company.ticker} 
+  containerClass="w-10 h-10 rounded-xl" 
+/>
                           <h3 className="text-xl font-extrabold text-[#0F172A] tracking-tight">{company.ticker}</h3>
                         </div>
                         <div className="text-[11px] font-bold text-slate-600 flex items-center gap-1.5 uppercase tracking-widest mt-1">
@@ -580,17 +595,10 @@ const loadDashboard = async () => {
               
               <div className="flex items-center justify-between gap-4 mb-10">
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-white border border-slate-100 rounded-xl flex items-center justify-center shrink-0 overflow-hidden shadow-sm">
-                    <img 
-                      src={`https://financialmodelingprep.com/image-stock/${reviewCompany.ticker}.png`} 
-                      alt={reviewCompany.ticker}
-                      className="w-8 h-8 object-contain"
-                      onError={(e) => {
-                        e.currentTarget.src = `https://ui-avatars.com/api/?name=${reviewCompany.ticker}&background=f8fafc&color=64748b&bold=true&font-size=0.35`;
-                        e.currentTarget.className = "w-full h-full object-cover";
-                      }}
-                    />
-                  </div>
+<CompanyLogo 
+  ticker={reviewCompany.ticker} 
+  containerClass="w-12 h-12 rounded-xl" 
+/>
                   <h2 className="text-3xl font-extrabold text-[#0F172A] tracking-tight">{reviewCompany.ticker}</h2>
                 </div>
                 
