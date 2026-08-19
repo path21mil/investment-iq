@@ -26,7 +26,7 @@ export function PortfolioShareModal({ isOpen, onClose, company }: PortfolioShare
     async function fetchFinnhubData() {
       if (!company?.ticker || !isOpen) return;
       try {
-        const apiKey = process.env.NEXT_PUBLIC_FINNHUB_API_KEY; 
+        const apiKey = process.env.FINNHUB_API_KEY;
 
         // 1. Fetch Quote (Price & Day Change)
         const priceRes = await fetch(`https://finnhub.io/api/v1/quote?symbol=${company.ticker}&token=${apiKey}`);

@@ -1,7 +1,7 @@
 // lib/fmp.ts
 // (We kept the file name the same, but we are secretly using Finnhub now!)
 
-const API_KEY = process.env.NEXT_PUBLIC_FINNHUB_API_KEY;
+const API_KEY = process.env.FINNHUB_API_KEY;
 
 // 1. Fetch Company Profile & Quote (Combined for Finnhub)
 export async function getCompanyProfile(ticker: string) {

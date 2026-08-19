@@ -39,7 +39,7 @@ export async function POST(request: Request) {
     // ==========================================
     const today = new Date();
     const lastWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-    const finnhubKey = process.env.NEXT_PUBLIC_FINNHUB_API_KEY;
+    const finnhubKey = process.env.FINNHUB_API_KEY;
     let newsText = "No recent news.";
     let profileSummary = "";
 

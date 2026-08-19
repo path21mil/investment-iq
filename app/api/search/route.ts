@@ -8,7 +8,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ result: [] });
   }
 
-  const finnhubKey = process.env.FINNHUB_API_KEY || process.env.NEXT_PUBLIC_FINNHUB_API_KEY;
+  const finnhubKey = process.env.FINNHUB_API_KEY;
 
   if (!finnhubKey) {
     console.error("❌ CRITICAL: Finnhub API Key is missing from environment variables!");
