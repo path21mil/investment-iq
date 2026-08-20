@@ -5,7 +5,7 @@ export default function Logo() {
   return (
     <Link href="/" className="flex items-center hover:opacity-80 transition-opacity">
       <Image 
-        src="/inv.svg" 
+        src="/frame.svg" 
         alt="Investment IQ Logo" 
         width={240} 
         height={60}  
