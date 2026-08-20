@@ -6,7 +6,6 @@ import {
   Building2, TrendingUp, TrendingDown, Globe, Loader2, AlertCircle, Plus, Activity, Check, Info, ChevronDown, ChevronUp, Share2 
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { getCompanyProfile } from '@/lib/fmp';
 import SmartSearchBar from '@/components/SmartSearchBar';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ShareModal } from '@/components/ShareModal';
@@ -153,12 +152,14 @@ export default function CompanyPage({ params }: { params: Promise<{ ticker: stri
       setIsAnalyzing(false);
     }
   };
-
-  useEffect(() => {
+useEffect(() => {
     async function initPage() {
       setIsLoading(true);
 
-      let liveProfile: any = await getCompanyProfile(ticker);
+      // ✨ THE FIX: We securely call your new API route instead of getCompanyProfile!
+      const res = await fetch(`/api/company-profile?ticker=${ticker}`);
+      let liveProfile: any = await res.json();
+
       if (Array.isArray(liveProfile) && liveProfile.length > 0) liveProfile = liveProfile[0];
       setProfile(liveProfile);
 
@@ -184,16 +185,16 @@ export default function CompanyPage({ params }: { params: Promise<{ ticker: stri
         if (thesis) {
           setSavedThesis(thesis);
           
-          // ✨ FIX: Check the URL. If it says ?view=research, open the research view!
+          // Check the URL. If it says ?view=research, open the research view!
           const requestedView = searchParams.get('view');
           setViewMode(requestedView === 'research' ? 'research' : 'dashboard');
           
-   const { data: optionsCache } = await supabase.from('thesis_options_cache').select('data').ilike('ticker', ticker).maybeSingle();
+          const { data: optionsCache } = await supabase.from('thesis_options_cache').select('data').ilike('ticker', ticker).maybeSingle();
           if (optionsCache && optionsCache.data) {
             const allDrivers = optionsCache.data.drivers || [];
             const allRisks = optionsCache.data.risks || [];
 
-            // ✨ THE FIX: Safely parse strings into arrays before checking!
+            // Safely parse strings into arrays before checking!
             const isSelected = (item: any, savedData: any) => {
               let arr = savedData;
               
@@ -234,7 +235,7 @@ export default function CompanyPage({ params }: { params: Promise<{ ticker: stri
 
     initPage();
   }, [ticker]);
-
+ 
   const handleLaunchBuilder = () => router.push(isLoggedIn ? `/build-thesis/${ticker}` : `/login?redirect=/build-thesis/${ticker}`);
 
   const getDynamicStatus = (title: string, type: 'driver' | 'risk') => {

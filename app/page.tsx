@@ -5,13 +5,11 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import SmartSearchBar from '@/components/SmartSearchBar';
 import { Search, Loader2, ArrowRight, Star, ShieldCheck, Activity, BookOpen, Circle } from 'lucide-react';
-import { supabase } from '@/lib/supabase'; // <-- 1. Import Supabase!
-import { getCompanyProfile } from '@/lib/fmp';
+import { supabase } from '@/lib/supabase'; 
 
 const TICKER_POOL = ['NVDA', 'MSFT', 'TSLA', 'COST', 'AAPL', 'AMZN', 'GOOGL', 'META', 'NFLX', 'CRM', 'PLTR', 'AMD', 'AAOI'];
 
 // 2. THE GRACEFUL FALLBACK DATA
-// If the database is empty, it uses this so the site never looks broken!
 const DEMO_COMPANIES: any = {
   AAPL: {
     name: 'Apple Inc.', ticker: 'AAPL', sector: 'Consumer Electronics', thesis: 'Strengthening', thesisColor: 'emerald',
@@ -105,22 +103,27 @@ export default function Home() {
           const liveFormattedData: any = {};
           const liveTickers: string[] = [];
           
-          // ✨ NEW: Dynamically fetch real company names for these specific 4 tickers
+          // ✨ NEW: Dynamically fetch real company names securely through our API!
           const dynamicNames: Record<string, string> = {};
           try {
             const uniqueTickers = [...new Set(data.map(r => r.ticker))];
-            const profiles = await Promise.all(uniqueTickers.map(t => getCompanyProfile(t)));
+            
+            // ✅ SECURE FETCH: Replaced direct getCompanyProfile call with our secure API route
+            const profiles = await Promise.all(uniqueTickers.map(async (t) => {
+              const res = await fetch(`/api/company-profile?ticker=${t}`);
+              if (!res.ok) return null;
+              return res.json();
+            }));
             
             profiles.forEach((profileResult, idx) => {
               const ticker = uniqueTickers[idx];
-              // getCompanyProfile usually returns an array
               const profile = Array.isArray(profileResult) ? profileResult[0] : profileResult;
               if (profile && profile.companyName) {
                 dynamicNames[ticker] = profile.companyName;
               }
             });
           } catch (nameErr) {
-            console.warn("Could not fetch live names from FMP, falling back to DB", nameErr);
+            console.warn("Could not fetch live names from API, falling back to DB", nameErr);
           }
 
           // 🛡️ HELPER FUNCTION: Safely extracts the text label from the DB object
@@ -143,7 +146,7 @@ export default function Home() {
               
               const rawPillars = aiPayload.pillars || {};
               
-              // ✨ THE FIX: Uses the dynamic name from FMP first, then cleans it!
+              // Uses the dynamic name from FMP first, then cleans it!
               let rawName = dynamicNames[row.ticker] || aiPayload.companyName || row.company_name || row.ticker;
               let cleanName = rawName.replace(/(?:\s+Inc\.?|\s+Corp\.?|\s+Ltd\.?|\s+LLC|\s+PLC)$/i, '').trim();
               
@@ -184,7 +187,6 @@ export default function Home() {
 
     fetchRecentCommunityResearch();
   }, []);
-
 
   const activeData = communityData[selectedTicker] || DEMO_COMPANIES['AAOI'];
 
@@ -319,18 +321,18 @@ export default function Home() {
           {!isLoadingCommunity && activeData && (
             <div className="bg-white rounded-[2rem] border border-slate-200/80 shadow-[0_20px_50px_rgba(0,0,0,0.06)] overflow-hidden font-sans transition-all duration-300 min-h-[400px]">
              
-{/* 1. PREMIUM HEADER */}
+              {/* 1. PREMIUM HEADER */}
               <div className="p-8 pb-6 flex flex-col md:flex-row md:items-center justify-between gap-6">
                 
                 {/* ✨ THE NEW LOGO & TITLE SECTION ✨ */}
                 <div className="flex items-center gap-4">
                   
                   {/* Naked Logo */}
-          <CompanyLogo 
-  ticker={activeData.ticker} 
-  containerClass="w-12 h-12 rounded-xl" 
-  textClass="text-2xl" 
-/>
+                  <CompanyLogo 
+                    ticker={activeData.ticker} 
+                    containerClass="w-12 h-12 rounded-xl" 
+                    textClass="text-2xl" 
+                  />
 
                   {/* Title & Sector */}
                   <div className="flex flex-col">
@@ -349,6 +351,7 @@ export default function Home() {
                   </span>
                 </div>
               </div>
+              
               {/* 2. THE METRICS RIBBON */}
               <div className="bg-slate-50/50 border-y border-slate-100">
                 <div className="grid grid-cols-2 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-slate-200/60">
