@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation'; 
 import { supabase } from '@/lib/supabase';
 import { ArrowLeft, Mail, Lock } from 'lucide-react';
+import Logo from '@/components/Logo';
 
 // 2. RENAME: Changed from "export default function Login()" to "function LoginContent()"
 function LoginContent() {
@@ -83,16 +84,14 @@ function LoginContent() {
       <main className="flex-grow flex items-center justify-center p-6 relative z-10 mt-12 md:mt-0">
         <div className="w-full max-w-[420px] flex flex-col items-center">
           
-          {/* Logo & Header */}
+          
+       {/* Logo & Header */}
           <div className="text-center mb-8">
-            <div className="font-extrabold text-2xl tracking-tight text-slate-900 flex items-center justify-center gap-2 mb-6">
-              Investment IQ
-              <span className="flex gap-0.5">
-                <span className="w-1 h-3 bg-blue-600 rounded-full"></span>
-                <span className="w-1 h-4.5 bg-blue-600 rounded-full"></span>
-                <span className="w-1 h-6 bg-blue-600 rounded-full"></span>
-              </span>
+            {/* We wrapped the Logo in a flex container to keep it perfectly centered! */}
+            <div className="flex justify-center mb-6">
+              <Logo />
             </div>
+            
             <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight mb-2">Welcome back</h1>
             <p className="text-slate-500 font-medium text-sm">Sign in to access your conviction portfolio</p>
           </div>

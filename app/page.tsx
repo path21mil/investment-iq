@@ -6,6 +6,7 @@ import Link from 'next/link';
 import SmartSearchBar from '@/components/SmartSearchBar';
 import { Search, Loader2, ArrowRight, Star, ShieldCheck, Activity, BookOpen, Circle } from 'lucide-react';
 import { supabase } from '@/lib/supabase'; 
+import Logo from '@/components/Logo';
 
 const TICKER_POOL = ['NVDA', 'MSFT', 'TSLA', 'COST', 'AAPL', 'AMZN', 'GOOGL', 'META', 'NFLX', 'CRM', 'PLTR', 'AMD', 'AAOI'];
 
@@ -201,13 +202,8 @@ export default function Home() {
       {/* TOP NAVIGATION */}
       <nav className="bg-white/90 backdrop-blur-md border-b border-slate-200/60 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center gap-4">
-          <div className="font-extrabold text-xl tracking-tight text-slate-900 flex items-center gap-2 shrink-0">
-            Investment IQ
-            <span className="flex gap-0.5">
-              <span className="w-1 h-2.5 bg-blue-600 rounded-full"></span>
-              <span className="w-1 h-4 bg-blue-600 rounded-full"></span>
-              <span className="w-1 h-5 bg-blue-600 rounded-full"></span>
-            </span>
+          <div className="shrink-0">
+            <Logo />
           </div>
           <div className="flex items-center gap-4 md:gap-6 shrink-0">
             <Link href="/login" className="text-sm font-bold text-slate-600 hover:text-slate-900 transition-colors hidden sm:block">
@@ -413,13 +409,8 @@ export default function Home() {
       <footer className="w-full border-t border-slate-200/60 pt-16 pb-8 bg-white mt-auto">
         <div className="max-w-6xl mx-auto px-6 grid grid-cols-1 md:grid-cols-4 gap-8 mb-12 text-sm">
           <div className="col-span-1 md:col-span-2">
-            <div className="font-extrabold text-xl text-slate-900 flex items-center gap-2 mb-4">
-              Investment IQ
-              <span className="flex gap-0.5 opacity-50">
-                <span className="w-1 h-2.5 bg-blue-600 rounded-full"></span>
-                <span className="w-1 h-4 bg-blue-600 rounded-full"></span>
-                <span className="w-1 h-5 bg-blue-600 rounded-full"></span>
-              </span>
+           <div className="mb-6">
+              <Logo />
             </div>
             <p className="text-slate-500 font-medium max-w-sm leading-relaxed">
               The AI-powered journal for long-term investors. Track your conviction, not just price charts.
