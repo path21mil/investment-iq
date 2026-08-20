@@ -26,7 +26,8 @@ const nextConfig: NextConfig = {
           {
             key: 'Content-Security-Policy',
             // Your custom whitelist including Supabase and Financial Modeling Prep
-            value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https://financialmodelingprep.com; font-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co;",
+            // Look closely: I removed 'unsafe-eval' from the script-src section!
+            value: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https://financialmodelingprep.com; font-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co;", 
           }
         ],
       },
