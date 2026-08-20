@@ -326,13 +326,11 @@ const loadDashboard = async () => {
         <div className="max-w-[960px] w-full mx-auto px-6 flex items-center justify-between gap-6">
           
           <div className="flex items-center gap-8 shrink-0">
-        <div className="shrink-0">
-            <Logo />
+          <div className="shrink-0">
+            {/* This traps the user! Clicking it just refreshes the dashboard */}
+            <Logo href="/dashboard" />
           </div>
-            <div className="hidden sm:flex items-center gap-6">
-              <Link href="/dashboard" className="text-[13px] font-bold text-[#0F172A]">Portfolio</Link>
-            </div>
-          </div>
+        </div>
           
           <div className="flex-1 max-w-[360px] hidden md:block">
             <form onSubmit={handleSearch} className="relative w-full">
