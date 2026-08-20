@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Search, ArrowRight, Info, ChevronDown, ChevronUp, BookOpen, Trash2, Loader2, RefreshCw, User, Settings, LogOut, X, Check, Share2 } from 'lucide-react';
 import { PortfolioShareModal } from '@/components/PortfolioShareModal'; // <-- Add this
 import { createClient } from "@supabase/supabase-js";
+import Logo from '@/components/Logo';
 
 // Initialize Supabase safely
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -325,14 +326,9 @@ const loadDashboard = async () => {
         <div className="max-w-[960px] w-full mx-auto px-6 flex items-center justify-between gap-6">
           
           <div className="flex items-center gap-8 shrink-0">
-            <Link href="/dashboard" className="font-extrabold text-lg tracking-tight flex items-center gap-2 cursor-pointer text-[#0F172A]">
-              Investment IQ
-              <span className="flex items-center gap-0.5">
-                <span className="w-1.5 h-2.5 bg-blue-600 rounded-full"></span>
-                <span className="w-1.5 h-3.5 bg-blue-600 rounded-full"></span>
-                <span className="w-1.5 h-4.5 bg-blue-600 rounded-full"></span>
-              </span>
-            </Link>
+        <div className="shrink-0">
+            <Logo />
+          </div>
             <div className="hidden sm:flex items-center gap-6">
               <Link href="/dashboard" className="text-[13px] font-bold text-[#0F172A]">Portfolio</Link>
             </div>

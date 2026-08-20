@@ -9,6 +9,7 @@ import { supabase } from '@/lib/supabase';
 import SmartSearchBar from '@/components/SmartSearchBar';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ShareModal } from '@/components/ShareModal';
+import Logo from '@/components/Logo';
 
 export function CompanyLogo({ ticker, containerClass }: { ticker: string, containerClass: string }) {
   const [imgSrc, setImgSrc] = useState(`https://financialmodelingprep.com/image-stock/${ticker}.png`);
@@ -281,16 +282,9 @@ useEffect(() => {
       <nav className="bg-white/90 backdrop-blur-md border-b border-slate-200 sticky top-0 z-50">
         <div className="max-w-[960px] mx-auto px-6 py-3 flex items-center justify-between gap-8">
           {/* ✨ LOGO FIX: Explicitly wrapped in a div so Link doesn't break flex alignment */}
-          <Link href="/" className="shrink-0">
-            <div className="font-extrabold text-xl tracking-tight flex items-center gap-2.5 cursor-pointer text-[#0F172A]">
-              Investment IQ
-              <span className="flex items-center gap-1">
-                <span className="w-1.5 h-3 bg-blue-600 rounded-full"></span>
-                <span className="w-1.5 h-4 bg-blue-600 rounded-full"></span>
-                <span className="w-1.5 h-5 bg-blue-600 rounded-full"></span>
-              </span>
-            </div>
-          </Link>
+         <div className="shrink-0">
+            <Logo />
+          </div>
 
           <div className="hidden sm:block flex-1 max-w-sm"><SmartSearchBar /></div>
           
