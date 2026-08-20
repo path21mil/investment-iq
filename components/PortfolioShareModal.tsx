@@ -28,16 +28,20 @@ export function PortfolioShareModal({ isOpen, onClose, company }: PortfolioShare
       try {
         const apiKey = process.env.FINNHUB_API_KEY;
 
-        // 1. Fetch Quote (Price & Day Change)
-        const priceRes = await fetch(`https://finnhub.io/api/v1/quote?symbol=${company.ticker}&token=${apiKey}`);
-        const priceData = await priceRes.json();
-        if (priceData && priceData.c !== undefined) {
-          setLivePrice(priceData.c.toFixed(2));
-          setLiveChange(parseFloat(priceData.dp.toFixed(2)));
-        }
+       // 1. Fetch Quote securely via our backend route
+          // 1. Fetch Quote securely via our backend route
+const priceRes = await fetch(`/api/company-profile?ticker=${company.ticker}`);
+const priceData = await priceRes.json();
 
+// If priceData comes back as an array (from FMP) or object (from Finnhub)
+const profile = Array.isArray(priceData) ? priceData[0] : priceData;
+
+if (profile && (profile.price !== undefined || profile.c !== undefined)) {
+  const currentPrice = profile.price ?? profile.c;
+  setLivePrice(Number(currentPrice).toFixed(2));
+}
       // 2. Fetch Profile (Official Company Logo)
-        const profileRes = await fetch(`https://finnhub.io/api/v1/stock/profile2?symbol=${company.ticker}&token=${apiKey}`);
+       const profileRes = await fetch(`/api/company-profile?ticker=${company.ticker}`);
         const profileData = await profileRes.json();
         
         if (profileData && profileData.logo) {
