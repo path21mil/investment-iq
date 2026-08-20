@@ -410,7 +410,8 @@ export default function Home() {
         <div className="max-w-6xl mx-auto px-6 grid grid-cols-1 md:grid-cols-4 gap-8 mb-12 text-sm">
           <div className="col-span-1 md:col-span-2">
            <div className="mb-6">
-              <Logo />
+              {/* w-32 is small on phones, md:w-48 is medium on laptops */}
+              <Logo className="w-32 md:w-48" /> 
             </div>
             <p className="text-slate-500 font-medium max-w-sm leading-relaxed">
               The AI-powered journal for long-term investors. Track your conviction, not just price charts.
