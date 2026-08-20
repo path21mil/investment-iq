@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Loader2, ArrowRight, Check, Zap, Plus } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { getCompanyProfile } from '@/lib/fmp';
+
 
 export default function BuildThesisPage({ params }: { params: Promise<{ ticker: string }> }) {
   const router = useRouter();
@@ -102,7 +102,10 @@ export default function BuildThesisPage({ params }: { params: Promise<{ ticker: 
       }
 
       // Load the company profile header
-      let liveProfile: any = await getCompanyProfile(cleanTicker);
+   // Load the company profile header securely via API
+      const profileRes = await fetch(`/api/company-profile?ticker=${cleanTicker}`);
+      let liveProfile: any = await profileRes.json();
+      
       if (Array.isArray(liveProfile) && liveProfile.length > 0) liveProfile = liveProfile[0];
       setProfile(liveProfile);
 
