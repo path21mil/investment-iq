@@ -11,13 +11,16 @@ function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const returnUrl = searchParams.get('redirect') || '/dashboard';
+  
+  // ✨ NEW: Set initial tab based on the URL parameter (defaults to login)
+  const [mode, setMode] = useState<'login' | 'signup'>(
+    searchParams.get('mode') === 'signup' ? 'signup' : 'login'
+  );
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  
-  // ✨ NEW: The state for our legal checkbox
   const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   // Cleans up the URL if they just logged in via OAuth
@@ -29,17 +32,34 @@ function LoginContent() {
     }
   }, []);
 
-  const handleEmailLogin = async (e: React.FormEvent) => {
+  // ✨ NEW: Handles both Sign Up (with database logging) and Log In
+  const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-      if (error) throw error;
+      if (mode === 'signup') {
+        // PRO SAAS LOGGING: Create account & record terms consent in Supabase
+        const { error: signUpError } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              terms_accepted: true,
+              terms_version: '2026-08'
+            }
+          }
+        });
+        if (signUpError) throw signUpError;
+      } else {
+        // Standard Login
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        if (signInError) throw signInError;
+      }
       
       router.push(returnUrl); 
       
@@ -50,7 +70,13 @@ function LoginContent() {
     }
   };
 
-  const handleGoogleLogin = async () => {
+const handleGoogleLogin = async () => {
+    if (mode === 'signup' && !acceptedTerms) {
+      // ✨ Softer, friendlier copy
+      setError('Almost there! Please check the box below to accept the terms before continuing.');
+      return;
+    }
+
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -65,7 +91,6 @@ function LoginContent() {
   };
 
   return (
-    // ✨ NEW: Updated background to a premium deep dark color
     <div className="min-h-screen bg-[#0F1115] font-sans flex flex-col relative selection:bg-emerald-500/30 text-slate-300">
       
       {/* Functional & Premium Back to Home Button */}
@@ -84,26 +109,37 @@ function LoginContent() {
       {/* Main Content Area */}
       <main className="flex-grow flex flex-col items-center justify-center p-6 relative z-10 mt-12 md:mt-0">
         
-     {/* Logo */}
-        {/* Logo - Temporary Glass Wrapper until dark SVG is ready */}
+        {/* ✨ RETAINED: Your awesome Glass Wrapper Logo fix */}
         <div className="flex justify-center mb-8">
           <div className="bg-white/95 px-6 py-3 rounded-2xl shadow-[0_0_20px_rgba(255,255,255,0.05)] border border-slate-700">
-            {/* Notice we removed theme="dark" so it uses the standard logo */}
             <Logo />
           </div>
         </div>
 
-        {/* ✨ NEW: The 2026 Dark Mode Card */}
         <div className="w-full max-w-[420px] bg-[#181A1B] rounded-3xl p-8 border border-slate-800 shadow-2xl">
           
-          <div className="text-center mb-8">
-            <h1 className="text-2xl font-extrabold text-white tracking-tight mb-2">Welcome to Investment IQ</h1>
-            <p className="text-slate-400 font-medium text-sm">Sign in or create an account</p>
+          {/* ✨ NEW: The Tab Navigation */}
+          <div className="flex border-b border-slate-800 mb-8">
+            <button 
+              onClick={() => { setMode('login'); setError(''); }}
+              className={`flex-1 pb-4 text-sm font-bold transition-colors cursor-pointer ${mode === 'login' ? 'text-emerald-400 border-b-2 border-emerald-400' : 'text-slate-500 hover:text-slate-300'}`}
+            >
+              Log In
+            </button>
+            <button 
+              onClick={() => { setMode('signup'); setError(''); }}
+              className={`flex-1 pb-4 text-sm font-bold transition-colors cursor-pointer ${mode === 'signup' ? 'text-emerald-400 border-b-2 border-emerald-400' : 'text-slate-500 hover:text-slate-300'}`}
+            >
+              Sign Up
+            </button>
           </div>
 
-          {error && (
-            <div className="mb-6 bg-rose-500/10 text-rose-400 p-3 rounded-xl text-sm font-bold border border-rose-500/20 text-center">
-              {error}
+        {error && (
+            <div className="mb-6 bg-amber-500/10 text-amber-400 p-3.5 rounded-xl text-sm font-medium border border-amber-500/20 text-center flex items-center justify-center gap-2 shadow-sm">
+              <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>{error}</span>
             </div>
           )}
 
@@ -124,11 +160,11 @@ function LoginContent() {
           {/* Divider */}
           <div className="flex items-center gap-3 mb-6 text-slate-500 text-[10px] font-bold uppercase tracking-widest">
             <div className="flex-1 h-px bg-slate-800"></div>
-            or
+            or email
             <div className="flex-1 h-px bg-slate-800"></div>
           </div>
 
-          <form onSubmit={handleEmailLogin} className="space-y-4">
+          <form onSubmit={handleAuth} className="space-y-4">
             <div>
               <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Email</label>
               <input 
@@ -152,27 +188,29 @@ function LoginContent() {
               />
             </div>
 
-            {/* ✨ NEW: The Legal Checkbox */}
-            <div className="flex items-start gap-3 pt-2 mb-2">
-              <input 
-                type="checkbox" 
-                id="terms" 
-                checked={acceptedTerms}
-                onChange={(e) => setAcceptedTerms(e.target.checked)}
-                className="mt-1 w-4 h-4 rounded border-slate-600 bg-[#242729] text-emerald-500 focus:ring-emerald-500 focus:ring-offset-[#181A1B] cursor-pointer" 
-              />
-              <label htmlFor="terms" className="text-xs text-slate-400 font-medium leading-relaxed">
-                I acknowledge the Alpha disclaimer and agree to the <Link href="/terms" className="text-emerald-400 hover:underline">Terms of Service</Link> and <Link href="/privacy" className="text-emerald-400 hover:underline">Privacy Policy</Link>.
-              </label>
-            </div>
+            {/* ✨ NEW: Only show the legal checkbox if they are creating a new account */}
+            {mode === 'signup' && (
+              <div className="flex items-start gap-3 pt-2 mb-2">
+                <input 
+                  type="checkbox" 
+                  id="terms" 
+                  checked={acceptedTerms}
+                  onChange={(e) => setAcceptedTerms(e.target.checked)}
+                  className="mt-1 w-4 h-4 rounded border-slate-600 bg-[#242729] text-emerald-500 focus:ring-emerald-500 focus:ring-offset-[#181A1B] cursor-pointer" 
+                />
+                <label htmlFor="terms" className="text-xs text-slate-400 font-medium leading-relaxed">
+                  I acknowledge the Alpha disclaimer and agree to the <Link href="/terms" className="text-emerald-400 hover:underline">Terms of Service</Link> and <Link href="/privacy" className="text-emerald-400 hover:underline">Privacy Policy</Link>.
+                </label>
+              </div>
+            )}
 
             {/* Submit Action */}
             <button 
               type="submit"
-              disabled={isLoading || !acceptedTerms}
+              disabled={isLoading || (mode === 'signup' && !acceptedTerms)}
               className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-800 disabled:text-slate-500 text-white font-bold rounded-xl transition-colors cursor-pointer mt-2"
             >
-              {isLoading ? 'Processing...' : 'Continue'}
+              {isLoading ? 'Processing...' : mode === 'signup' ? 'Create Account' : 'Sign In'}
             </button>
           </form>
 

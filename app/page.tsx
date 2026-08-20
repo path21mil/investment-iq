@@ -206,12 +206,17 @@ export default function Home() {
             <Logo />
           </div>
           <div className="flex items-center gap-4 md:gap-6 shrink-0">
+            
+            {/* 1. SIGN IN: Stays exactly the same (defaults to the Log In tab) */}
             <Link href="/login" className="text-sm font-bold text-slate-600 hover:text-slate-900 transition-colors hidden sm:block">
               Sign In
             </Link>
-            <Link href="/login" className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold px-4 md:px-5 py-2 md:py-2.5 rounded-xl transition-colors shadow-sm">
+            
+            {/* 2. GET STARTED: Updated href and changed from blue to emerald! */}
+            <Link href="/login?mode=signup" className="bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-bold px-4 md:px-5 py-2 md:py-2.5 rounded-xl transition-colors shadow-sm">
               Get Started
             </Link>
+            
           </div>
         </div>
       </nav>
