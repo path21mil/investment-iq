@@ -428,9 +428,8 @@ export default function Home() {
           <div>
             <h4 className="font-bold text-slate-900 mb-4">Legal & Social</h4>
             <ul className="space-y-3 text-slate-500 font-medium">
-              <li><button className="hover:text-blue-600 transition-colors">Privacy Policy</button></li>
-              <li><button className="hover:text-blue-600 transition-colors">Terms of Service</button></li>
-              <li><button className="hover:text-blue-600 transition-colors">Twitter / X</button></li>
+              <li><Link href="/privacy" className="hover:text-blue-600 transition-colors">Privacy Policy</Link></li>
+              <li><Link href="/terms" className="hover:text-blue-600 transition-colors">Terms of Service</Link></li>
             </ul>
           </div>
         </div>

@@ -281,28 +281,34 @@ useEffect(() => {
       {/* NAVIGATION */}
       <nav className="bg-white/90 backdrop-blur-md border-b border-slate-200 sticky top-0 z-50">
         <div className="max-w-[960px] mx-auto px-6 py-3 flex items-center justify-between gap-8">
-          {/* ✨ LOGO FIX: Explicitly wrapped in a div so Link doesn't break flex alignment */}
-         <div className="shrink-0">
-            <Logo />
+        {/* ✨ LOGO FIX: Dynamically routes based on authentication state */}
+          <div className="shrink-0">
+            <Logo href={isLoggedIn ? "/dashboard" : "/"} /> 
           </div>
 
           <div className="hidden sm:block flex-1 max-w-sm"><SmartSearchBar /></div>
           
-          <div className="flex items-center gap-4 shrink-0">
+         <div className="flex items-center gap-3 shrink-0">
             {savedThesis && (
               <button 
                 onClick={() => setViewMode(viewMode === 'dashboard' ? 'research' : 'dashboard')} 
-                className="text-[13px] font-bold text-blue-600 hover:text-blue-800 transition-colors"
+                className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-[13px] font-bold text-[#0F172A] hover:bg-slate-50 transition-colors shadow-sm"
               >
-                {viewMode === 'dashboard' ? 'View Research →' : 'My Dashboard →'}
+                {viewMode === 'dashboard' ? 'View Research' : 'My Dashboard'}
               </button>
             )}
             {isLoggedIn ? (
-              <button onClick={() => router.push('/dashboard')} className="px-4 py-2 border border-slate-200 rounded-lg text-[13px] font-bold text-[#0F172A] hover:bg-slate-50 transition-colors">
-                ← Portfolio
+              <button 
+                onClick={() => router.push('/dashboard')} 
+                className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-[13px] font-bold text-[#0F172A] hover:bg-slate-50 transition-colors shadow-sm"
+              >
+                Portfolio
               </button>
             ) : (
-              <Link href="/login" className="bg-[#0F172A] text-white text-[13px] font-bold px-5 py-2.5 rounded-lg hover:bg-slate-800 transition-colors">
+              <Link 
+                href="/login" 
+                className="bg-[#0F172A] text-white text-[13px] font-bold px-5 py-2.5 rounded-lg hover:bg-slate-800 transition-colors shadow-sm"
+              >
                 Get Started
               </Link>
             )}
