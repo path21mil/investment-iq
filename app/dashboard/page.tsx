@@ -13,7 +13,7 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// ✨ NEW: Define the limit here so it's easy to change later!
+// Limit definition
 const MAX_STOCKS_LIMIT = 5;
 
 interface Driver {
@@ -97,8 +97,27 @@ export default function Dashboard() {
   const [expandedEvidenceIdx, setExpandedEvidenceIdx] = useState<number | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [shareCompany, setShareCompany] = useState<TrackedCompany | null>(null);
-  
   const [toastMessage, setToastMessage] = useState<{title: string, description: string} | null>(null);
+
+  // ✨ ALPHA WELCOME STATE (Correctly placed INSIDE the component!)
+  const [showAlphaWelcome, setShowAlphaWelcome] = useState(false);
+
+  useEffect(() => {
+    // Check if they have already seen the welcome message on this device
+    const hasSeenWelcome = localStorage.getItem('hasSeenAlphaWelcome');
+    if (!hasSeenWelcome) {
+      // Small 1.5 second delay makes it feel natural after the dashboard loads
+      const timer = setTimeout(() => {
+        setShowAlphaWelcome(true);
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, []);
+
+  const closeAlphaWelcome = () => {
+    localStorage.setItem('hasSeenAlphaWelcome', 'true');
+    setShowAlphaWelcome(false);
+  };
 
   useEffect(() => {
     setExpandedEvidenceIdx(null);
@@ -203,11 +222,10 @@ export default function Dashboard() {
     }
   };
 
-const handleSearch = (e: React.FormEvent) => {
+  const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchQuery.trim()) return;
 
-    // ✨ NEW: Block search if user has reached or exceeded the limit!
     if (portfolio.length >= MAX_STOCKS_LIMIT) {
       setToastMessage({
         title: "Limit Reached",
@@ -219,6 +237,7 @@ const handleSearch = (e: React.FormEvent) => {
 
     router.push(`/company/${searchQuery.trim().toUpperCase()}`);
   };
+
   const handleSmartSync = async () => {
     setIsSyncing(true);
     try {
@@ -320,7 +339,7 @@ const handleSearch = (e: React.FormEvent) => {
             </div>
           </div>
           
-         <div className="flex-1 max-w-[360px] hidden md:block">
+          <div className="flex-1 max-w-[360px] hidden md:block">
             <form onSubmit={handleSearch} className="relative w-full">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input
@@ -407,7 +426,6 @@ const handleSearch = (e: React.FormEvent) => {
                   {getTimeAgo(mostRecentTime)}
                 </span>
                 
-                {/* ✨ NEW: The Tracker Badge in the header */}
                 <div className="hidden sm:flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 rounded-lg shadow-sm text-[12px] font-bold">
                   <span className={portfolio.length >= MAX_STOCKS_LIMIT ? 'text-rose-500' : 'text-emerald-500'}>
                     {portfolio.length}
@@ -538,7 +556,7 @@ const handleSearch = (e: React.FormEvent) => {
               </div>
             </div>
 
-            {/* ✨ NEW: The Bottom Add/Search bar with UI Limit lock */}
+            {/* BOTTOM SEARCH BAR */}
             <div className="mt-16 pt-10 border-t border-slate-200 text-center pb-16">
               <div className="flex items-center justify-center gap-3 mb-5">
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
@@ -712,6 +730,49 @@ const handleSearch = (e: React.FormEvent) => {
           onClose={() => setShareCompany(null)} 
           company={shareCompany} 
         />
+      )}
+
+      {/* ✨ FIRST-TIME ALPHA WELCOME MODAL */}
+      {showAlphaWelcome && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-[#0F172A]/60 backdrop-blur-sm animate-[fadeIn_0.3s_ease-out]">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-8 text-center border border-slate-200 animate-[slideIn_0.4s_ease-out] relative">
+            
+            <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-blue-100">
+              <span className="text-3xl">👋</span>
+            </div>
+            
+            <h3 className="text-2xl font-extrabold text-[#0F172A] mb-3">Welcome to the Alpha!</h3>
+            
+            <div className="text-[14px] text-slate-600 font-medium leading-relaxed mb-8 space-y-4 text-left bg-slate-50 p-5 rounded-2xl border border-slate-100">
+              <p>
+                We are so excited to have you as one of our early testers. Since we are currently in our closed Alpha phase, your account has been granted <strong className="text-[#0F172A]">free access to track up to 5 stocks</strong>.
+              </p>
+              <p>
+                As we build out our Pro features (unlimited stocks, instant alerts, etc.), we would love your direct feedback on what we should build next and how we should price it.
+              </p>
+            </div>
+            
+            <div className="flex flex-col gap-3">
+              <button 
+                onClick={() => {
+                  closeAlphaWelcome();
+                  router.push('/feedback');
+                }}
+                className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-extrabold rounded-xl transition-all shadow-sm shadow-blue-600/20 cursor-pointer"
+              >
+                View Roadmap & Give Feedback
+              </button>
+              
+              <button 
+                onClick={closeAlphaWelcome} 
+                className="w-full py-3.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold rounded-xl transition-all cursor-pointer"
+              >
+                Continue to Dashboard
+              </button>
+            </div>
+            
+          </div>
+        </div>
       )}
 
     </div>
