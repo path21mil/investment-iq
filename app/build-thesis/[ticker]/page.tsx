@@ -3,14 +3,16 @@
 import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Loader2, ArrowRight, Check, Zap, Plus } from 'lucide-react';
+import { Loader2, ArrowRight, Check, Zap, Plus, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-
 
 export default function BuildThesisPage({ params }: { params: Promise<{ ticker: string }> }) {
   const router = useRouter();
   const resolvedParams = use(params);
   const ticker = (resolvedParams.ticker || 'MSFT').toUpperCase();
+  
+  // ✨ LIMIT MODAL STATE
+  const [showLimitModal, setShowLimitModal] = useState(false);
 
   const [step, setStep] = useState<number>(1); // 1 = Drivers, 2 = Risks, 3 = Summary Review
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -79,7 +81,7 @@ export default function BuildThesisPage({ params }: { params: Promise<{ ticker: 
       const cleanTicker = ticker.toUpperCase().trim();
 
       // FETCH USER'S EXISTING THESIS (Now including the summary!)
-      const { data: existingThesis, error: dbError } = await supabase
+      const { data: existingThesis } = await supabase
         .from('theses')
         .select('drivers, risks, created_at, summary') 
         .eq('user_id', session.user.id)
@@ -99,10 +101,22 @@ export default function BuildThesisPage({ params }: { params: Promise<{ ticker: 
         if (existingThesis.drivers) setSelectedDrivers(existingThesis.drivers);
         if (existingThesis.risks) setSelectedRisks(existingThesis.risks);
         if (existingThesis.summary) setSummaryDraft(existingThesis.summary);
+      } else {
+        // ✨ NEW PRE-CHECK: If they are NOT editing, check if they are at the limit!
+        // This runs BEFORE we waste money on the AI API route.
+        const { count } = await supabase
+          .from('theses')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', session.user.id);
+
+        if (count && count >= 5) {
+          setShowLimitModal(true);
+          setIsLoading(false);
+          return; // STOP HERE! Do not run the AI generators below.
+        }
       }
 
-      // Load the company profile header
-   // Load the company profile header securely via API
+      // Load the company profile header securely via API
       const profileRes = await fetch(`/api/company-profile?ticker=${cleanTicker}`);
       let liveProfile: any = await profileRes.json();
       
@@ -119,7 +133,6 @@ export default function BuildThesisPage({ params }: { params: Promise<{ ticker: 
         
         const contentType = res.headers.get("content-type");
         if (!contentType || !contentType.includes("application/json")) {
-          const textError = await res.text();
           throw new Error("API Route is misconfigured or missing (Check terminal).");
         }
 
@@ -219,7 +232,6 @@ export default function BuildThesisPage({ params }: { params: Promise<{ ticker: 
         return;
       }
 
-      // ✨ NEW: Map the selected IDs back to the real text from suggested options!
       const formattedDrivers = selectedDrivers.map(id => {
         const found = suggestedDrivers.find(d => d.id === id);
         return {
@@ -235,7 +247,6 @@ export default function BuildThesisPage({ params }: { params: Promise<{ ticker: 
         };
       });
 
-      // Grab the first risk to use as the primary risk on the Share Card
       const primaryRiskText = formattedRisks.length > 0 
         ? formattedRisks[0].title 
         : "Macroeconomic pressures and sector rotation";
@@ -244,14 +255,11 @@ export default function BuildThesisPage({ params }: { params: Promise<{ ticker: 
         user_id: userId,
         ticker: ticker.toUpperCase(),
         company_name: profile?.companyName || ticker,
-        
-        // ✨ Save the actual formatted data, not just the "d0" IDs!
         drivers: formattedDrivers,
         risks: formattedRisks,
         primary_risk: primaryRiskText,
-        
         summary: summaryDraft, 
-        status: 'Strengthening', // Day 1 Default
+        status: 'Strengthening', 
         requires_action: false
       };
 
@@ -272,13 +280,19 @@ export default function BuildThesisPage({ params }: { params: Promise<{ ticker: 
 
     } catch (err: any) {
       console.error("Supabase Save Error:", JSON.stringify(err, null, 2));
-      alert(`Failed to save thesis: ${err.message || err.details || JSON.stringify(err)}`);
+      
+      // ✨ NEW CATCH: Show the modal instead of the ugly alert if blocked by database trigger!
+      if (err.message?.includes('Alpha limit reached') || err.details?.includes('Alpha limit reached')) {
+        setShowLimitModal(true);
+      } else {
+        alert(`Failed to save thesis: ${err.message || err.details || JSON.stringify(err)}`);
+      }
     } finally {
       setIsSaving(false);
     }
   };
 
- if (isLoading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
         <div className="w-16 h-16 bg-white rounded-2xl shadow-sm border border-slate-200 flex items-center justify-center mb-6">
@@ -298,7 +312,7 @@ export default function BuildThesisPage({ params }: { params: Promise<{ ticker: 
   const isAtLimit = currentSelections.length >= 5;
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
+    <div className="min-h-screen bg-slate-50 flex flex-col font-sans relative">
       
       {/* HEADER */}
       <header className="border-b border-slate-200 bg-white/80 backdrop-blur-md sticky top-0 z-50">
@@ -379,7 +393,7 @@ export default function BuildThesisPage({ params }: { params: Promise<{ ticker: 
                     value={summaryDraft}
                     onChange={(e) => setSummaryDraft(e.target.value)}
                     maxLength={600}
-                    rows={6} // ✨ Increased rows so it doesn't scroll!
+                    rows={6}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 text-sm font-medium text-slate-700 focus:outline-none focus:border-blue-500 focus:bg-white transition-colors resize-none leading-relaxed shadow-inner"
                   />
                   <div className={`absolute bottom-3 right-4 text-[10px] font-bold ${summaryDraft.length >= 580 ? 'text-rose-500' : 'text-slate-400'}`}>
@@ -485,8 +499,8 @@ export default function BuildThesisPage({ params }: { params: Promise<{ ticker: 
         )}
       </main>
 
-      {/* STICKY BOTTOM ACTION BAR (3-STEP LOGIC) */}
-      <div className="fixed bottom-0 left-0 right-0 bg-slate-100 border-t border-slate-200 py-4 px-6 z-50">
+      {/* STICKY BOTTOM ACTION BAR */}
+      <div className="fixed bottom-0 left-0 right-0 bg-slate-100 border-t border-slate-200 py-4 px-6 z-40">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           
           <div className="flex items-center gap-3">
@@ -522,6 +536,42 @@ export default function BuildThesisPage({ params }: { params: Promise<{ ticker: 
 
         </div>
       </div>
+
+      {/* ✨ PREMIUM LIMIT REACHED MODAL */}
+      {showLimitModal && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-[#0F172A]/60 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-8 text-center border border-slate-200 animate-[slideIn_0.3s_ease-out]">
+            
+            <div className="w-16 h-16 bg-amber-50 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-amber-100">
+              <AlertTriangle className="w-8 h-8 text-amber-500" />
+            </div>
+            
+            <h3 className="text-2xl font-extrabold text-[#0F172A] mb-3">Alpha Limit Reached</h3>
+            <p className="text-[14px] text-slate-500 font-medium leading-relaxed mb-8">
+              You are currently tracking the maximum of 5 stocks allowed during our free Alpha testing phase. 
+              Please remove an existing thesis from your dashboard to create a new one.
+            </p>
+            
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <button 
+                onClick={() => router.push(`/company/${ticker}`)} 
+                className="px-6 py-3 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold rounded-xl transition-all w-full sm:w-auto cursor-pointer"
+              >
+                Go Back
+              </button>
+              
+              <button 
+                onClick={() => router.push('/dashboard')} 
+                className="px-6 py-3 bg-[#0F172A] hover:bg-slate-800 text-white font-bold rounded-xl transition-all w-full sm:w-auto shadow-sm cursor-pointer"
+              >
+                Manage Portfolio
+              </button>
+            </div>
+            
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

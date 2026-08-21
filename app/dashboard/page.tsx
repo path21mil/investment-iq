@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Search, ArrowRight, Info, ChevronDown, ChevronUp, BookOpen, Trash2, Loader2, RefreshCw, User, Settings, LogOut, X, Check, Share2 } from 'lucide-react';
-import { PortfolioShareModal } from '@/components/PortfolioShareModal'; // <-- Add this
+import { PortfolioShareModal } from '@/components/PortfolioShareModal';
 import { createClient } from "@supabase/supabase-js";
 import Logo from '@/components/Logo';
 
@@ -13,6 +13,8 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
+// ✨ NEW: Define the limit here so it's easy to change later!
+const MAX_STOCKS_LIMIT = 5;
 
 interface Driver {
   title: string;
@@ -34,8 +36,8 @@ interface TrackedCompany {
   coreThesis: string;
   aiSummary: string;
   updates: CompanyUpdate[];
-  drivers: Driver[];       // ✨ NEW: Passed directly to Share Card
-  primaryRisk?: string;    // ✨ NEW: Passed directly to Share Card
+  drivers: Driver[];
+  primaryRisk?: string;
   lastUpdated: string;
   rawUpdatedAt: string; 
   requiresAction: boolean;
@@ -57,14 +59,12 @@ export function CompanyLogo({ ticker, containerClass }: { ticker: string, contai
   const [imgSrc, setImgSrc] = useState(`https://financialmodelingprep.com/image-stock/${ticker}.png`);
   const [isFallback, setIsFallback] = useState(false);
 
-  // If the ticker changes, reset the image source
   useEffect(() => {
     setImgSrc(`https://financialmodelingprep.com/image-stock/${ticker}.png`);
     setIsFallback(false);
   }, [ticker]);
 
   return (
-    // Completely transparent container wrapper
     <div className={`flex items-center justify-center shrink-0 ${containerClass}`}>
       <img 
         src={imgSrc} 
@@ -72,11 +72,9 @@ export function CompanyLogo({ ticker, containerClass }: { ticker: string, contai
         className={`w-full h-full ${
           isFallback 
             ? 'object-cover rounded-xl shadow-sm border border-slate-200' 
-            // ✨ THE MAGIC FIX: drop-shadow traces the actual logo shape, making white text visible!
             : 'object-contain drop-shadow-[0_1px_3px_rgba(0,0,0,0.3)]'
         }`}
         onError={() => {
-          // When FMP fails, swap to the generated letter (which includes its own background)
           if (!isFallback) {
             setImgSrc(`https://ui-avatars.com/api/?name=${ticker}&background=f8fafc&color=0f172a&bold=true&font-size=0.45`);
             setIsFallback(true);
@@ -98,9 +96,8 @@ export default function Dashboard() {
   const [reviewCompany, setReviewCompany] = useState<TrackedCompany | null>(null);
   const [expandedEvidenceIdx, setExpandedEvidenceIdx] = useState<number | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [shareCompany, setShareCompany] = useState<TrackedCompany | null>(null); // ✨ ADD THIS
+  const [shareCompany, setShareCompany] = useState<TrackedCompany | null>(null);
   
-  // ✨ NEW: State for our premium toast notification
   const [toastMessage, setToastMessage] = useState<{title: string, description: string} | null>(null);
 
   useEffect(() => {
@@ -117,7 +114,7 @@ export default function Dashboard() {
     }
   }, []);
 
-const loadDashboard = async () => {
+  const loadDashboard = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
@@ -139,7 +136,7 @@ const loadDashboard = async () => {
       if (!dbTheses || dbTheses.length === 0) {
         setPortfolio([]);
       } else {
-       const mappedPortfolio: TrackedCompany[] = dbTheses.map((t: any) => ({
+        const mappedPortfolio: TrackedCompany[] = dbTheses.map((t: any) => ({
           id: t.id,
           ticker: t.ticker,
           name: t.company_name || t.ticker,
@@ -147,11 +144,8 @@ const loadDashboard = async () => {
           coreThesis: t.drivers?.[0]?.title || 'Long-term growth compounding',
           aiSummary: t.ai_summary || 'Tracking active. Awaiting next earnings call or SEC filing for new insights.',
           updates: typeof t.updates === 'string' ? JSON.parse(t.updates) : (t.updates || []), 
-          
-          // ✨ YOUR NEW LINES GO HERE:
           drivers: typeof t.drivers === 'string' ? JSON.parse(t.drivers) : (t.drivers || []),
           primaryRisk: t.primary_risk || (typeof t.risks === 'string' ? JSON.parse(t.risks)?.[0]?.title : t.risks?.[0]?.title) || undefined,
-
           lastUpdated: new Date(t.last_scanned_at || t.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
           rawUpdatedAt: t.last_scanned_at || t.updated_at || t.created_at, 
           requiresAction: t.requires_action || false
@@ -159,8 +153,6 @@ const loadDashboard = async () => {
 
         setPortfolio(mappedPortfolio);
 
-        // ✨ THE NEW LAZY REFRESH TRIGGER ✨
-        // Find the oldest update in the portfolio
         const oldestUpdate = new Date(
           Math.min(...mappedPortfolio.map(p => new Date(p.rawUpdatedAt).getTime()))
         );
@@ -168,11 +160,9 @@ const loadDashboard = async () => {
         const now = new Date();
         const diffInHours = (now.getTime() - oldestUpdate.getTime()) / (1000 * 60 * 60);
 
-        // If any stock hasn't been checked in over 24 hours, quietly run the engine
         if (diffInHours >= 24) {
           console.log("Lazy refresh triggered in background...");
           
-          // We don't await this or set isSyncing=true so it doesn't block the UI!
           fetch('/api/engine', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -180,7 +170,6 @@ const loadDashboard = async () => {
           }).then(async (response) => {
              const result = await response.json();
              if (result.success && result.updatedCount > 0) {
-                // If the engine actually found changes, silently refresh the UI data
                 const { data: refreshedTheses } = await supabase
                   .from("theses")
                   .select("*")
@@ -188,9 +177,6 @@ const loadDashboard = async () => {
                   .order("created_at", { ascending: false });
                 
                 if (refreshedTheses) {
-               // Optional: You could even fire off a toast notification here 
-                  // saying "We just found some new updates for you!"
-                  // setToastMessage({ title: "Updates Found", description: `Updated ${result.updatedCount} companies.` });
                   setPortfolio(refreshedTheses.map((t: any) => ({
                     id: t.id,
                     ticker: t.ticker,
@@ -205,27 +191,34 @@ const loadDashboard = async () => {
                     rawUpdatedAt: t.last_scanned_at || t.updated_at || t.created_at, 
                     requiresAction: t.requires_action || false
                   })));
-          
-   }
-              }
-            });
-          }
+                }
+             }
+          });
         }
-      } catch (err) {
-        console.error("Dashboard Load Error:", err);
-      } finally {
-        setIsLoading(false);
       }
-    };
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      router.push(`/company/${searchQuery.trim().toUpperCase()}`);
+    } catch (err) {
+      console.error("Dashboard Load Error:", err);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  // ✨ UPDATED: The 7.5 second delay and premium Toast UI
+const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchQuery.trim()) return;
+
+    // ✨ NEW: Block search if user has reached or exceeded the limit!
+    if (portfolio.length >= MAX_STOCKS_LIMIT) {
+      setToastMessage({
+        title: "Limit Reached",
+        description: `You are tracking the maximum of ${MAX_STOCKS_LIMIT} stocks during Alpha.`
+      });
+      setTimeout(() => setToastMessage(null), 5000);
+      return;
+    }
+
+    router.push(`/company/${searchQuery.trim().toUpperCase()}`);
+  };
   const handleSmartSync = async () => {
     setIsSyncing(true);
     try {
@@ -235,18 +228,14 @@ const loadDashboard = async () => {
         const diffInHours = (now.getTime() - lastUpdate.getTime()) / (1000 * 60 * 60);
 
         if (diffInHours < 24) {
-          // A realistic 7.5 second delay so the user feels the system "working"
           await new Promise(resolve => setTimeout(resolve, 7500));
           
-          // Trigger the beautiful SaaS toast
           setToastMessage({
             title: "Portfolio up to date",
             description: `All investment drivers are current. Next scheduled market sync is in ${Math.ceil(24 - diffInHours)} hours.`
           });
           
-          // Auto-hide the toast after 6 seconds
           setTimeout(() => setToastMessage(null), 6000);
-          
           return; 
         }
       }
@@ -326,21 +315,21 @@ const loadDashboard = async () => {
         <div className="max-w-[960px] w-full mx-auto px-6 flex items-center justify-between gap-6">
           
           <div className="flex items-center gap-8 shrink-0">
-          <div className="shrink-0">
-            {/* This traps the user! Clicking it just refreshes the dashboard */}
-            <Logo href="/dashboard" />
+            <div className="shrink-0">
+              <Logo href="/dashboard" />
+            </div>
           </div>
-        </div>
           
-          <div className="flex-1 max-w-[360px] hidden md:block">
+         <div className="flex-1 max-w-[360px] hidden md:block">
             <form onSubmit={handleSearch} className="relative w-full">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input
                 type="text"
+                disabled={portfolio.length >= MAX_STOCKS_LIMIT}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search company or ticker..."
-                className="w-full h-[36px] bg-slate-50 border border-slate-200 rounded-lg pl-9 pr-4 text-[13px] font-medium focus:bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all outline-none text-[#0F172A] placeholder-slate-400"
+                placeholder={portfolio.length >= MAX_STOCKS_LIMIT ? `Limit reached (${portfolio.length}/${MAX_STOCKS_LIMIT})` : "Search company or ticker..."}
+                className="w-full h-[36px] bg-slate-50 border border-slate-200 rounded-lg pl-9 pr-4 text-[13px] font-medium focus:bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all outline-none text-[#0F172A] placeholder-slate-400 disabled:bg-slate-100 disabled:cursor-not-allowed"
               />
             </form>
           </div>
@@ -417,14 +406,23 @@ const loadDashboard = async () => {
                 <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest hidden sm:block">
                   {getTimeAgo(mostRecentTime)}
                 </span>
-              <button 
-  onClick={handleSmartSync}
-  disabled={isSyncing}
-  className="bg-white border border-slate-200 text-[#0F172A] text-[13px] font-bold px-4 py-2 rounded-lg hover:bg-slate-50 hover:border-slate-300 shadow-sm transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
->
-  <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-blue-600' : 'text-slate-400'}`} />
-  {isSyncing ? 'Checking...' : 'Check for updates'}
-</button>
+                
+                {/* ✨ NEW: The Tracker Badge in the header */}
+                <div className="hidden sm:flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 rounded-lg shadow-sm text-[12px] font-bold">
+                  <span className={portfolio.length >= MAX_STOCKS_LIMIT ? 'text-rose-500' : 'text-emerald-500'}>
+                    {portfolio.length}
+                  </span>
+                  <span className="text-slate-500">/ {MAX_STOCKS_LIMIT} Limit</span>
+                </div>
+
+                <button 
+                  onClick={handleSmartSync}
+                  disabled={isSyncing}
+                  className="bg-white border border-slate-200 text-[#0F172A] text-[13px] font-bold px-4 py-2 rounded-lg hover:bg-slate-50 hover:border-slate-300 shadow-sm transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-blue-600' : 'text-slate-400'}`} />
+                  {isSyncing ? 'Checking...' : 'Check for updates'}
+                </button>
               </div>
             </div>
 
@@ -436,10 +434,10 @@ const loadDashboard = async () => {
                   {actionItems.map(company => (
                     <div key={`alert-${company.ticker}`} className="bg-white border border-slate-200 rounded-3xl p-6 md:p-8 flex flex-col sm:flex-row sm:items-center justify-between gap-6 shadow-sm hover:shadow-md transition-shadow">
                       <div className="flex items-start gap-6 flex-grow">
-                       <CompanyLogo 
-  ticker={company.ticker} 
-  containerClass="w-12 h-12 rounded-xl" 
-/>
+                        <CompanyLogo 
+                          ticker={company.ticker} 
+                          containerClass="w-12 h-12 rounded-xl" 
+                        />
                         <div className="flex-grow">
                           <div className="flex items-center gap-4 mb-2">
                             <span className="font-extrabold text-xl text-[#0F172A]">{company.ticker}</span>
@@ -474,11 +472,10 @@ const loadDashboard = async () => {
                       
                       <div className="flex items-start justify-between mb-8">
                         <div className="flex items-center gap-4">
-            
-       <CompanyLogo 
-  ticker={company.ticker} 
-  containerClass="w-10 h-10 rounded-xl" 
-/>
+                          <CompanyLogo 
+                            ticker={company.ticker} 
+                            containerClass="w-10 h-10 rounded-xl" 
+                          />
                           <h3 className="text-xl font-extrabold text-[#0F172A] tracking-tight">{company.ticker}</h3>
                         </div>
                         <div className="text-[11px] font-bold text-slate-600 flex items-center gap-1.5 uppercase tracking-widest mt-1">
@@ -507,8 +504,7 @@ const loadDashboard = async () => {
                         )}
                       </div>
 
-                   <div className="pt-6 border-t border-slate-100 flex flex-row items-center justify-between mt-auto">
-                        {/* LEFT: Open Thesis */}
+                      <div className="pt-6 border-t border-slate-100 flex flex-row items-center justify-between mt-auto">
                         <button 
                           onClick={() => router.push(`/company/${company.ticker}`)}
                           className="px-4 py-2 border border-slate-200 rounded-lg text-[13px] font-bold text-[#0F172A] hover:bg-slate-50 hover:border-slate-300 transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
@@ -516,7 +512,6 @@ const loadDashboard = async () => {
                           Open Thesis →
                         </button>
 
-                        {/* MIDDLE: Share Button */}
                         <button
                           onClick={() => setShareCompany(company)}
                           className="flex items-center gap-2 px-4 py-2 text-[13px] font-[800] text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
@@ -525,7 +520,6 @@ const loadDashboard = async () => {
                           Share
                         </button>
                         
-                        {/* RIGHT: Saved Date & Delete */}
                         <div className="text-right flex items-center gap-4 shrink-0">
                           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest hidden sm:block">Saved: {company.lastUpdated}</span>
                           <button 
@@ -544,16 +538,36 @@ const loadDashboard = async () => {
               </div>
             </div>
 
+            {/* ✨ NEW: The Bottom Add/Search bar with UI Limit lock */}
             <div className="mt-16 pt-10 border-t border-slate-200 text-center pb-16">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-5">Research another company</p>
-              <form onSubmit={handleSearch} className="max-w-md mx-auto relative">
+              <div className="flex items-center justify-center gap-3 mb-5">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                  {portfolio.length >= MAX_STOCKS_LIMIT ? 'Alpha Limit Reached' : 'Research another company'}
+                </p>
+              </div>
+              <form 
+                onSubmit={(e) => {
+                  if (portfolio.length >= MAX_STOCKS_LIMIT) {
+                    e.preventDefault();
+                    setToastMessage({
+                      title: "Limit Reached",
+                      description: `You are tracking the maximum of ${MAX_STOCKS_LIMIT} stocks during Alpha.`
+                    });
+                    setTimeout(() => setToastMessage(null), 5000);
+                    return;
+                  }
+                  handleSearch(e);
+                }} 
+                className="max-w-md mx-auto relative"
+              >
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input
                   type="text"
+                  disabled={portfolio.length >= MAX_STOCKS_LIMIT}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search by ticker..."
-                  className="w-full bg-white border border-slate-200 rounded-xl py-3.5 pl-11 pr-4 text-[#0F172A] font-bold placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-[13px] shadow-sm"
+                  placeholder={portfolio.length >= MAX_STOCKS_LIMIT ? `Limit reached (${MAX_STOCKS_LIMIT}/${MAX_STOCKS_LIMIT})` : "Search by ticker..."}
+                  className="w-full bg-white border border-slate-200 rounded-xl py-3.5 pl-11 pr-4 text-[#0F172A] font-bold placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-[13px] shadow-sm disabled:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
                 />
               </form>
             </div>
@@ -589,10 +603,10 @@ const loadDashboard = async () => {
               
               <div className="flex items-center justify-between gap-4 mb-10">
                 <div className="flex items-center gap-4">
-<CompanyLogo 
-  ticker={reviewCompany.ticker} 
-  containerClass="w-12 h-12 rounded-xl" 
-/>
+                  <CompanyLogo 
+                    ticker={reviewCompany.ticker} 
+                    containerClass="w-12 h-12 rounded-xl" 
+                  />
                   <h2 className="text-3xl font-extrabold text-[#0F172A] tracking-tight">{reviewCompany.ticker}</h2>
                 </div>
                 
@@ -615,7 +629,7 @@ const loadDashboard = async () => {
 
               <div className="mb-10">
                 <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4 border-t border-slate-100 pt-8">Supporting Evidence</h4>
-             <div className="space-y-4">
+                <div className="space-y-4">
                   {reviewCompany.updates.map((update, idx) => {
                     const isExpanded = expandedEvidenceIdx === idx;
                     return (
@@ -626,7 +640,6 @@ const loadDashboard = async () => {
                             <p className="text-[13px] font-bold text-[#0F172A] leading-tight">{update.text}</p>
                           </div>
                           
-                          {/* ✨ FIX: Only render the toggle button if evidenceText actually exists! */}
                           {update.evidenceText && (
                             <button 
                               onClick={() => setExpandedEvidenceIdx(isExpanded ? null : idx)}
@@ -672,7 +685,7 @@ const loadDashboard = async () => {
         </div>
       )}
 
-     {/* ✨ NEW: PREMIUM TOAST NOTIFICATION */}
+      {/* ✨ PREMIUM TOAST NOTIFICATION */}
       {toastMessage && (
         <div className="fixed bottom-6 right-6 z-[200] animate-[slideIn_0.3s_ease-out]">
           <div className="bg-white border border-slate-200 shadow-[0_8px_30px_rgb(0,0,0,0.08)] rounded-2xl p-5 flex gap-4 max-w-sm items-start">
@@ -692,7 +705,7 @@ const loadDashboard = async () => {
         </div>
       )}
 
-      {/* 🚀 PLACE YOUR MODAL EXACTLY HERE */}
+      {/* SHARE MODAL */}
       {shareCompany && (
         <PortfolioShareModal 
           isOpen={!!shareCompany} 
@@ -701,6 +714,6 @@ const loadDashboard = async () => {
         />
       )}
 
-    </div> // <-- This is the final closing div of your Dashboard component
+    </div>
   );
 }

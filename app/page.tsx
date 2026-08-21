@@ -234,7 +234,7 @@ export default function Home() {
             Built for long-term investors who buy businesses—not charts.
           </p>
           <p className="text-base md:text-lg text-slate-500 font-medium leading-relaxed px-4 md:px-0 max-w-2xl mx-auto">
-            Investment IQ helps you understand great businesses, build your investment thesis, record why you invested, and use AI to identify what has changed since you invested.
+            Investment IQ helps you understand great businesses, build your investment thesis, record why you invested, and use AI to track what has changed since you invested.
           </p>
         </div>
 
