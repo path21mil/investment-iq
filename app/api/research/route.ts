@@ -65,14 +65,12 @@ export async function POST(request: Request) {
       }
     }
 
-  // ==========================================
+    // ==========================================
     // 🧠 3. ASK GEMINI TO ANALYZE
     // ==========================================
-   // ==========================================
-    // 🧠 3. ASK GEMINI TO ANALYZE
-    // ==========================================
-    const model = genAI.getGenerativeModel({ 
-      model: "gemini-3.5-flash", // ✨ FIX: Restored to your original modern model!
+   const model = genAI.getGenerativeModel({ 
+      model: "gemini-3.6-flash", 
+      // ...
       generationConfig: { responseMimeType: "application/json" },
       safetySettings: [ 
         { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
@@ -87,10 +85,19 @@ export async function POST(request: Request) {
       Company Context: ${profileSummary}
       Recent News Headlines: ${newsText}
 
+      LIFECYCLE RULES FOR "ratingBadge":
+      You must evaluate where this company sits in its business lifecycle and pick EXACTLY one of these four values:
+      - "Early Stage" (Unproven, rapid innovation or high risk phase)
+      - "Expanding" (Accelerating market adoption, rapid revenue and scaling phase)
+      - "Mature" (Established market leader with steady, defensive compounding cash flows)
+      - "Declining" (Facing structural headwinds, disruption, or shrinking market share)
+
+      Do NOT return "BUY", "SELL", "HOLD", or any other values for ratingBadge.
+
       Return a JSON object exactly matching this structure:
       {
-        "ratingTitle": "Short 2-word title",
-        "ratingBadge": "1-word status",
+        "ratingTitle": "Short 2-word title (e.g. Dominant Leader, High Compounder, Category Pioneer)",
+        "ratingBadge": "Expanding",
         "overallAssessment": "2-sentence summary.",
         "strengths": ["Strength 1", "Strength 2", "Strength 3"],
         "risks": ["Risk 1", "Risk 2", "Risk 3"],
@@ -131,7 +138,7 @@ export async function POST(request: Request) {
     }
 
     rawText = rawText.substring(firstBrace, lastBrace + 1);
-    rawText = rawText.replace(/[\n\r\t]/g, ' '); // Strip newlines/tabs that break JSON.parse
+    rawText = rawText.replace(/[\n\r\t]/g, ' '); 
 
     let finalJson;
     try {
@@ -141,7 +148,7 @@ export async function POST(request: Request) {
     }
 
     // ==========================================
-    // 💾 4. AWAIT THE CACHE SAVE
+    // 💾 4. SAVE TO CACHE
     // ==========================================
     await supabase
       .from('ai_cache')

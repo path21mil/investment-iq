@@ -131,6 +131,24 @@ export default function CompanyPage({ params }: { params: Promise<{ ticker: stri
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
 
+
+  const getLifecycleBadgeStyle = (badge: string = '') => {
+    switch (badge.toLowerCase()) {
+      case 'expanding':
+        return { dot: 'text-emerald-500', label: 'Expanding' };
+      case 'mature':
+        return { dot: 'text-blue-500', label: 'Mature' };
+      case 'early stage':
+        return { dot: 'text-amber-500', label: 'Early Stage' };
+      case 'declining':
+        return { dot: 'text-rose-500', label: 'Declining' };
+      default:
+        return { dot: 'text-slate-400', label: badge || 'Active' };
+    }
+  };
+
+  const lifecycle = getLifecycleBadgeStyle(aiData?.ratingBadge);
+
   const fetchResearchData = async (companyProfile: any) => {
     setIsAnalyzing(true);
     setAiError(null);
@@ -249,7 +267,7 @@ useEffect(() => {
     return isMatch ? { label: 'Monitoring', dotColor: 'text-amber-500' } : { label: 'Stable', dotColor: 'text-slate-400' };
   };
 
-  const getTrendIcon = (type: string) => {
+const getTrendIcon = (type: string) => {
     switch(type) {
       case 'positive': return <span className="text-emerald-600 font-bold shrink-0 mt-0.5">↑</span>;
       case 'negative': return <span className="text-rose-600 font-bold shrink-0 mt-0.5">↓</span>;
@@ -546,20 +564,24 @@ useEffect(() => {
               // ==========================================
               <div className="mb-12">
                 
-                {/* OVERALL ASSESSMENT & SNAPSHOT */}
+           {/* OVERALL ASSESSMENT & SNAPSHOT */}
                 <div className="bg-white p-8 md:p-12 rounded-3xl border border-slate-200 shadow-sm mb-12">
+                  <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Overall Assessment</h2>
+                  
+                  {/* Title & Lifecycle Badge */}
+                  <div className="flex flex-wrap items-center gap-4 mb-8">
+                    <span className="text-3xl font-extrabold text-[#0F172A] tracking-tight">{aiData?.ratingTitle}</span>
+                    <div className="text-[11px] font-bold text-slate-600 flex items-center gap-1.5 uppercase tracking-widest border border-slate-200 bg-slate-50 px-3.5 py-1.5 rounded-full">
+                      <span className={lifecycle.dot}>●</span> {lifecycle.label}
+                    </div>
+                  </div>
+
+                  {/* Grid: Paragraph & Snapshot start at the exact same vertical position */}
                   <div className="grid grid-cols-1 md:grid-cols-5 gap-12 items-start">
+                    
+                    {/* Left Column: Summary Paragraph + Strengths & Watch Points */}
                     <div className="md:col-span-3 flex flex-col">
-                      <div>
-                        <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Overall Assessment</h2>
-                        <div className="flex flex-wrap items-center gap-4 mb-6">
-                          <span className="text-3xl font-extrabold text-[#0F172A] tracking-tight">{aiData?.ratingTitle}</span>
-                          <div className="text-[11px] font-bold text-slate-500 flex items-center gap-1.5 uppercase tracking-widest border border-slate-200 px-3 py-1.5 rounded-full">
-                            <span className={aiData?.ratingBadge?.includes('Risk') ? 'text-rose-500' : 'text-emerald-500'}>●</span> {aiData?.ratingBadge}
-                          </div>
-                        </div>
-                        <p className="text-[15px] text-slate-700 font-medium leading-relaxed max-w-2xl">{aiData?.overallAssessment}</p>
-                      </div>
+                      <p className="text-[15px] text-slate-700 font-medium leading-relaxed">{aiData?.overallAssessment}</p>
 
                       <div className="mt-10 pt-8 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 gap-8">
                         <div>
@@ -581,6 +603,7 @@ useEffect(() => {
                       </div>
                     </div>
 
+                    {/* Right Column: Quick Snapshot Card */}
                     <div className="md:col-span-2 bg-slate-50 rounded-3xl p-8 border border-slate-200 self-start w-full">
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-8">Quick Snapshot</p>
                       <div className="space-y-5">
@@ -598,23 +621,53 @@ useEffect(() => {
                         })}
                       </div>
                     </div>
+
                   </div>
                 </div>
-                
-                {/* LIVE EVALUATION */}
+
+{/* LIVE EVALUATION */}
                 <div className="bg-white rounded-3xl p-8 md:p-12 border border-slate-200 shadow-sm mb-12">
                   <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Live Evaluation</h3>
                   <p className="text-2xl font-extrabold text-[#0F172A] tracking-tight mb-8">What's Changed Recently</p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch">
-                    {(aiData?.updates || []).map((update: any, i: number) => (
-                      <div key={i} className="flex flex-col h-full bg-slate-50 p-6 rounded-2xl border border-slate-200">
-                        {getTrendIcon(update.type)}
-                        <span className="text-[14px] font-bold text-[#0F172A] mt-3 mb-4 leading-snug">{update.headline}</span>
-                        <p className="text-[10px] mt-auto font-bold uppercase tracking-widest text-slate-500">{update.impact}</p>
-                      </div>
-                    ))}
+                  
+                  <div className="space-y-4">
+                    {(aiData?.updates || []).map((update: any, i: number) => {
+                      const isPositive = update.type === 'positive';
+                      const isNegative = update.type === 'negative';
+                      
+                      const statusLabel = isPositive ? 'Strengthening' : isNegative ? 'Monitoring' : 'Stable';
+                      const statusDot = isPositive ? 'text-emerald-500' : isNegative ? 'text-rose-500' : 'text-slate-400';
+
+                      return (
+                        <div 
+                          key={i} 
+                          className="bg-slate-50 border border-slate-200 rounded-2xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-slate-300 transition-colors"
+                        >
+                          {/* Left: Arrow + Title + Subtitle */}
+                          <div className="flex items-start gap-4 flex-1">
+                            <span className={`text-lg font-bold shrink-0 mt-0.5 ${isPositive ? 'text-emerald-600' : isNegative ? 'text-rose-600' : 'text-slate-400'}`}>
+                              {isPositive ? '↑' : isNegative ? '↓' : '—'}
+                            </span>
+                            <div>
+                              <h4 className="text-[15px] font-bold text-[#0F172A] leading-snug mb-1">
+                                {update.headline}
+                              </h4>
+                              <p className="text-[13px] font-medium text-slate-500 leading-relaxed">
+                                {update.impact}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Right: Status */}
+                          <div className="text-[11px] font-bold text-slate-500 flex items-center gap-1.5 uppercase tracking-widest shrink-0 self-start sm:self-auto pl-8 sm:pl-0">
+                            <span className={statusDot}>●</span> {statusLabel}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
+ 
 
                 {/* DEEP DIVE */}
                 <div className="space-y-6">
@@ -628,7 +681,7 @@ useEffect(() => {
                   <div className="bg-[#0F172A] text-white p-10 md:p-14 rounded-3xl border border-slate-800 max-w-4xl mx-auto shadow-xl">
                     <div className="text-center max-w-2xl mx-auto mb-12">
                       <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight mb-4">Build Your Investment Thesis for {ticker}</h2>
-                      <p className="text-slate-400 text-[15px] font-medium leading-relaxed">Record why you're investing in {profile.companyName}. Select key fundamental drivers and risks, and Investment IQ tracks them automatically.</p>
+                      <p className="text-slate-400 text-[15px] font-medium leading-relaxed">Record why you're investing in {profile.companyName}. Choose the key drivers and risks that matter to you. Investment IQ tracks them over time.</p>
                     </div>
 
                     <div className="space-y-4 mb-12 max-w-2xl mx-auto">
@@ -642,8 +695,8 @@ useEffect(() => {
                       <div className="bg-[#1E293B] border border-slate-700/50 rounded-2xl p-6 flex items-start gap-5">
                         <div className="w-8 h-8 rounded-full bg-slate-800 text-slate-300 flex items-center justify-center font-bold shrink-0 text-[13px]">2</div>
                         <div>
-                          <h3 className="font-bold text-white text-[15px] mb-1">AI Quarterly Tracking</h3>
-                          <p className="text-[13px] text-slate-400 font-medium">Earnings calls • SEC filings • Financials</p>
+                          <h3 className="font-bold text-white text-[15px] mb-1">AI Thesis Tracking</h3>
+                          <p className="text-[13px] text-slate-400 font-medium">News • Earnings calls • SEC filings • Financials</p>
                         </div>
                       </div>
                       <div className="bg-[#1E293B] border border-slate-700/50 rounded-2xl p-6 flex items-start gap-5">
