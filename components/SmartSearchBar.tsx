@@ -110,7 +110,7 @@ export default function SmartSearchBar({ variant = 'header' }: SmartSearchBarPro
           errorMessage ? 'text-rose-400' : 'text-slate-400'
         } ${isHero ? 'w-5 h-5 left-5' : 'w-4 h-4 left-3'}`} />
         
-        <input
+       <input
           type="text"
           value={query}
           disabled={isNavigating}
@@ -125,12 +125,14 @@ export default function SmartSearchBar({ variant = 'header' }: SmartSearchBarPro
           placeholder={isHero ? "Search AAPL, TSLA, etc..." : "Search..."}
           className={`w-full focus:outline-none transition-all shadow-sm ${
             isHero 
-              ? `py-4 pl-14 pr-[150px] rounded-2xl text-[13px] sm:text-[14px] md:text-base placeholder:text-[12px] sm:placeholder:text-[14px] md:placeholder:text-base border ${
+              // ✨ FIX: Changed text-[13px] to text-[16px] for mobile, keeps md:text-base for desktop
+              ? `py-4 pl-14 pr-[150px] rounded-2xl text-[16px] md:text-base placeholder:text-[16px] md:placeholder:text-base border ${
                   errorMessage 
                     ? 'bg-white border-rose-300 text-[#0F172A] focus:border-rose-400 focus:ring-4 focus:ring-rose-500/10' 
                     : 'bg-white text-slate-900 border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10'
                 }`
-              : `py-2.5 pl-9 pr-8 rounded-xl text-xs font-bold border ${
+              // ✨ FIX: Changed text-xs to text-[16px] for mobile, keeps md:text-xs for desktop
+              : `py-2.5 pl-9 pr-8 rounded-xl text-[16px] md:text-xs font-bold border ${
                   errorMessage
                     ? 'bg-white border-rose-300 text-[#0F172A] focus:border-rose-400'
                     : 'bg-slate-100 focus:bg-white border-transparent focus:border-blue-500'
