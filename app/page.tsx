@@ -8,13 +8,27 @@ import { Search, Loader2, ArrowRight, Star, ShieldCheck, Activity, BookOpen, Cir
 import { supabase } from '@/lib/supabase'; 
 import Logo from '@/components/Logo';
 
+const getLifecycleBadgeStyle = (badge: string = '') => {
+  switch (badge.toLowerCase()) {
+    case 'expanding':
+      return { dot: 'text-emerald-500', label: 'Expanding' };
+    case 'mature':
+      return { dot: 'text-blue-500', label: 'Mature' };
+    case 'early stage':
+      return { dot: 'text-amber-500', label: 'Early Stage' };
+    case 'declining':
+      return { dot: 'text-rose-500', label: 'Declining' };
+    default:
+      return { dot: 'text-slate-400', label: badge || 'Active' };
+  }
+};
+
 const TICKER_POOL = ['NVDA', 'MSFT', 'TSLA', 'COST', 'AAPL', 'AMZN', 'GOOGL', 'META', 'NFLX', 'CRM', 'PLTR', 'AMD', 'AAOI'];
 
 // 2. THE GRACEFUL FALLBACK DATA
 const DEMO_COMPANIES: any = {
   AAPL: {
-    name: 'Apple Inc.', ticker: 'AAPL', sector: 'Consumer Electronics', 
-    thesis: 'Mature', // ✨ Updated to lifecycle taxonomy
+    name: 'Apple Inc.', ticker: 'AAPL', sector: 'Consumer Electronics', ratingBadge: 'Mature',
     overallAssessment: 'Apple remains a high-quality business with a durable ecosystem, strong capital allocation, and resilient cash generation.',
     pillars: { quality: 'Excellent', management: 'Trusted', valuation: 'Premium', understandability: 'Easy' },
     changes: [
@@ -24,8 +38,7 @@ const DEMO_COMPANIES: any = {
     ]
   },
   NVDA: {
-    name: 'NVIDIA Corp.', ticker: 'NVDA', sector: 'Semiconductors', 
-    thesis: 'Expanding', // ✨ Updated to lifecycle taxonomy
+    name: 'NVIDIA Corp.', ticker: 'NVDA', sector: 'Semiconductors', ratingBadge: 'Expanding',
     overallAssessment: 'NVIDIA maintains an unparalleled moat in AI hardware, backed by accelerating hyperscaler capex and flawless execution.',
     pillars: { quality: 'Exceptional', management: 'Visionary', valuation: 'High', understandability: 'Moderate' },
     changes: [
@@ -35,8 +48,7 @@ const DEMO_COMPANIES: any = {
     ]
   },
   AAOI: {
-    name: 'Applied Optoelectronics', ticker: 'AAOI', sector: 'Optical Networking', 
-    thesis: 'Early Stage', // ✨ Updated to lifecycle taxonomy
+    name: 'Applied Optoelectronics', ticker: 'AAOI', sector: 'Optical Networking', ratingBadge: 'Early Stage',
     overallAssessment: 'AAOI’s turnaround thesis is rapidly strengthening. The company successfully executed its AI-driven 800G transition and achieved a pivotal return to non-GAAP profitability.',
     pillars: { quality: 'Improving', management: 'Executing', valuation: 'Fair', understandability: 'Complex' },
     changes: [
@@ -77,7 +89,7 @@ export default function Home() {
   const [previewTickers, setPreviewTickers] = useState<string[]>(['AAOI', 'NVDA', 'AAPL']);
   const [selectedTicker, setSelectedTicker] = useState<string>('AAOI');
   const [isLoadingCommunity, setIsLoadingCommunity] = useState(true);
-
+  
   // Rotate popular searches every 5 seconds
   useEffect(() => {
     setPopularSearches([...TICKER_POOL].sort(() => 0.5 - Math.random()).slice(0, 4));
@@ -91,7 +103,6 @@ export default function Home() {
   useEffect(() => {
     async function fetchRecentCommunityResearch() {
       try {
-        // Fetch the 4 newest rows from ai_cache
         const { data, error } = await supabase
           .from('ai_cache')
           .select('*')
@@ -107,12 +118,10 @@ export default function Home() {
           const liveFormattedData: any = {};
           const liveTickers: string[] = [];
           
-          // ✨ NEW: Dynamically fetch real company names securely through our API!
           const dynamicNames: Record<string, string> = {};
           try {
             const uniqueTickers = [...new Set(data.map(r => r.ticker))];
             
-            // ✅ SECURE FETCH: Replaced direct getCompanyProfile call with our secure API route
             const profiles = await Promise.all(uniqueTickers.map(async (t) => {
               const res = await fetch(`/api/company-profile?ticker=${t}`);
               if (!res.ok) return null;
@@ -130,7 +139,6 @@ export default function Home() {
             console.warn("Could not fetch live names from API, falling back to DB", nameErr);
           }
 
-          // 🛡️ HELPER FUNCTION: Safely extracts the text label from the DB object
           const extractLabel = (pillar: any, fallback: string) => {
             if (!pillar) return fallback;
             if (typeof pillar === 'string') return pillar;
@@ -150,7 +158,6 @@ export default function Home() {
               
               const rawPillars = aiPayload.pillars || {};
               
-              // Uses the dynamic name from FMP first, then cleans it!
               let rawName = dynamicNames[row.ticker] || aiPayload.companyName || row.company_name || row.ticker;
               let cleanName = rawName.replace(/(?:\s+Inc\.?|\s+Corp\.?|\s+Ltd\.?|\s+LLC|\s+PLC)$/i, '').trim();
               
@@ -158,8 +165,8 @@ export default function Home() {
                 name: cleanName, 
                 ticker: row.ticker,
                 sector: 'Community Research',
-                // ✨ FIX: Grab the lifecycle ratingBadge from the AI payload
-                thesis: aiPayload.ratingBadge || 'Active', 
+                // ✨ ADDED: We must map the rating badge from the database to the state here!
+                ratingBadge: aiPayload.ratingBadge || aiPayload.stage || 'Mature',
                 overallAssessment: aiPayload.overallAssessment || 'AI Assessment complete.',
                 pillars: { 
                   quality: extractLabel(rawPillars.quality, '-'), 
@@ -193,24 +200,7 @@ export default function Home() {
   }, []);
 
   const activeData = communityData[selectedTicker] || DEMO_COMPANIES['AAOI'];
-
-  // ✨ FIX: Full color support for the 4 lifecycle phases
-  const getLifecycleBadgeStyle = (badge: string = '') => {
-    switch (badge.toLowerCase()) {
-      case 'expanding':
-        return { dot: 'text-emerald-500', bg: 'bg-emerald-50 border-emerald-200/60 text-emerald-800' };
-      case 'mature':
-        return { dot: 'text-blue-500', bg: 'bg-blue-50 border-blue-200/60 text-blue-800' };
-      case 'early stage':
-        return { dot: 'text-amber-500', bg: 'bg-amber-50 border-amber-200/60 text-amber-800' };
-      case 'declining':
-        return { dot: 'text-rose-500', bg: 'bg-rose-50 border-rose-200/60 text-rose-800' };
-      default:
-        return { dot: 'text-slate-400', bg: 'bg-slate-50 border-slate-200/60 text-slate-800' };
-    }
-  };
-
-  const lifecycle = getLifecycleBadgeStyle(activeData?.thesis);
+  const lifecycle = getLifecycleBadgeStyle(activeData?.ratingBadge || activeData?.stage);
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans overflow-x-hidden">
@@ -222,17 +212,12 @@ export default function Home() {
             <Logo />
           </div>
           <div className="flex items-center gap-4 md:gap-6 shrink-0">
-            
-            {/* 1. SIGN IN: Stays exactly the same (defaults to the Log In tab) */}
             <Link href="/login" className="text-sm font-bold text-slate-600 hover:text-slate-900 transition-colors hidden sm:block">
               Sign In
             </Link>
-            
-            {/* 2. GET STARTED: Updated href and changed from blue to emerald! */}
             <Link href="/login?mode=signup" className="bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-bold px-4 md:px-5 py-2 md:py-2.5 rounded-xl transition-colors shadow-sm">
               Get Started
             </Link>
-            
           </div>
         </div>
       </nav>
@@ -337,21 +322,17 @@ export default function Home() {
           {/* PREVIEW CARD */}
           {!isLoadingCommunity && activeData && (
             <div className="bg-white rounded-[2rem] border border-slate-200/80 shadow-[0_20px_50px_rgba(0,0,0,0.06)] overflow-hidden font-sans transition-all duration-300 min-h-[400px]">
-              
+             
               {/* 1. PREMIUM HEADER */}
               <div className="p-8 pb-6 flex flex-col md:flex-row md:items-center justify-between gap-6">
                 
                 {/* ✨ THE NEW LOGO & TITLE SECTION ✨ */}
                 <div className="flex items-center gap-4">
-                  
-                  {/* Naked Logo */}
                   <CompanyLogo 
                     ticker={activeData.ticker} 
                     containerClass="w-12 h-12 rounded-xl" 
                     textClass="text-2xl" 
                   />
-
-                  {/* Title & Sector */}
                   <div className="flex flex-col">
                     <div className="flex items-center gap-3">
                       <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">{activeData.name}</h2>
@@ -361,12 +342,13 @@ export default function Home() {
                   </div>
                 </div>
 
-                {/* ✨ Lifecycle Badge / Thesis Status */}
-                <div className={`inline-flex items-center border px-4 py-2 rounded-full self-start md:self-auto ${lifecycle.bg}`}>
-                  <span className="text-xs font-extrabold uppercase tracking-wider flex items-center gap-1.5">
-                    <span className={`animate-pulse text-[10px] ${lifecycle.dot}`}>●</span> {activeData.thesis}
-                  </span>
-                </div>
+              {/* ✨ Dynamic Lifecycle Badge */}
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-white border border-slate-200 rounded-full shadow-sm self-start md:self-auto">
+                <span className={`text-[10px] ${lifecycle.dot || 'text-blue-500'}`}>●</span>
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                  {lifecycle.label || 'MATURE'}
+                </span>
+              </div>
               </div>
               
               {/* 2. THE METRICS RIBBON */}
@@ -431,7 +413,6 @@ export default function Home() {
         <div className="max-w-6xl mx-auto px-6 grid grid-cols-1 md:grid-cols-4 gap-8 mb-12 text-sm">
           <div className="col-span-1 md:col-span-2">
            <div className="mb-6">
-              {/* w-32 is small on phones, md:w-48 is medium on laptops */}
               <Logo className="w-32 md:w-48" /> 
             </div>
             <p className="text-slate-500 font-medium max-w-sm leading-relaxed">
