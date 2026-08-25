@@ -232,7 +232,7 @@ export default function Home() {
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">Track your conviction.</span>
           </h1>
           <p className="text-lg md:text-xl text-slate-900 font-bold mb-3">
-            Built for long-term investors who buy businesses—not charts.
+            Built for long-term investors who buy businesses - not charts.
           </p>
           <p className="text-base md:text-lg text-slate-500 font-medium leading-relaxed px-4 md:px-0 max-w-2xl mx-auto">
             Investment IQ helps you understand great businesses, build your investment thesis, record why you invested, and use AI to track what has changed since you invested.
@@ -341,7 +341,7 @@ export default function Home() {
                     <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-2">{activeData.sector}</p>
                   </div>
                 </div>
-
+              
               {/* ✨ Dynamic Lifecycle Badge */}
               <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-white border border-slate-200 rounded-full shadow-sm self-start md:self-auto">
                 <span className={`text-[10px] ${lifecycle.dot || 'text-blue-500'}`}>●</span>
