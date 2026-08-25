@@ -625,7 +625,7 @@ const getTrendIcon = (type: string) => {
                   </div>
                 </div>
 
-{/* LIVE EVALUATION */}
+                  {/* LIVE EVALUATION */}
                 <div className="bg-white rounded-3xl p-8 md:p-12 border border-slate-200 shadow-sm mb-12">
                   <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Live Evaluation</h3>
                   <p className="text-2xl font-extrabold text-[#0F172A] tracking-tight mb-8">What's Changed Recently</p>

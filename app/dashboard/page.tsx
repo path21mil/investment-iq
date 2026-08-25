@@ -3,17 +3,15 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Search, ArrowRight, Info, ChevronDown, ChevronUp, BookOpen, Trash2, Loader2, RefreshCw, User, Settings, LogOut, X, Check, Share2 } from 'lucide-react';
-import { PortfolioShareModal } from '@/components/PortfolioShareModal';
+import { Search, Info, ChevronDown, ChevronUp, BookOpen, Loader2, RefreshCw, User, Settings, LogOut, X, Check } from 'lucide-react';
 import { createClient } from "@supabase/supabase-js";
 import Logo from '@/components/Logo';
+import WatchlistSection from '@/components/WatchlistSection';
 
-// Initialize Supabase safely
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// Limit definition
 const MAX_STOCKS_LIMIT = 5;
 
 interface Driver {
@@ -95,18 +93,12 @@ export default function Dashboard() {
   
   const [reviewCompany, setReviewCompany] = useState<TrackedCompany | null>(null);
   const [expandedEvidenceIdx, setExpandedEvidenceIdx] = useState<number | null>(null);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [shareCompany, setShareCompany] = useState<TrackedCompany | null>(null);
   const [toastMessage, setToastMessage] = useState<{title: string, description: string} | null>(null);
-
-  // ✨ ALPHA WELCOME STATE (Correctly placed INSIDE the component!)
   const [showAlphaWelcome, setShowAlphaWelcome] = useState(false);
 
   useEffect(() => {
-    // Check if they have already seen the welcome message on this device
     const hasSeenWelcome = localStorage.getItem('hasSeenAlphaWelcome');
     if (!hasSeenWelcome) {
-      // Small 1.5 second delay makes it feel natural after the dashboard loads
       const timer = setTimeout(() => {
         setShowAlphaWelcome(true);
       }, 1500);
@@ -171,49 +163,6 @@ export default function Dashboard() {
         }));
 
         setPortfolio(mappedPortfolio);
-
-        const oldestUpdate = new Date(
-          Math.min(...mappedPortfolio.map(p => new Date(p.rawUpdatedAt).getTime()))
-        );
-        
-        const now = new Date();
-        const diffInHours = (now.getTime() - oldestUpdate.getTime()) / (1000 * 60 * 60);
-
-        if (diffInHours >= 24) {
-          console.log("Lazy refresh triggered in background...");
-          
-          fetch('/api/engine', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId: session.user.id })
-          }).then(async (response) => {
-             const result = await response.json();
-             if (result.success && result.updatedCount > 0) {
-                const { data: refreshedTheses } = await supabase
-                  .from("theses")
-                  .select("*")
-                  .eq("user_id", session.user.id)
-                  .order("created_at", { ascending: false });
-                
-                if (refreshedTheses) {
-                  setPortfolio(refreshedTheses.map((t: any) => ({
-                    id: t.id,
-                    ticker: t.ticker,
-                    name: t.company_name || t.ticker,
-                    status: t.status || 'Strengthening', 
-                    drivers: typeof t.drivers === 'string' ? JSON.parse(t.drivers) : (t.drivers || []),
-                    primaryRisk: t.primary_risk || (typeof t.risks === 'string' ? JSON.parse(t.risks)?.[0]?.title : t.risks?.[0]?.title) || undefined,
-                    coreThesis: t.drivers?.[0]?.title || 'Long-term growth compounding',
-                    aiSummary: t.ai_summary || 'Tracking active. Awaiting next earnings call or SEC filing for new insights.',
-                    updates: typeof t.updates === 'string' ? JSON.parse(t.updates) : (t.updates || []), 
-                    lastUpdated: new Date(t.last_scanned_at || t.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-                    rawUpdatedAt: t.last_scanned_at || t.updated_at || t.created_at, 
-                    requiresAction: t.requires_action || false
-                  })));
-                }
-             }
-          });
-        }
       }
     } catch (err) {
       console.error("Dashboard Load Error:", err);
@@ -276,22 +225,20 @@ export default function Dashboard() {
     }
   };
 
-  const handleDeleteThesis = async (id: string, ticker: string) => {
-    if (!confirm(`Are you sure you want to delete your investment thesis for ${ticker}?`)) return;
-    setDeletingId(id);
-    try {
-      const { error } = await supabase.from('theses').delete().eq('id', id);
-      if (error) throw error;
-      setPortfolio(prev => prev.filter(p => p.id !== id));
-    } catch (err) {
-      console.error("Delete Error:", err);
-      alert("Failed to delete thesis. Please try again.");
-    } finally {
-      setDeletingId(null);
-    }
-  };
+  const attentionCompanies = portfolio.filter(p => p.status === 'Weakening' || p.status === 'Review Needed' || p.requiresAction);
+  const attentionIds = new Set(attentionCompanies.map(c => c.id));
+  const riskCompanies = portfolio.filter(p => !attentionIds.has(p.id) && p.updates.some(u => u.trend === 'down'));
+  const riskIds = new Set(riskCompanies.map(c => c.id));
+  const strengtheningCompanies = portfolio.filter(p => !attentionIds.has(p.id) && !riskIds.has(p.id));
 
-  const actionItems = portfolio.filter(p => p.requiresAction);
+  const sortedActionItems = [...portfolio].sort((a, b) => {
+    const getPriority = (status: string) => {
+      if (status === 'Weakening') return 1;
+      if (status === 'Review Needed') return 2;
+      return 3;
+    };
+    return getPriority(a.status) - getPriority(b.status);
+  });
 
   const mostRecentTime = portfolio.length > 0 
     ? portfolio.reduce((latest, company) => 
@@ -318,39 +265,28 @@ export default function Dashboard() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center font-sans">
+      <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center font-sans antialiased">
         <div className="text-slate-500 font-bold flex items-center gap-3 animate-pulse">
-          <Loader2 className="w-5 h-5 animate-spin" /> Loading Portfolio...
+          <Loader2 className="w-5 h-5 animate-spin" /> Loading Dashboard...
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] font-sans text-[#0F172A] pb-24 relative overflow-hidden">
+    <div className="min-h-screen bg-[#F8FAFC] font-sans text-[#0F172A] pb-24 relative overflow-hidden antialiased">
 
       {/* NAVIGATION HEADER */}
-      <nav className="w-full bg-white/90 backdrop-blur-md border-b border-slate-200 sticky top-0 z-40 h-[56px] flex items-center">
-        <div className="max-w-[960px] w-full mx-auto px-6 flex items-center justify-between gap-6">
-          
-          <div className="flex items-center gap-8 shrink-0">
-            <div className="shrink-0">
-              <Logo href="/dashboard" />
-            </div>
+      <nav className="w-full bg-white/90 backdrop-blur-md border-b border-slate-200 sticky top-0 z-40 h-[64px] flex items-center">
+        <div className="max-w-[960px] w-full mx-auto px-6 flex items-center justify-between">
+          <div className="shrink-0">
+            <Logo href="/dashboard" />
           </div>
           
-          <div className="flex-1 max-w-[360px] hidden md:block">
-            <form onSubmit={handleSearch} className="relative w-full">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input
-                type="text"
-                disabled={portfolio.length >= MAX_STOCKS_LIMIT}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={portfolio.length >= MAX_STOCKS_LIMIT ? `Limit reached (${portfolio.length}/${MAX_STOCKS_LIMIT})` : "Search company or ticker..."}
-                className="w-full h-[36px] bg-slate-50 border border-slate-200 rounded-lg pl-9 pr-4 text-[13px] font-medium focus:bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all outline-none text-[#0F172A] placeholder-slate-400 disabled:bg-slate-100 disabled:cursor-not-allowed"
-              />
-            </form>
+          <div className="flex items-center gap-8 text-[14px] font-bold">
+            <Link href="/dashboard" className="text-blue-600">Dashboard</Link>
+            <Link href="/portfolio" className="text-slate-600 hover:text-slate-900 transition-colors">Portfolio</Link>
+            <Link href="/watchlist" className="text-slate-600 hover:text-slate-900 transition-colors">Watchlist</Link>
           </div>
 
           <div className="relative group shrink-0 py-4 cursor-pointer">
@@ -381,11 +317,11 @@ export default function Dashboard() {
       </nav>
 
       {/* MAIN CONTAINER */}
-      <main className="max-w-[960px] mx-auto px-6 pt-12 md:pt-16">
+      <main className="max-w-[960px] mx-auto px-6 pt-12 md:pt-14">
         
         {portfolio.length === 0 ? (
           <div className="text-center py-16">
-            <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-[#0F172A] mb-4">Welcome to Investment IQ, {userName} 👋</h1>
+            <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-[#0F172A] mb-4">Welcome to Investment IQ, {userName}</h1>
             <p className="text-slate-500 mb-12 max-w-xl mx-auto text-lg">Your portfolio is empty. Let's build your first investment thesis so we can track risks and drivers on your behalf.</p>
             
             <div className="bg-white p-10 rounded-3xl border border-slate-200 shadow-sm max-w-xl mx-auto">
@@ -407,70 +343,131 @@ export default function Dashboard() {
           </div>
         ) : (
           <>
-            {/* HERO */}
-            <div className="mb-16 flex flex-col md:flex-row md:items-end justify-between gap-6">
-              <div>
-                <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-[#0F172A] mb-3">Welcome back, {userName} 👋</h1>
-                {actionItems.length > 0 ? (
-                  <p className="text-slate-500 text-[15px] font-medium leading-relaxed">
-                    <span className="font-bold text-[#0F172A]">{actionItems.length} companies need your attention.</span><br/>
-                    Review the latest changes to your investment theses.
-                  </p>
-                ) : (
-                  <p className="text-slate-500 text-[15px] font-medium leading-relaxed">Your portfolio is healthy. No recent changes detected.</p>
-                )}
-              </div>
-              
-              <div className="flex items-center gap-4 shrink-0 self-start md:self-auto">
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest hidden sm:block">
-                  {getTimeAgo(mostRecentTime)}
-                </span>
-                
-                <div className="hidden sm:flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-200 rounded-lg shadow-sm text-[12px] font-bold">
-                  <span className={portfolio.length >= MAX_STOCKS_LIMIT ? 'text-rose-500' : 'text-emerald-500'}>
-                    {portfolio.length}
-                  </span>
-                  <span className="text-slate-500">/ {MAX_STOCKS_LIMIT} Limit</span>
+            {/* WELCOME HERO & SYNC CONTROLS */}
+            <div className="mb-10">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-[#0F172A]">Welcome Back, {userName}</h1>
+                  
+                  <div className="flex items-center gap-2 mt-1 sm:mt-0">
+                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest bg-white border border-slate-200 px-2 py-1 rounded shadow-sm">
+                      {getTimeAgo(mostRecentTime)}
+                    </span>
+                    <div className="hidden sm:flex items-center gap-1.5 px-2 py-1 bg-red-50 border border-red-100 rounded shadow-sm text-[9px] font-bold uppercase tracking-widest text-red-600">
+                      <span className="w-1.5 h-1.5 bg-red-500 rounded-full"></span>
+                      <span>{portfolio.length} / {MAX_STOCKS_LIMIT} Limit</span>
+                    </div>
+                  </div>
                 </div>
 
                 <button 
                   onClick={handleSmartSync}
                   disabled={isSyncing}
-                  className="bg-white border border-slate-200 text-[#0F172A] text-[13px] font-bold px-4 py-2 rounded-lg hover:bg-slate-50 hover:border-slate-300 shadow-sm transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="shrink-0 bg-white border border-slate-200 text-slate-600 text-[11px] font-bold px-3 py-1.5 rounded hover:bg-slate-50 transition-all flex items-center gap-1.5 shadow-sm disabled:opacity-50 cursor-pointer"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-blue-600' : 'text-slate-400'}`} />
                   {isSyncing ? 'Checking...' : 'Check for updates'}
                 </button>
               </div>
+
+              <p className="text-[14px] font-medium text-slate-500">
+                Here’s what matters today.
+              </p>
             </div>
 
-            {/* SECTION 1: WHAT CHANGED */}
-            {actionItems.length > 0 && (
-              <div className="mb-20">
-                <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-6">What Changed</h2>
-                <div className="flex flex-col gap-5">
-                  {actionItems.map(company => (
-                    <div key={`alert-${company.ticker}`} className="bg-white border border-slate-200 rounded-3xl p-6 md:p-8 flex flex-col sm:flex-row sm:items-center justify-between gap-6 shadow-sm hover:shadow-md transition-shadow">
-                      <div className="flex items-start gap-6 flex-grow">
+          {/* FLOW ORDER STEP 1: SINCE YOUR LAST VISIT */}
+            <div className="mb-12">
+              <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">
+                Since Your Last Visit
+              </h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Box 1: Strengthening */}
+                <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-center gap-3">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center font-extrabold text-lg shrink-0">
+                      {strengtheningCompanies.length}
+                    </div>
+                    <div className="text-xs font-bold text-slate-700 leading-tight">Companies<br/>strengthening</div>
+                  </div>
+                  {strengtheningCompanies.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 pt-3 border-t border-slate-100">
+                      {strengtheningCompanies.map(c => (
+                        <span key={c.ticker} className="text-[10px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-100 px-2 py-0.5 rounded flex items-center gap-1">
+                          {c.ticker}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Box 2: Risks */}
+                <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-center gap-3">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center font-extrabold text-lg shrink-0">
+                      {riskCompanies.length}
+                    </div>
+                    <div className="text-xs font-bold text-slate-700 leading-tight">Companies with<br/>increased risks</div>
+                  </div>
+                  {riskCompanies.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 pt-3 border-t border-slate-100">
+                      {riskCompanies.map(c => (
+                        <span key={c.ticker} className="text-[10px] font-extrabold bg-amber-50 text-amber-700 border border-amber-100 px-2 py-0.5 rounded flex items-center gap-1">
+                          {c.ticker}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Box 3: Attention */}
+                <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-center gap-3">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center font-extrabold text-lg shrink-0">
+                      {attentionCompanies.length}
+                    </div>
+                    <div className="text-xs font-bold text-slate-700 leading-tight">Companies need<br/>attention</div>
+                  </div>
+                  {attentionCompanies.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 pt-3 border-t border-slate-100">
+                      {attentionCompanies.map(c => (
+                        <span key={c.ticker} className="text-[10px] font-extrabold bg-rose-50 text-rose-700 border border-rose-100 px-2 py-0.5 rounded flex items-center gap-1">
+                          {c.ticker}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* FLOW ORDER STEP 2: WHAT CHANGED */}
+            {sortedActionItems.length > 0 && (
+              <div className="mb-12">
+                <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">What Changed</h2>
+                <div className="flex flex-col gap-3">
+                  {sortedActionItems.map(company => (
+                    <div key={`alert-${company.ticker}`} className="bg-white border border-slate-200 rounded-xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-6 shadow-sm hover:shadow-md transition-shadow">
+                      <div className="flex items-start gap-4 flex-grow">
                         <CompanyLogo 
                           ticker={company.ticker} 
-                          containerClass="w-12 h-12 rounded-xl" 
+                          containerClass="w-10 h-10 rounded-lg" 
                         />
-                        <div className="flex-grow">
-                          <div className="flex items-center gap-4 mb-2">
-                            <span className="font-extrabold text-xl text-[#0F172A]">{company.ticker}</span>
-                            <div className="text-[11px] font-bold text-slate-500 flex items-center gap-1.5 uppercase tracking-widest">
+                        <div className="flex-grow pt-0.5">
+                          <div className="flex items-center gap-3 mb-1.5">
+                            <span className="font-bold text-lg text-[#0F172A] leading-none">{company.ticker}</span>
+                            <div className="text-[10px] font-bold text-slate-500 flex items-center gap-1.5 uppercase tracking-widest">
                               <span className={getStatusStyles(company.status).dotColor}>●</span> {getStatusStyles(company.status).label}
                             </div>
                           </div>
-                          <p className="text-[13px] text-slate-700 font-medium leading-relaxed max-w-2xl line-clamp-2">{company.aiSummary}</p>
+                          <p className="text-xs text-slate-600 font-medium leading-relaxed max-w-2xl line-clamp-2">{company.aiSummary}</p>
                         </div>
                       </div>
                       <button 
                         onClick={() => setReviewCompany(company)}
-                        className="px-4 py-2 border border-slate-200 rounded-lg text-[13px] font-bold text-[#0F172A] hover:bg-slate-50 hover:border-slate-300 transition-all whitespace-nowrap flex items-center gap-1.5 shrink-0"
+                        className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50 transition-all whitespace-nowrap shadow-sm shrink-0 cursor-pointer"
                       >
-                        Review update →
+                        Review
                       </button>
                     </div>
                   ))}
@@ -478,83 +475,8 @@ export default function Dashboard() {
               </div>
             )}
 
-            {/* SECTION 2: MY CONVICTION PORTFOLIO */}
-            <div className="mb-12">
-              <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-6">My Conviction Portfolio</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {portfolio.map(company => {
-                  const styles = getStatusStyles(company.status);
-                  
-                  return (
-                    <div key={`port-${company.ticker}`} className="bg-white rounded-3xl border border-slate-200 p-8 flex flex-col hover:border-slate-300 hover:shadow-sm transition-all h-full">
-                      
-                      <div className="flex items-start justify-between mb-8">
-                        <div className="flex items-center gap-4">
-                          <CompanyLogo 
-                            ticker={company.ticker} 
-                            containerClass="w-10 h-10 rounded-xl" 
-                          />
-                          <h3 className="text-xl font-extrabold text-[#0F172A] tracking-tight">{company.ticker}</h3>
-                        </div>
-                        <div className="text-[11px] font-bold text-slate-600 flex items-center gap-1.5 uppercase tracking-widest mt-1">
-                          <span className={styles.dotColor}>●</span> {styles.label}
-                        </div>
-                      </div>
-                      
-                      <div className="mb-8">
-                        <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Thesis</h4>
-                        <p className="text-[14px] font-bold text-[#0F172A] leading-snug">{company.coreThesis}</p>
-                      </div>
-                      
-                      <div className="flex-grow mb-8">
-                        <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 border-t border-slate-100 pt-6">Key Changes</h4>
-                        {company.updates.length === 0 ? (
-                          <p className="text-[13px] font-medium text-slate-500 italic">No recent changes detected.</p>
-                        ) : (
-                          <div className="space-y-3">
-                            {company.updates.map((update, idx) => (
-                              <div key={idx} className="flex items-start gap-2.5">
-                                {getTrendIcon(update.trend)}
-                                <p className="text-[13px] font-medium text-slate-700 leading-relaxed">{update.text}</p>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="pt-6 border-t border-slate-100 flex flex-row items-center justify-between mt-auto">
-                        <button 
-                          onClick={() => router.push(`/company/${company.ticker}`)}
-                          className="px-4 py-2 border border-slate-200 rounded-lg text-[13px] font-bold text-[#0F172A] hover:bg-slate-50 hover:border-slate-300 transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
-                        >
-                          Open Thesis →
-                        </button>
-
-                        <button
-                          onClick={() => setShareCompany(company)}
-                          className="flex items-center gap-2 px-4 py-2 text-[13px] font-[800] text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
-                        >
-                          <Share2 className="w-4 h-4" />
-                          Share
-                        </button>
-                        
-                        <div className="text-right flex items-center gap-4 shrink-0">
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest hidden sm:block">Saved: {company.lastUpdated}</span>
-                          <button 
-                            onClick={() => handleDeleteThesis(company.id, company.ticker)}
-                            disabled={deletingId === company.id}
-                            className="text-slate-300 hover:text-rose-600 transition-colors cursor-pointer disabled:opacity-50"
-                            title="Delete Thesis"
-                          >
-                            {deletingId === company.id ? <Loader2 className="w-4 h-4 animate-spin text-rose-600" /> : <Trash2 className="w-4 h-4" />}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+            {/* FLOW ORDER STEP 3: MARKET OPPORTUNITIES */}
+            <WatchlistSection />
 
             {/* BOTTOM SEARCH BAR */}
             <div className="mt-16 pt-10 border-t border-slate-200 text-center pb-16">
@@ -618,7 +540,6 @@ export default function Dashboard() {
             </div>
 
             <div className="flex-1 overflow-y-auto px-8 pb-8">
-              
               <div className="flex items-center justify-between gap-4 mb-10">
                 <div className="flex items-center gap-4">
                   <CompanyLogo 
@@ -703,7 +624,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* ✨ PREMIUM TOAST NOTIFICATION */}
+      {/* TOAST NOTIFICATION */}
       {toastMessage && (
         <div className="fixed bottom-6 right-6 z-[200] animate-[slideIn_0.3s_ease-out]">
           <div className="bg-white border border-slate-200 shadow-[0_8px_30px_rgb(0,0,0,0.08)] rounded-2xl p-5 flex gap-4 max-w-sm items-start">
@@ -723,20 +644,10 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* SHARE MODAL */}
-      {shareCompany && (
-        <PortfolioShareModal 
-          isOpen={!!shareCompany} 
-          onClose={() => setShareCompany(null)} 
-          company={shareCompany} 
-        />
-      )}
-
-      {/* ✨ FIRST-TIME ALPHA WELCOME MODAL */}
+      {/* FIRST-TIME ALPHA WELCOME MODAL */}
       {showAlphaWelcome && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-[#0F172A]/60 backdrop-blur-sm animate-[fadeIn_0.3s_ease-out]">
           <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-8 text-center border border-slate-200 animate-[slideIn_0.4s_ease-out] relative">
-            
             <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-blue-100">
               <span className="text-3xl">👋</span>
             </div>
@@ -770,7 +681,6 @@ export default function Dashboard() {
                 Continue to Dashboard
               </button>
             </div>
-            
           </div>
         </div>
       )}
