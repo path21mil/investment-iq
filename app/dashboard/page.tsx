@@ -22,8 +22,11 @@ interface Driver {
 
 interface CompanyUpdate {
   text: string;
+  headline?: string; // Added to catch AI formatting mistakes
   trend: 'up' | 'down' | 'neutral';
   evidenceText?: string;
+  sourceName?: string;
+  sourceUrl?: string | null;
 }
 
 interface TrackedCompany {
@@ -375,7 +378,7 @@ export default function Dashboard() {
               </p>
             </div>
 
-          {/* FLOW ORDER STEP 1: SINCE YOUR LAST VISIT */}
+       {/* FLOW ORDER STEP 1: SINCE YOUR LAST VISIT */}
             <div className="mb-12">
               <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">
                 Since Your Last Visit
@@ -393,7 +396,7 @@ export default function Dashboard() {
                   {strengtheningCompanies.length > 0 && (
                     <div className="flex flex-wrap gap-1.5 pt-3 border-t border-slate-100">
                       {strengtheningCompanies.map(c => (
-                        <span key={c.ticker} className="text-[10px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-100 px-2 py-0.5 rounded flex items-center gap-1">
+                        <span key={c.ticker} className="text-[12px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100 px-2 py-0.5 rounded flex items-center gap-1">
                           {c.ticker}
                         </span>
                       ))}
@@ -412,7 +415,7 @@ export default function Dashboard() {
                   {riskCompanies.length > 0 && (
                     <div className="flex flex-wrap gap-1.5 pt-3 border-t border-slate-100">
                       {riskCompanies.map(c => (
-                        <span key={c.ticker} className="text-[10px] font-extrabold bg-amber-50 text-amber-700 border border-amber-100 px-2 py-0.5 rounded flex items-center gap-1">
+                        <span key={c.ticker} className="text-[13px] font-semibold bg-amber-50 text-amber-700 border border-amber-100 px-2 py-0.5 rounded flex items-center gap-1">
                           {c.ticker}
                         </span>
                       ))}
@@ -431,7 +434,7 @@ export default function Dashboard() {
                   {attentionCompanies.length > 0 && (
                     <div className="flex flex-wrap gap-1.5 pt-3 border-t border-slate-100">
                       {attentionCompanies.map(c => (
-                        <span key={c.ticker} className="text-[10px] font-extrabold bg-rose-50 text-rose-700 border border-rose-100 px-2 py-0.5 rounded flex items-center gap-1">
+                        <span key={c.ticker} className="text-[12px] font-semibold bg-rose-50 text-rose-700 border border-rose-100 px-2 py-0.5 rounded flex items-center gap-1">
                           {c.ticker}
                         </span>
                       ))}
@@ -441,7 +444,7 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* FLOW ORDER STEP 2: WHAT CHANGED */}
+       {/* FLOW ORDER STEP 2: WHAT CHANGED */}
             {sortedActionItems.length > 0 && (
               <div className="mb-12">
                 <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">What Changed</h2>
@@ -572,11 +575,21 @@ export default function Dashboard() {
                   {reviewCompany.updates.map((update, idx) => {
                     const isExpanded = expandedEvidenceIdx === idx;
                     return (
-                      <div key={idx} className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm transition-all">
+                      <div 
+                        key={idx} 
+                        className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm transition-all"
+                      >
                         <div className="p-4 flex flex-col gap-2">
                           <div className="flex items-start gap-2.5">
-                            {getTrendIcon(update.trend)}
-                            <p className="text-[13px] font-bold text-[#0F172A] leading-tight">{update.text}</p>
+                            {/* FIX: Ensure the icon is wrapped safely so it doesn't squish */}
+                            <div className="flex-shrink-0">
+                              {getTrendIcon(update.trend)}
+                            </div>
+                            
+                            {/* FIX: Use fallback variables in case the AI messes up the text */}
+                            <p className="text-[13px] font-bold text-[#0F172A] leading-tight">
+                              {update.text || update.headline || "New market data detected"}
+                            </p>
                           </div>
                           
                           {update.evidenceText && (
@@ -595,7 +608,22 @@ export default function Dashboard() {
                             <p className="text-[13px] text-slate-600 font-medium italic leading-relaxed">
                               "{update.evidenceText}"
                             </p>
-                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-3 flex items-center gap-1"><Info className="w-3 h-3" /> Source: SEC Filing</p>
+                            
+                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-3 flex items-center gap-1">
+                              <Info className="w-3 h-3" /> 
+                              {update.sourceUrl ? (
+                                <a 
+                                  href={update.sourceUrl} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer" 
+                                  className="hover:text-blue-600 underline transition-colors"
+                                >
+                                  Source: {update.sourceName || 'View Source'} ↗
+                                </a>
+                              ) : (
+                                <span>Source: {update.sourceName || 'SEC Filing / Public Disclosure'}</span>
+                              )}
+                            </p>
                           </div>
                         )}
                       </div>

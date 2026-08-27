@@ -80,7 +80,7 @@ export default function BuildThesisPage({ params }: { params: Promise<{ ticker: 
       setUserId(session.user.id);
       const cleanTicker = ticker.toUpperCase().trim();
 
-      // FETCH USER'S EXISTING THESIS (Now including the summary!)
+      // 1. FETCH USER'S EXISTING THESIS
       const { data: existingThesis } = await supabase
         .from('theses')
         .select('drivers, risks, created_at, summary') 
@@ -88,22 +88,8 @@ export default function BuildThesisPage({ params }: { params: Promise<{ ticker: 
         .eq('ticker', cleanTicker)
         .maybeSingle();
 
-      if (existingThesis) {
-        setIsEditing(true); 
-        
-        if (existingThesis.created_at) {
-          const dateString = new Date(existingThesis.created_at).toLocaleDateString('en-US', { 
-            month: 'long', day: 'numeric', year: 'numeric' 
-          });
-          setCreatedDate(dateString);
-        }
-
-        if (existingThesis.drivers) setSelectedDrivers(existingThesis.drivers);
-        if (existingThesis.risks) setSelectedRisks(existingThesis.risks);
-        if (existingThesis.summary) setSummaryDraft(existingThesis.summary);
-      } else {
-        // ✨ NEW PRE-CHECK: If they are NOT editing, check if they are at the limit!
-        // This runs BEFORE we waste money on the AI API route.
+      if (!existingThesis) {
+        // PRE-CHECK LIMIT ONLY IF CREATING NEW
         const { count } = await supabase
           .from('theses')
           .select('*', { count: 'exact', head: true })
@@ -112,18 +98,17 @@ export default function BuildThesisPage({ params }: { params: Promise<{ ticker: 
         if (count && count >= 5) {
           setShowLimitModal(true);
           setIsLoading(false);
-          return; // STOP HERE! Do not run the AI generators below.
+          return; // STOP HERE!
         }
       }
 
-      // Load the company profile header securely via API
+      // 2. LOAD COMPANY PROFILE
       const profileRes = await fetch(`/api/company-profile?ticker=${cleanTicker}`);
       let liveProfile: any = await profileRes.json();
-      
       if (Array.isArray(liveProfile) && liveProfile.length > 0) liveProfile = liveProfile[0];
       setProfile(liveProfile);
 
-      // Fetch the AI options
+      // 3. FETCH FRESH AI OPTIONS
       try {
         const res = await fetch('/api/thesis-options', {
           method: 'POST',
@@ -131,16 +116,82 @@ export default function BuildThesisPage({ params }: { params: Promise<{ ticker: 
           body: JSON.stringify({ ticker: cleanTicker, companyName: liveProfile?.companyName || cleanTicker })
         });
         
-        const contentType = res.headers.get("content-type");
-        if (!contentType || !contentType.includes("application/json")) {
-          throw new Error("API Route is misconfigured or missing (Check terminal).");
-        }
-
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "AI generation failed");
         
-        if (data.drivers) setSuggestedDrivers(data.drivers);
-        if (data.risks) setSuggestedRisks(data.risks);
+        let finalSuggestedDrivers = data.drivers || [];
+        let finalSuggestedRisks = data.risks || [];
+        let matchedDriverIds: string[] = [];
+        let matchedRiskIds: string[] = [];
+
+     // 5. BULLETPROOF SMART MATCHING (Handles both legacy Strings and new Objects)
+        if (existingThesis) {
+          setIsEditing(true); 
+          
+          if (existingThesis.created_at) {
+            setCreatedDate(new Date(existingThesis.created_at).toLocaleDateString('en-US', { 
+              month: 'long', day: 'numeric', year: 'numeric' 
+            }));
+          }
+          if (existingThesis.summary) setSummaryDraft(existingThesis.summary);
+
+          // ✨ FIX: Safely parse the Supabase JSON strings into real arrays!
+          const parsedDrivers = typeof existingThesis.drivers === 'string' 
+            ? JSON.parse(existingThesis.drivers) 
+            : (existingThesis.drivers || []);
+            
+          const parsedRisks = typeof existingThesis.risks === 'string' 
+            ? JSON.parse(existingThesis.risks) 
+            : (existingThesis.risks || []);
+
+          // Restore Drivers safely
+          parsedDrivers.forEach((saved: any, idx: number) => {
+            const savedTitle = typeof saved === 'string' ? saved : saved.title;
+            if (!savedTitle) return;
+
+            const found = finalSuggestedDrivers.find((d: any) => d.title === savedTitle);
+            if (found) {
+              matchedDriverIds.push(found.id); // Ticks the box!
+            } else {
+              const customId = `custom-loaded-d-${idx}`;
+              finalSuggestedDrivers.push({
+                id: customId,
+                title: savedTitle,
+                whyThisMatters: 'Previously saved custom tracking parameter.',
+                evidence: ['Active monitoring enabled'],
+                monitors: ['Custom AI monitoring']
+              });
+              matchedDriverIds.push(customId);
+            }
+          });
+
+          // Restore Risks safely
+          parsedRisks.forEach((saved: any, idx: number) => {
+            const savedTitle = typeof saved === 'string' ? saved : saved.title;
+            if (!savedTitle) return;
+
+            const found = finalSuggestedRisks.find((r: any) => r.title === savedTitle);
+            if (found) {
+              matchedRiskIds.push(found.id); // Ticks the box!
+            } else {
+              const customId = `custom-loaded-r-${idx}`;
+              finalSuggestedRisks.push({
+                id: customId,
+                title: savedTitle,
+                whyThisMatters: 'Previously saved custom risk parameter.',
+                evidence: ['Active monitoring enabled'],
+                monitors: ['Custom AI monitoring']
+              });
+              matchedRiskIds.push(customId);
+            }
+          });
+
+          setSelectedDrivers(matchedDriverIds);
+          setSelectedRisks(matchedRiskIds);
+        }
+
+        setSuggestedDrivers(finalSuggestedDrivers);
+        setSuggestedRisks(finalSuggestedRisks);
 
       } catch (err: any) {
         console.error("Failed to generate thesis options:", err);
@@ -281,7 +332,6 @@ export default function BuildThesisPage({ params }: { params: Promise<{ ticker: 
     } catch (err: any) {
       console.error("Supabase Save Error:", JSON.stringify(err, null, 2));
       
-      // ✨ NEW CATCH: Show the modal instead of the ugly alert if blocked by database trigger!
       if (err.message?.includes('Alpha limit reached') || err.details?.includes('Alpha limit reached')) {
         setShowLimitModal(true);
       } else {

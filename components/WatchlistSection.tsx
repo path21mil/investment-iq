@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { X, ExternalLink } from 'lucide-react';
+import Link from 'next/link'; // Added Link import
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -31,6 +32,37 @@ interface Opportunity {
     score: number;
   };
   score: number;
+}
+
+// ==========================================
+// 🎨 NAKED LOGO COMPONENT
+// ==========================================
+function CompanyLogo({ ticker, containerClass = "w-6 h-6" }: { ticker: string; containerClass?: string }) {
+  const [imgSrc, setImgSrc] = useState(`https://financialmodelingprep.com/image-stock/${ticker}.png`);
+  const [isFallback, setIsFallback] = useState(false);
+
+  useEffect(() => {
+    setImgSrc(`https://financialmodelingprep.com/image-stock/${ticker}.png`);
+    setIsFallback(false);
+  }, [ticker]);
+
+  return (
+    <div className={`flex items-center justify-center shrink-0 ${containerClass}`}>
+      <img
+        src={imgSrc}
+        alt={ticker}
+        className={`w-full h-full object-contain ${
+          isFallback ? 'rounded-md opacity-80' : 'drop-shadow-sm'
+        }`}
+        onError={() => {
+          if (!isFallback) {
+            setImgSrc(`https://ui-avatars.com/api/?name=${ticker}&background=f8fafc&color=0f172a&bold=true&font-size=0.45`);
+            setIsFallback(true);
+          }
+        }}
+      />
+    </div>
+  );
 }
 
 export default function WatchlistSection() {
@@ -118,7 +150,7 @@ export default function WatchlistSection() {
             Scanning market opportunities...
           </div>
         ) : (
-          <div className="space-y-6">
+       <div className="space-y-6">
             
             {/* Top 2 Featured List */}
             <div className="space-y-4">
@@ -128,11 +160,27 @@ export default function WatchlistSection() {
                   onClick={() => setSelectedStock(stock)}
                   className="group p-4 rounded-xl border border-slate-100 hover:border-slate-300 hover:bg-slate-50/50 cursor-pointer transition flex items-start gap-4"
                 >
+                  {/* Naked Logo */}
+                  <CompanyLogo ticker={stock.ticker} containerClass="w-9 h-9 mt-0.5" />
+
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-3 mb-2 flex-wrap">
-                      <span className="font-bold text-slate-900 text-base tracking-tight">
-                        ${stock.ticker}
-                      </span>
+                      
+                      {/* TICKER + NAME WRAPPER */}
+                      <div className="flex items-baseline gap-1.5 min-w-0">
+                        <span className="font-bold text-slate-900 text-base tracking-tight shrink-0">
+                          ${stock.ticker}
+                        </span>
+                        {stock.company_name && (
+                          <span 
+                            className="text-[13px] font-medium text-slate-500 truncate max-w-[140px] sm:max-w-[200px]" 
+                            title={stock.company_name}
+                          >
+                            {stock.company_name}
+                          </span>
+                        )}
+                      </div>
+
                       {getDotBadge(stock.opportunity_type)}
                     </div>
                     <div className="text-xs space-y-1.5 text-slate-600">
@@ -160,10 +208,28 @@ export default function WatchlistSection() {
                     <div
                       key={stock.id || stock.ticker}
                       onClick={() => setSelectedStock(stock)}
-                      className="flex items-center justify-between p-3 rounded-lg border border-slate-100 hover:border-slate-300 hover:bg-slate-50/80 cursor-pointer transition"
+                      className="flex items-center justify-between p-3 rounded-lg border border-slate-100 hover:border-slate-300 hover:bg-slate-50/80 cursor-pointer transition min-w-0 gap-2"
                     >
-                      <span className="font-bold text-slate-900 text-xs">${stock.ticker}</span>
-                      {getDotBadge(stock.opportunity_type)}
+                      {/* Left: Naked Logo + Ticker + Name */}
+                      <div className="flex items-center gap-2 min-w-0 pr-2">
+                        <CompanyLogo ticker={stock.ticker} containerClass="w-5 h-5" />
+                        <div className="flex items-baseline gap-1.5 min-w-0">
+                          <span className="font-bold text-slate-900 text-xs shrink-0">${stock.ticker}</span>
+                          {stock.company_name && (
+                            <span 
+                              className="text-[11px] font-medium text-slate-500 truncate" 
+                              title={stock.company_name}
+                            >
+                              {stock.company_name}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {/* Right: Dot Badge */}
+                      <div className="shrink-0">
+                        {getDotBadge(stock.opportunity_type)}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -323,12 +389,13 @@ export default function WatchlistSection() {
 
               {/* Modal Footer (Action) */}
               <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex justify-end">
-                <a 
-                  href={`/company/${selectedStock.ticker}`}
-                  className="flex items-center gap-2 px-6 py-2.5 bg-[#0F172A] hover:bg-slate-800 text-white text-[13px] font-bold rounded-lg transition shadow-sm"
+                {/* Updated to use Link component for the new research route */}
+                <Link 
+                  href={`/research/${selectedStock.ticker}`}
+                  className="flex items-center gap-2 px-6 py-2.5 bg-[#0F172A] hover:bg-slate-800 text-white text-[13px] font-bold rounded-lg transition shadow-sm cursor-pointer"
                 >
                   Full Research <ExternalLink className="w-4 h-4" />
-                </a>
+                </Link>
               </div>
             </div>
           </div>

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Search, Loader2, Trash2, Share2, BookOpen } from 'lucide-react';
 import { PortfolioShareModal } from '@/components/PortfolioShareModal';
+import { DeleteConfirmModal } from '@/components/DeleteConfirmModal'; // ✨ 1. IMPORT YOUR NEW MODAL
 import { createClient } from "@supabase/supabase-js";
 import Logo from '@/components/Logo';
 
@@ -20,8 +21,11 @@ interface Driver {
 
 interface CompanyUpdate {
   text: string;
+  headline?: string; 
   trend: 'up' | 'down' | 'neutral';
   evidenceText?: string;
+  sourceName?: string;
+  sourceUrl?: string | null;
 }
 
 interface TrackedCompany {
@@ -75,6 +79,9 @@ export default function PortfolioPage() {
   const [portfolio, setPortfolio] = useState<TrackedCompany[]>([]);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [shareCompany, setShareCompany] = useState<TrackedCompany | null>(null);
+  
+  // ✨ 2. ADD STATE TO TRACK THE COMPANY PENDING DELETION
+  const [companyToDelete, setCompanyToDelete] = useState<{ id: string; ticker: string } | null>(null);
 
   useEffect(() => {
     async function loadPortfolio() {
@@ -121,13 +128,18 @@ export default function PortfolioPage() {
     loadPortfolio();
   }, [router]);
 
-  const handleDeleteThesis = async (id: string, ticker: string) => {
-    if (!confirm(`Are you sure you want to delete your investment thesis for ${ticker}?`)) return;
+  // ✨ 3. REPLACE OLD window.confirm WITH CLEAN EXECUTION FUNCTION CALLED BY THE MODAL
+  const handleConfirmDelete = async () => {
+    if (!companyToDelete) return;
+
+    const { id } = companyToDelete;
     setDeletingId(id);
+
     try {
       const { error } = await supabase.from('theses').delete().eq('id', id);
       if (error) throw error;
       setPortfolio(prev => prev.filter(p => p.id !== id));
+      setCompanyToDelete(null); // Close the modal on success
     } catch (err) {
       console.error("Delete Error:", err);
       alert("Failed to delete thesis. Please try again.");
@@ -179,7 +191,7 @@ export default function PortfolioPage() {
             <Link href="/watchlist" className="text-slate-600 hover:text-slate-900 transition-colors">Watchlist</Link>
           </div>
 
-          <div className="w-16"></div> {/* Spacer balance */}
+          <div className="w-16"></div>
         </div>
       </nav>
 
@@ -233,8 +245,12 @@ export default function PortfolioPage() {
                       <div className="space-y-3">
                         {company.updates.map((update, idx) => (
                           <div key={idx} className="flex items-start gap-2.5">
-                            {getTrendIcon(update.trend)}
-                            <p className="text-[13px] font-medium text-slate-700 leading-relaxed">{update.text}</p>
+                            <div className="flex-shrink-0">
+                              {getTrendIcon(update.trend)}
+                            </div>
+                            <p className="text-[13px] font-medium text-slate-700 leading-relaxed">
+                              {update.text || update.headline || "New market data detected"}
+                            </p>
                           </div>
                         ))}
                       </div>
@@ -258,17 +274,25 @@ export default function PortfolioPage() {
                     </button>
                     
                     <div className="text-right flex items-center gap-4 shrink-0">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest hidden sm:block">Saved: {company.lastUpdated}</span>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest hidden sm:block">
+                        Saved: {company.lastUpdated}
+                      </span>
+                      {/* ✨ 4. TRIGGER THE MODAL STATE INSTEAD OF WINDOW.CONFIRM */}
                       <button 
-                        onClick={() => handleDeleteThesis(company.id, company.ticker)}
+                        onClick={() => setCompanyToDelete({ id: company.id, ticker: company.ticker })}
                         disabled={deletingId === company.id}
                         className="text-slate-300 hover:text-rose-600 transition-colors cursor-pointer disabled:opacity-50"
                         title="Delete Thesis"
                       >
-                        {deletingId === company.id ? <Loader2 className="w-4 h-4 animate-spin text-rose-600" /> : <Trash2 className="w-4 h-4" />}
+                        {deletingId === company.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin text-rose-600" />
+                        ) : (
+                          <Trash2 className="w-4 h-4" />
+                        )}
                       </button>
                     </div>
                   </div>
+
                 </div>
               );
             })}
@@ -284,6 +308,15 @@ export default function PortfolioPage() {
           company={shareCompany} 
         />
       )}
+
+      {/* ✨ 5. RENDER YOUR REUSABLE DELETE CONFIRMATION MODAL */}
+      <DeleteConfirmModal
+        isOpen={!!companyToDelete}
+        onClose={() => setCompanyToDelete(null)}
+        onConfirm={handleConfirmDelete}
+        ticker={companyToDelete?.ticker || ''}
+        isDeleting={deletingId === companyToDelete?.id}
+      />
     </div>
   );
 }

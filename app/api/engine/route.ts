@@ -147,13 +147,18 @@ export async function POST(req: Request) {
         {
           "status": "Strengthening" | "Weakening" | "Review Needed",
           "aiSummary": "A 2-sentence explanation of how the news impacts their specific thesis.",
-          "updates": [
-             { 
-               "text": "Short headline of the change", 
-               "trend": "up" | "down" | "neutral",
-               "evidenceText": "Optional direct quote or stat supporting this change"
-             }
-          ],
+
+        "updates": [
+  {
+    "text": "A short, 1-sentence summary of the key change or news", // <--- Make sure this line exists!
+    "trend": "up" | "down" | "neutral",
+    "evidenceText": "Optional direct quote or stat supporting this change",
+    "sourceName": "Name of the specific source",
+    "sourceUrl": "Link to the source article or document"
+  }
+]
+
+
           "drivers": [
              { 
                "title": "Name of the key driver", 
