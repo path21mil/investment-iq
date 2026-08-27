@@ -7,6 +7,7 @@ import { Search, Info, ChevronDown, ChevronUp, BookOpen, Loader2, RefreshCw, Use
 import { createClient } from "@supabase/supabase-js";
 import Logo from '@/components/Logo';
 import WatchlistSection from '@/components/WatchlistSection';
+import Header from '@/components/Header'; // Make sure the path matches your setup!
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -279,45 +280,8 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-[#F8FAFC] font-sans text-[#0F172A] pb-24 relative overflow-hidden antialiased">
 
-      {/* NAVIGATION HEADER */}
-      <nav className="w-full bg-white/90 backdrop-blur-md border-b border-slate-200 sticky top-0 z-40 h-[64px] flex items-center">
-        <div className="max-w-[960px] w-full mx-auto px-6 flex items-center justify-between">
-          <div className="shrink-0">
-            <Logo href="/dashboard" />
-          </div>
-          
-          <div className="flex items-center gap-8 text-[14px] font-bold">
-            <Link href="/dashboard" className="text-blue-600">Dashboard</Link>
-            <Link href="/portfolio" className="text-slate-600 hover:text-slate-900 transition-colors">Portfolio</Link>
-            <Link href="/watchlist" className="text-slate-600 hover:text-slate-900 transition-colors">Watchlist</Link>
-          </div>
-
-          <div className="relative group shrink-0 py-4 cursor-pointer">
-            <div className="flex items-center gap-1.5 text-[13px] font-bold text-slate-600 hover:text-[#0F172A] transition-colors">
-              {userName} <ChevronDown className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600 transition-colors" />
-            </div>
-            
-            <div className="absolute right-0 top-[45px] w-48 bg-white border border-slate-200 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.08)] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 ease-out transform origin-top-right scale-95 group-hover:scale-100 z-50">
-              <div className="p-2 space-y-0.5">
-                <div className="px-3 py-2 text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-1">{userName}</div>
-                <button className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] font-bold text-slate-600 hover:text-[#0F172A] hover:bg-slate-50 rounded-xl transition-colors text-left">
-                  <User className="w-4 h-4 text-slate-400" /> Account
-                </button>
-                <button className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] font-bold text-slate-600 hover:text-[#0F172A] hover:bg-slate-50 rounded-xl transition-colors text-left">
-                  <Settings className="w-4 h-4 text-slate-400" /> Settings
-                </button>
-                <div className="h-px bg-slate-100 my-1.5"></div>
-                <button 
-                  onClick={() => supabase.auth.signOut().then(() => router.push('/'))} 
-                  className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] font-bold text-rose-600 hover:bg-rose-50 rounded-xl transition-colors text-left"
-                >
-                  <LogOut className="w-4 h-4 text-rose-500" /> Sign out
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </nav>
+      {/* RESPONSIVE HEADER */}
+      <Header />
 
       {/* MAIN CONTAINER */}
       <main className="max-w-[960px] mx-auto px-6 pt-12 md:pt-14">
