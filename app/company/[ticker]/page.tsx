@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { 
   Building2, TrendingUp, TrendingDown, Globe, Loader2, 
   AlertCircle, Plus, Activity, Check, Info, ChevronDown, 
-  ChevronUp, Share2, Menu 
+  ChevronUp, Share2, Menu, X 
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import SmartSearchBar from '@/components/SmartSearchBar';
@@ -133,6 +133,7 @@ export default function CompanyPage({ params }: { params: Promise<{ ticker: stri
   const [aiData, setAiData] = useState<any>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
 
   const getLifecycleBadgeStyle = (badge: string = '') => {
@@ -299,9 +300,9 @@ const getTrendIcon = (type: string) => {
   return (
     <div className="min-h-screen bg-[#F8FAFC] font-sans text-[#0F172A] pb-24">
       
-      {/* NAVIGATION */}
+     {/* NAVIGATION */}
       <nav className="bg-white/90 backdrop-blur-md border-b border-slate-200 sticky top-0 z-50">
-        <div className="max-w-[960px] mx-auto px-6 py-3 flex items-center justify-between gap-8">
+        <div className="max-w-[960px] mx-auto px-6 h-[64px] flex items-center justify-between gap-8">
           
           {/* LOGO */}
           <div className="shrink-0">
@@ -340,11 +341,71 @@ const getTrendIcon = (type: string) => {
             )}
           </div>
 
-          {/* MOBILE HAMBURGER MENU (Visible only on mobile) */}
-          <button className="md:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer">
-            <Menu className="w-6 h-6" />
+          {/* MOBILE HAMBURGER MENU BUTTON (Visible only on mobile) */}
+          <button 
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className="md:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+          >
+            {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </button>
         </div>
+
+      {/* ✨ MOBILE OVERLAY BACKDROP */}
+        {isMobileMenuOpen && (
+          <div 
+            className="md:hidden fixed inset-0 top-[64px] bg-slate-900/20 backdrop-blur-sm z-40"
+            onClick={() => setIsMobileMenuOpen(false)}
+          />
+        )}
+
+        {/* ✨ SIMPLE MOBILE DROPDOWN MENU (Matches Global Header Design) */}
+        {isMobileMenuOpen && (
+          <div className="md:hidden absolute top-[64px] left-0 w-full bg-white border-b border-slate-200 shadow-xl py-6 px-6 flex flex-col gap-6 z-50 animate-in slide-in-from-top-2 duration-200">
+            
+            {/* Search Bar */}
+            <div className="w-full">
+              <SmartSearchBar />
+            </div>
+
+            {/* Navigation Links */}
+            <div className="flex flex-col gap-5">
+              {savedThesis && (
+                <button 
+                  onClick={() => {
+                    setViewMode(viewMode === 'dashboard' ? 'research' : 'dashboard');
+                    setIsMobileMenuOpen(false); 
+                  }} 
+                  className="text-left text-[16px] font-bold text-slate-700 hover:text-slate-900 transition-colors"
+                >
+                  {viewMode === 'dashboard' ? 'View Research' : 'My Dashboard'}
+                </button>
+              )}
+              
+              {isLoggedIn ? (
+                <button 
+                  onClick={() => {
+                    router.push('/dashboard');
+                    setIsMobileMenuOpen(false); 
+                  }} 
+                  className="text-left text-[16px] font-bold text-slate-700 hover:text-slate-900 transition-colors"
+                >
+                  Portfolio
+                </button>
+              ) : (
+                <Link 
+                  href="/login" 
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="text-left text-[16px] font-bold text-blue-600 hover:text-blue-700 transition-colors"
+                >
+                  Get Started
+                </Link>
+              )}
+            </div>
+            
+          </div>
+        )}
+                
+          
       </nav>
 
       {/* MAIN CONTAINER */}
