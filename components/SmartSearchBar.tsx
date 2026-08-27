@@ -103,9 +103,12 @@ export default function SmartSearchBar({ variant = 'header' }: SmartSearchBarPro
 
   const showSpinner = isLoading || isNavigating;
 
-  return (
-    <div ref={wrapperRef} className={`relative w-full z-[999] ${isHero ? 'max-w-2xl mx-auto' : 'max-w-xs sm:max-w-sm'}`}>
+
+    return (
+    // ✨ FIX: Removed 'max-w-xs sm:max-w-sm'. Now it will fluidly fill 100% of its parent!
+    <div ref={wrapperRef} className={`relative w-full z-[999] ${isHero ? 'max-w-2xl mx-auto' : ''}`}>
       <form onSubmit={handleSubmit} className="relative flex items-center w-full">
+     
         <Search className={`absolute pointer-events-none transition-colors ${
           errorMessage ? 'text-rose-400' : 'text-slate-400'
         } ${isHero ? 'w-5 h-5 left-5' : 'w-4 h-4 left-3'}`} />

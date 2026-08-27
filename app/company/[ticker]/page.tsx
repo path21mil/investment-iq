@@ -301,81 +301,84 @@ const getTrendIcon = (type: string) => {
     <div className="min-h-screen bg-[#F8FAFC] font-sans text-[#0F172A] pb-24">
       
      {/* NAVIGATION */}
-      <nav className="bg-white/90 backdrop-blur-md border-b border-slate-200 sticky top-0 z-50">
-        <div className="max-w-[960px] mx-auto px-6 h-[64px] flex items-center justify-between gap-8">
-          
-          {/* LOGO */}
-          <div className="shrink-0">
-            <Logo href={isLoggedIn ? "/dashboard" : "/"} /> 
-          </div>
-
-          {/* SEARCH BAR (Hidden on Mobile) */}
-          <div className="hidden md:block flex-1 max-w-sm">
-            <SmartSearchBar />
-          </div>
-          
-          {/* DESKTOP ACTIONS (Hidden on Mobile) */}
-          <div className="hidden md:flex items-center gap-3 shrink-0">
-            {savedThesis && (
-              <button 
-                onClick={() => setViewMode(viewMode === 'dashboard' ? 'research' : 'dashboard')} 
-                className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-[13px] font-bold text-[#0F172A] hover:bg-slate-50 transition-colors shadow-sm cursor-pointer"
-              >
-                {viewMode === 'dashboard' ? 'View Research' : 'My Dashboard'}
-              </button>
-            )}
-            {isLoggedIn ? (
-              <button 
-                onClick={() => router.push('/dashboard')} 
-                className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-[13px] font-bold text-[#0F172A] hover:bg-slate-50 transition-colors shadow-sm cursor-pointer"
-              >
-                Portfolio
-              </button>
-            ) : (
-              <Link 
-                href="/login" 
-                className="bg-[#0F172A] text-white text-[13px] font-bold px-5 py-2.5 rounded-lg hover:bg-slate-800 transition-colors shadow-sm"
-              >
-                Get Started
-              </Link>
-            )}
-          </div>
-
-          {/* MOBILE HAMBURGER MENU BUTTON (Visible only on mobile) */}
-          <button 
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="md:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
-          >
-            {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-          </button>
-        </div>
-
-      {/* ✨ MOBILE OVERLAY BACKDROP */}
-        {isMobileMenuOpen && (
-          <div 
-            className="md:hidden fixed inset-0 top-[64px] bg-slate-900/20 backdrop-blur-sm z-40"
-            onClick={() => setIsMobileMenuOpen(false)}
-          />
-        )}
-
-        {/* ✨ SIMPLE MOBILE DROPDOWN MENU (Matches Global Header Design) */}
-        {isMobileMenuOpen && (
-          <div className="md:hidden absolute top-[64px] left-0 w-full bg-white border-b border-slate-200 shadow-xl py-6 px-6 flex flex-col gap-6 z-50 animate-in slide-in-from-top-2 duration-200">
+      <header className="sticky top-0 w-full z-50">
+        
+        {/* TOP BAR (Creates its own layer above the overlay) */}
+        <nav className="relative z-50 bg-white/90 backdrop-blur-md border-b border-slate-200">
+          <div className="max-w-[960px] mx-auto px-4 sm:px-6 h-[64px] flex items-center justify-between gap-8">
             
-            {/* Search Bar */}
-            <div className="w-full">
-              <SmartSearchBar />
+            {/* LOGO */}
+            <div className="shrink-0">
+              <Logo href={isLoggedIn ? "/dashboard" : "/"} /> 
             </div>
 
-            {/* Navigation Links */}
-            <div className="flex flex-col gap-5">
+            {/* DESKTOP SEARCH BAR */}
+            <div className="hidden md:block flex-1 max-w-sm">
+              <SmartSearchBar />
+            </div>
+            
+            {/* DESKTOP ACTIONS */}
+            <div className="hidden md:flex items-center gap-3 shrink-0">
+              {savedThesis && (
+                <button 
+                  onClick={() => setViewMode(viewMode === 'dashboard' ? 'research' : 'dashboard')} 
+                  className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-[13px] font-bold text-[#0F172A] hover:bg-slate-50 transition-colors shadow-sm cursor-pointer"
+                >
+                  {viewMode === 'dashboard' ? 'View Research' : 'My Dashboard'}
+                </button>
+              )}
+              {isLoggedIn ? (
+                <button 
+                  onClick={() => router.push('/dashboard')} 
+                  className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-[13px] font-bold text-[#0F172A] hover:bg-slate-50 transition-colors shadow-sm cursor-pointer"
+                >
+                  Portfolio
+                </button>
+              ) : (
+                <Link 
+                  href="/login" 
+                  className="bg-[#0F172A] text-white text-[13px] font-bold px-5 py-2.5 rounded-lg hover:bg-slate-800 transition-colors shadow-sm"
+                >
+                  Get Started
+                </Link>
+              )}
+            </div>
+
+            {/* MOBILE HAMBURGER BUTTON */}
+            <button 
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} 
+              className="md:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+            >
+              {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            </button>
+          </div>
+        </nav>
+
+        {/* MOBILE MENU DROPDOWN & OVERLAY */}
+        {isMobileMenuOpen && (
+          <>
+            {/* ✨ Mobile Overlay (Now properly breaks out and covers the screen) */}
+            <div 
+              className="md:hidden fixed inset-0 top-[64px] bg-slate-900/40 backdrop-blur-sm z-40"
+              onClick={() => setIsMobileMenuOpen(false)}
+            />
+            
+            {/* Mobile Menu Content */}
+            <div className="md:hidden absolute top-[64px] left-0 w-full bg-white border-b border-slate-200 shadow-2xl py-6 px-6 flex flex-col gap-4 z-50 animate-in slide-in-from-top-2 duration-200">
+              
+              {/* FULL WIDTH SEARCH BAR */}
+              <div className="w-full flex [&>*]:w-full [&_div]:w-full mb-1">
+                <SmartSearchBar />
+              </div>
+
+              {/* DYNAMIC NAVIGATION LINKS */}
               {savedThesis && (
                 <button 
                   onClick={() => {
                     setViewMode(viewMode === 'dashboard' ? 'research' : 'dashboard');
                     setIsMobileMenuOpen(false); 
                   }} 
-                  className="text-left text-[16px] font-bold text-slate-700 hover:text-slate-900 transition-colors"
+                  className="text-left text-[16px] font-bold text-slate-700 hover:text-slate-900 transition-colors py-1 cursor-pointer"
                 >
                   {viewMode === 'dashboard' ? 'View Research' : 'My Dashboard'}
                 </button>
@@ -387,66 +390,67 @@ const getTrendIcon = (type: string) => {
                     router.push('/dashboard');
                     setIsMobileMenuOpen(false); 
                   }} 
-                  className="text-left text-[16px] font-bold text-slate-700 hover:text-slate-900 transition-colors"
+                  className="text-left text-[16px] font-bold text-slate-700 hover:text-slate-900 transition-colors py-1 cursor-pointer"
                 >
                   Portfolio
                 </button>
               ) : (
-                <Link 
-                  href="/login" 
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="text-left text-[16px] font-bold text-blue-600 hover:text-blue-700 transition-colors"
-                >
-                  Get Started
-                </Link>
+                /* GET STARTED BUTTON */
+                <div className="pt-1 w-full">
+                  <Link 
+                    href="/login" 
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="flex items-center justify-center w-full bg-[#0F172A] hover:bg-slate-800 text-white text-[16px] font-bold py-3.5 rounded-xl transition-all shadow-sm active:scale-[0.98]"
+                  >
+                    Get Started
+                  </Link>
+                </div>
               )}
             </div>
-            
-          </div>
+          </>
         )}
-                
-          
-      </nav>
+      </header>
 
       {/* MAIN CONTAINER */}
       <main className="max-w-[960px] mx-auto px-4 sm:px-6 pt-8 md:pt-12">
         
-       {/* COMPANY HERO & ACTION BANNER (Unified View) */}
-        <div className="mb-10 bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
+      {/* COMPANY HERO BANNER (Side-by-Side Mobile Layout) */}
+        <div className="mb-8 sm:mb-10 bg-white border border-slate-200 rounded-2xl sm:rounded-3xl p-5 sm:p-8 shadow-sm flex flex-row items-center justify-between gap-3">
           
-          {/* LEFT: Logo, Name, and Ticker/Exchange */}
-          <div className="flex items-center gap-5 sm:gap-6">
-            <CompanyLogo ticker={ticker} containerClass="w-16 h-16 sm:w-20 sm:h-20 shrink-0" />
+          {/* LEFT: Logo, Name, and Ticker */}
+          <div className="flex items-center gap-3 sm:gap-6 min-w-0">
+            {/* Logo scales down slightly on mobile to save space */}
+            <CompanyLogo ticker={ticker} containerClass="w-12 h-12 sm:w-20 sm:h-20 shrink-0" />
             
-            <div className="flex flex-col justify-center gap-1 sm:gap-1.5">
-              <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight text-[#0F172A] leading-none">
+            <div className="flex flex-col justify-center gap-1 min-w-0">
+              <h1 className="text-xl sm:text-3xl md:text-4xl font-extrabold tracking-tight text-[#0F172A] leading-none truncate">
                 {profile.companyName}
               </h1>
               
-              {/* Ticker & Exchange (Moved below the name) */}
-              <div className="flex items-center gap-2 text-xs font-bold text-slate-500 mt-1">
-                <span className="bg-slate-100 text-slate-700 px-2 py-1 rounded border border-slate-200">
+              <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs font-bold text-slate-500 mt-0.5">
+                <span className="bg-slate-100 text-slate-700 px-1.5 py-0.5 sm:px-2 sm:py-1 rounded border border-slate-200">
                   {profile.symbol}
                 </span>
+                {/* Exchange only shows on larger screens to save horizontal space */}
                 <span className="hidden sm:inline">• {profile.exchangeShortName}</span>
               </div>
             </div>
           </div>
 
           {/* RIGHT: Price and Price Change */}
-          <div className="flex flex-col items-start md:items-end justify-center pt-4 md:pt-0 border-t md:border-t-0 border-slate-100 w-full md:w-auto">
-            <span className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight leading-none">
+          <div className="flex flex-col items-end justify-center shrink-0 text-right">
+            <span className="text-xl sm:text-3xl font-black text-slate-900 tracking-tight leading-none">
               ${profile.price?.toFixed(2)}
             </span>
             
-            {/* Change (Moved below the price) */}
-            <div className={`flex items-center gap-1.5 text-sm sm:text-base font-extrabold mt-2 md:mt-1.5 ${isPositiveChange ? 'text-emerald-600' : 'text-rose-600'}`}>
-              {isPositiveChange ? <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5" /> : <TrendingDown className="w-4 h-4 sm:w-5 sm:h-5" />}
-              <span>
+            <div className={`flex items-center gap-1 text-[11px] sm:text-base font-extrabold mt-1 sm:mt-1.5 ${isPositiveChange ? 'text-emerald-600' : 'text-rose-600'}`}>
+              {isPositiveChange ? <TrendingUp className="w-3.5 h-3.5 sm:w-5 sm:h-5 shrink-0" /> : <TrendingDown className="w-3.5 h-3.5 sm:w-5 sm:h-5 shrink-0" />}
+              <span className="whitespace-nowrap">
                 {profile.changes > 0 ? '+' : ''}{profile.changes?.toFixed(2)} ({((profile.changes / (profile.price - profile.changes)) * 100).toFixed(2)}%)
               </span>
             </div>
           </div>
+          
         </div>
 
         {/* ANALYSIS STATES */}

@@ -207,17 +207,31 @@ export default function Home() {
       
       {/* TOP NAVIGATION */}
       <nav className="bg-white/90 backdrop-blur-md border-b border-slate-200/60 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center gap-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center gap-2">
+          
           <div className="shrink-0">
             <Logo />
           </div>
-          <div className="flex items-center gap-4 md:gap-6 shrink-0">
-            <Link href="/login" className="text-sm font-bold text-slate-600 hover:text-slate-900 transition-colors hidden sm:block">
+          
+          {/* ✨ BOTH BUTTONS VISIBLE ON MOBILE */}
+          <div className="flex items-center gap-3 md:gap-5 shrink-0">
+            
+            {/* Sign In (Removed 'hidden sm:block', updated to dark text) */}
+            <Link 
+              href="/login" 
+              className="text-xs sm:text-sm font-bold text-[#0F172A] hover:text-blue-600 transition-colors"
+            >
               Sign In
             </Link>
-            <Link href="/login?mode=signup" className="bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-bold px-4 md:px-5 py-2 md:py-2.5 rounded-xl transition-colors shadow-sm">
+            
+            {/* Get Started (Changed to dark theme, smaller mobile padding) */}
+            <Link 
+              href="/login?mode=signup" 
+              className="bg-[#0F172A] hover:bg-slate-800 text-white text-xs sm:text-sm font-bold px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-xl transition-colors shadow-sm"
+            >
               Get Started
             </Link>
+            
           </div>
         </div>
       </nav>
@@ -293,20 +307,24 @@ export default function Home() {
         <div className="w-full max-w-3xl mx-auto mb-10 relative px-4 md:px-0 z-10">
           <div className="absolute -inset-4 bg-gradient-to-r from-blue-100/50 via-indigo-50/50 to-emerald-100/50 rounded-[3rem] blur-2xl -z-10 pointer-events-none"></div>
 
-          {/* DYNAMIC SELECTION PILLS */}
+         {/* DYNAMIC SELECTION PILLS */}
           <div className="flex items-center justify-center gap-2 mb-8 flex-wrap">
             {isLoadingCommunity ? (
                <div className="text-slate-400 text-sm font-bold flex items-center gap-2">
                  <Loader2 className="w-4 h-4 animate-spin" /> Fetching latest community research...
                </div>
             ) : (
-              previewTickers.map((ticker) => {
+              // ✨ FIX: Added 'index' to the map function so we can count them
+              previewTickers.map((ticker, index) => {
                 const isActive = selectedTicker === ticker;
                 return (
                   <button
                     key={ticker}
                     onClick={() => setSelectedTicker(ticker)}
+                    // ✨ FIX: Added 'hidden sm:block' if the index is 2 or higher (3rd and 4th buttons)
                     className={`px-5 py-2.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                      index >= 2 ? 'hidden sm:block' : 'block'
+                    } ${
                       isActive
                         ? 'bg-slate-900 text-white shadow-md scale-105'
                         : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/80'
@@ -319,78 +337,104 @@ export default function Home() {
             )}
           </div>
 
-          {/* PREVIEW CARD */}
+        {/* PREVIEW CARD */}
           {!isLoadingCommunity && activeData && (
-            <div className="bg-white rounded-[2rem] border border-slate-200/80 shadow-[0_20px_50px_rgba(0,0,0,0.06)] overflow-hidden font-sans transition-all duration-300 min-h-[400px]">
-             
+            <div className="bg-white rounded-[2rem] border border-slate-200/80 shadow-[0_20px_50px_rgba(0,0,0,0.04)] overflow-hidden font-sans transition-all duration-300 min-h-[400px]">
+              
               {/* 1. PREMIUM HEADER */}
-              <div className="p-8 pb-6 flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div className="p-6 sm:p-8 pb-5 flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-6">
                 
-                {/* ✨ THE NEW LOGO & TITLE SECTION ✨ */}
-                <div className="flex items-center gap-4">
-                  <CompanyLogo 
-                    ticker={activeData.ticker} 
-                    containerClass="w-12 h-12 rounded-xl" 
-                    textClass="text-2xl" 
-                  />
-                  <div className="flex flex-col">
-                    <div className="flex items-center gap-3">
-                      <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">{activeData.name}</h2>
-                      <span className="text-xs font-bold text-slate-500 bg-slate-100 border border-slate-200/80 px-2.5 py-1 rounded-md">{activeData.ticker}</span>
+                {/* BRANDING SECTION */}
+                <div className="flex flex-col md:flex-row items-center md:items-start gap-1 md:gap-4 w-full md:w-auto">
+                  
+                  <div className="grid grid-cols-[auto_auto] items-center gap-2.5 w-full md:w-auto justify-center md:justify-start">
+                    {/* Logo made slightly smaller and crisper */}
+                    <CompanyLogo 
+                      ticker={activeData.ticker} 
+                      containerClass="w-11 h-11 md:w-12 md:h-12 rounded-xl shrink-0 border-slate-100 shadow-none" 
+                      textClass="text-xl" 
+                    />
+                    
+                    {/* DESKTOP TEXT (Hidden on Mobile) */}
+                    <div className="hidden md:flex flex-col">
+                      <div className="flex items-center gap-3">
+                        <h2 className="text-3xl font-black text-slate-900 tracking-tight">{activeData.name}</h2>
+                        <span className="text-[11px] font-bold text-slate-400 bg-slate-50 border border-slate-200/60 px-2 py-0.5 rounded-md shrink-0">{activeData.ticker}</span>
+                      </div>
+                      <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-1">{activeData.sector}</p>
                     </div>
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-2">{activeData.sector}</p>
+
+                    {/* MOBILE TEXT: Dominant Name & Small Ticker */}
+                    <div className="flex md:hidden items-center gap-2">
+                      <h2 className="text-3xl font-black text-slate-900 tracking-tight leading-none truncate max-w-[200px]">
+                        {activeData.name}
+                      </h2>
+                      
+                      <span className="text-[10px] font-bold text-slate-400 bg-slate-50 border border-slate-200/60 px-1.5 py-0.5 rounded-md shrink-0">
+                        {activeData.ticker}
+                      </span>
+                    </div>
                   </div>
+
+                  {/* MOBILE SECTOR */}
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center mt-1 md:hidden w-full">{activeData.sector}</p>
                 </div>
               
-              {/* ✨ Dynamic Lifecycle Badge */}
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-white border border-slate-200 rounded-full shadow-sm self-start md:self-auto">
-                <span className={`text-[10px] ${lifecycle.dot || 'text-blue-500'}`}>●</span>
-                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                  {lifecycle.label || 'MATURE'}
-                </span>
-              </div>
+                {/* ✨ MATURE BADGE (Less pill-like: rounded-lg instead of rounded-full) */}
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-50 border border-slate-200/60 rounded-lg shadow-none self-center md:self-auto mt-2 md:mt-0 shrink-0">
+                  <span className={`text-[10px] ${lifecycle.dot || 'text-blue-500'}`}>●</span>
+                  <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">
+                    {lifecycle.label || 'MATURE'}
+                  </span>
+                </div>
+
               </div>
               
-              {/* 2. THE METRICS RIBBON */}
-              <div className="bg-slate-50/50 border-y border-slate-100">
-                <div className="grid grid-cols-2 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-slate-200/60">
-                  <div className="p-5 flex flex-col justify-center">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5"><Star className="w-3 h-3" /> Quality</p>
-                    <p className="text-sm font-extrabold text-slate-900">{activeData.pillars?.quality}</p>
+              {/* 2. THE METRICS RIBBON (Lighter Dividers, Reduced Icon Prominence, High Value Prominence) */}
+              <div className="bg-slate-50/30 border-y border-slate-100">
+                <div className="grid grid-cols-2 md:grid-cols-4">
+                  
+                  <div className="p-4 md:p-5 flex flex-col items-center md:items-start justify-center border-b border-r border-slate-100 md:border-b-0">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 flex items-center justify-center md:justify-start gap-1.5"><Star className="w-3 h-3 text-slate-300" /> Quality</p>
+                    <p className="text-sm font-black text-slate-900 text-center md:text-left">{activeData.pillars?.quality}</p>
                   </div>
-                  <div className="p-5 flex flex-col justify-center">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5"><ShieldCheck className="w-3 h-3" /> Management</p>
-                    <p className="text-sm font-extrabold text-slate-900">{activeData.pillars?.management}</p>
+                  
+                  <div className="p-4 md:p-5 flex flex-col items-center md:items-start justify-center border-b border-slate-100 md:border-b-0 md:border-r">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 flex items-center justify-center md:justify-start gap-1.5"><ShieldCheck className="w-3 h-3 text-slate-300" /> Management</p>
+                    <p className="text-sm font-black text-slate-900 text-center md:text-left">{activeData.pillars?.management}</p>
                   </div>
-                  <div className="p-5 flex flex-col justify-center">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5"><Activity className="w-3 h-3" /> Valuation</p>
-                    <p className="text-sm font-extrabold text-slate-900">{activeData.pillars?.valuation}</p>
+                  
+                  <div className="p-4 md:p-5 flex flex-col items-center md:items-start justify-center border-r border-slate-100">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 flex items-center justify-center md:justify-start gap-1.5"><Activity className="w-3 h-3 text-slate-300" /> Valuation</p>
+                    <p className="text-sm font-black text-slate-900 text-center md:text-left">{activeData.pillars?.valuation}</p>
                   </div>
-                  <div className="p-5 flex flex-col justify-center">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5"><BookOpen className="w-3 h-3" /> Clarity</p>
-                    <p className="text-sm font-extrabold text-slate-900">{activeData.pillars?.understandability}</p>
+                  
+                  <div className="p-4 md:p-5 flex flex-col items-center md:items-start justify-center">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 flex items-center justify-center md:justify-start gap-1.5"><BookOpen className="w-3 h-3 text-slate-300" /> Clarity</p>
+                    <p className="text-sm font-black text-slate-900 text-center md:text-left">{activeData.pillars?.understandability}</p>
                   </div>
+
                 </div>
               </div>
 
               {/* 3. OVERALL ASSESSMENT */}
-              <div className="px-8 py-6 border-b border-slate-100 bg-white">
-                <h3 className="text-[11px] font-extrabold text-slate-400 uppercase tracking-widest mb-2">Overall Assessment</h3>
-                <p className="text-sm font-medium text-slate-800 leading-relaxed">{activeData.overallAssessment}</p>
+              <div className="px-6 sm:px-8 py-5 border-b border-slate-100 bg-white">
+                <h3 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-1.5">Overall Assessment</h3>
+                <p className="text-sm font-medium text-slate-700 leading-relaxed">{activeData.overallAssessment}</p>
               </div>
 
               {/* 4. ACTIVITY FEED */}
-              <div className="p-8">
-                <h3 className="text-[11px] font-extrabold text-slate-400 uppercase tracking-widest mb-5">What Changed Since Last Earnings</h3>
-                <div className="space-y-3">
+              <div className="p-6 sm:p-8">
+                <h3 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-4">What Changed Since Last Earnings</h3>
+                <div className="space-y-2.5">
                   {activeData.changes?.map((item: any, idx: number) => (
-                    <div key={idx} className={`p-4 rounded-xl border flex items-start gap-3 transition-all ${item.status === 'warning' ? 'bg-amber-50/50 border-amber-200/60' : 'bg-white border-slate-100 hover:border-slate-200 shadow-sm'}`}>
-                      <div className="mt-1">
-                        {item.status === 'warning' ? <span className="text-amber-500 font-bold text-xs">⚠</span> : item.status === 'neutral' ? <span className="text-slate-400 font-bold text-xs">—</span> : <Circle className="w-2.5 h-2.5 fill-emerald-500 text-emerald-500 mt-1" />}
+                    <div key={idx} className={`p-3.5 rounded-xl border flex items-start gap-3 transition-all ${item.status === 'warning' ? 'bg-amber-50/40 border-amber-200/50' : 'bg-white border-slate-100'}`}>
+                      <div className="mt-0.5">
+                        {item.status === 'warning' ? <span className="text-amber-500 font-bold text-xs">⚠</span> : item.status === 'neutral' ? <span className="text-slate-300 font-bold text-xs">—</span> : <Circle className="w-2 h-2 fill-emerald-500 text-emerald-500 mt-1" />}
                       </div>
                       <div>
-                        <p className={`text-sm font-bold mb-0.5 ${item.status === 'warning' ? 'text-amber-950' : 'text-slate-900'}`}>{item.text}</p>
-                        <p className={`text-xs font-medium ${item.status === 'warning' ? 'text-amber-700/80' : 'text-slate-500'}`}>{item.sub}</p>
+                        <p className={`text-xs sm:text-sm font-bold mb-0.5 ${item.status === 'warning' ? 'text-amber-950' : 'text-slate-800'}`}>{item.text}</p>
+                        <p className={`text-[11px] sm:text-xs font-medium ${item.status === 'warning' ? 'text-amber-700/80' : 'text-slate-500'}`}>{item.sub}</p>
                       </div>
                     </div>
                   ))}
@@ -398,8 +442,8 @@ export default function Home() {
               </div>
 
               {/* 5. FOOTER ACTION */}
-              <div className="p-6 bg-slate-50/80 border-t border-slate-100">
-                <button onClick={() => router.push(`/company/${activeData.ticker}`)} className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3.5 rounded-xl transition-all shadow-[0_4px_14px_rgb(0,0,0,0.1)] hover:shadow-[0_6px_20px_rgb(0,0,0,0.15)] flex items-center justify-center gap-2 text-sm group cursor-pointer">
+              <div className="p-5 sm:p-6 bg-slate-50/50 border-t border-slate-100">
+                <button onClick={() => router.push(`/company/${activeData.ticker}`)} className="w-full bg-[#0F172A] hover:bg-slate-800 text-white font-bold py-3.5 rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 text-sm group cursor-pointer">
                   View Full Research <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                 </button>
               </div>
