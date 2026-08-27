@@ -3,13 +3,16 @@
 import { useState, useEffect, use } from 'react';
 import Link from 'next/link';
 import { 
-  Building2, TrendingUp, TrendingDown, Globe, Loader2, AlertCircle, Plus, Activity, Check, Info, ChevronDown, ChevronUp, Share2 
+  Building2, TrendingUp, TrendingDown, Globe, Loader2, 
+  AlertCircle, Plus, Activity, Check, Info, ChevronDown, 
+  ChevronUp, Share2, Menu 
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import SmartSearchBar from '@/components/SmartSearchBar';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ShareModal } from '@/components/ShareModal';
 import Logo from '@/components/Logo';
+
 
 export function CompanyLogo({ ticker, containerClass }: { ticker: string, containerClass: string }) {
   const [imgSrc, setImgSrc] = useState(`https://financialmodelingprep.com/image-stock/${ticker}.png`);
@@ -299,18 +302,23 @@ const getTrendIcon = (type: string) => {
       {/* NAVIGATION */}
       <nav className="bg-white/90 backdrop-blur-md border-b border-slate-200 sticky top-0 z-50">
         <div className="max-w-[960px] mx-auto px-6 py-3 flex items-center justify-between gap-8">
-        {/* ✨ LOGO FIX: Dynamically routes based on authentication state */}
+          
+          {/* LOGO */}
           <div className="shrink-0">
             <Logo href={isLoggedIn ? "/dashboard" : "/"} /> 
           </div>
 
-          <div className="hidden sm:block flex-1 max-w-sm"><SmartSearchBar /></div>
+          {/* SEARCH BAR (Hidden on Mobile) */}
+          <div className="hidden md:block flex-1 max-w-sm">
+            <SmartSearchBar />
+          </div>
           
-         <div className="flex items-center gap-3 shrink-0">
+          {/* DESKTOP ACTIONS (Hidden on Mobile) */}
+          <div className="hidden md:flex items-center gap-3 shrink-0">
             {savedThesis && (
               <button 
                 onClick={() => setViewMode(viewMode === 'dashboard' ? 'research' : 'dashboard')} 
-                className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-[13px] font-bold text-[#0F172A] hover:bg-slate-50 transition-colors shadow-sm"
+                className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-[13px] font-bold text-[#0F172A] hover:bg-slate-50 transition-colors shadow-sm cursor-pointer"
               >
                 {viewMode === 'dashboard' ? 'View Research' : 'My Dashboard'}
               </button>
@@ -318,7 +326,7 @@ const getTrendIcon = (type: string) => {
             {isLoggedIn ? (
               <button 
                 onClick={() => router.push('/dashboard')} 
-                className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-[13px] font-bold text-[#0F172A] hover:bg-slate-50 transition-colors shadow-sm"
+                className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-[13px] font-bold text-[#0F172A] hover:bg-slate-50 transition-colors shadow-sm cursor-pointer"
               >
                 Portfolio
               </button>
@@ -331,35 +339,75 @@ const getTrendIcon = (type: string) => {
               </Link>
             )}
           </div>
+
+          {/* MOBILE HAMBURGER MENU (Visible only on mobile) */}
+          <button className="md:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer">
+            <Menu className="w-6 h-6" />
+          </button>
         </div>
       </nav>
 
       {/* MAIN CONTAINER */}
-      <main className="max-w-[960px] mx-auto px-6 pt-12 md:pt-16">
+      <main className="max-w-[960px] mx-auto px-4 sm:px-6 pt-8 md:pt-12">
         
-        {/* COMMON HERO SECTION */}
-        <div className="mb-12 flex flex-col md:flex-row justify-between md:items-start gap-8">
-          <div className="flex items-center gap-6">
-           
-           <CompanyLogo ticker={ticker} containerClass="w-14 h-14" />
-            <div>
-              <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight mb-2">{profile.companyName}</h1>
-              <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
-                <span className="bg-slate-100 text-slate-700 px-2 py-1 rounded border border-slate-200">{profile.symbol}</span>
-                <span>• {profile.exchangeShortName}</span>
+        {/* COMPANY HERO & ACTION BANNER */}
+        <div className="mb-10 bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm flex flex-col md:flex-row md:items-start justify-between gap-6">
+          
+          {/* LEFT: Logo, Name, Ticker, and Price */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5 sm:gap-6">
+            <CompanyLogo ticker={ticker} containerClass="w-16 h-16 sm:w-20 sm:h-20 shrink-0" />
+            
+            <div className="flex flex-col gap-1.5 sm:gap-2">
+              {/* Name & Ticker */}
+              <div className="flex flex-wrap items-baseline gap-2 sm:gap-3">
+                <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight text-[#0F172A] leading-none">
+                  {profile.companyName}
+                </h1>
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
+                  <span className="bg-slate-100 text-slate-700 px-2 py-1 rounded border border-slate-200">{profile.symbol}</span>
+                  <span className="hidden sm:inline">• {profile.exchangeShortName}</span>
+                </div>
+              </div>
+
+              {/* Price (Moved to Left) */}
+              <div className="flex items-baseline gap-3 mt-1">
+                <span className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                  ${profile.price?.toFixed(2)}
+                </span>
+                <div className={`flex items-center gap-1.5 text-sm sm:text-base font-extrabold ${isPositiveChange ? 'text-emerald-600' : 'text-rose-600'}`}>
+                  {isPositiveChange ? <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5" /> : <TrendingDown className="w-4 h-4 sm:w-5 sm:h-5" />}
+                  <span>
+                    {profile.changes > 0 ? '+' : ''}{profile.changes?.toFixed(2)} ({((profile.changes / (profile.price - profile.changes)) * 100).toFixed(2)}%)
+                  </span>
+                </div>
               </div>
             </div>
           </div>
-          <div className="text-left md:text-right flex flex-col justify-center">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 hidden md:block">Current Price</p>
-            <p className="text-3xl font-extrabold tracking-tight">${profile.price?.toFixed(2)}</p>
-            <div className={`flex items-center gap-1.5 text-[14px] font-bold mt-1 md:justify-end ${isPositiveChange ? 'text-emerald-600' : 'text-rose-600'}`}>
-              {isPositiveChange ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
-              <span>{profile.changes > 0 ? '+' : ''}{profile.changes?.toFixed(2)} ({((profile.changes / (profile.price - profile.changes)) * 100).toFixed(2)}%)</span>
+
+          {/* RIGHT: Status Badge & Share Button (Visible in Dashboard Mode) */}
+          {savedThesis && viewMode === 'dashboard' && (
+            <div className="flex flex-row md:flex-col items-center md:items-end justify-between gap-4 md:gap-4 w-full md:w-auto mt-2 md:mt-0 pt-5 md:pt-0 border-t md:border-t-0 border-slate-100">
+              
+              <div className={`text-[11px] font-bold flex items-center gap-1.5 uppercase tracking-widest px-4 py-2 rounded-full border shadow-sm ${
+                isHighRisk ? 'bg-rose-50 border-rose-200 text-rose-700' : 'bg-emerald-50 border-emerald-200 text-emerald-700'
+              }`}>
+                <span className={isHighRisk ? 'text-rose-500' : 'text-emerald-500'}>●</span>
+                {isHighRisk ? 'Thesis Under Pressure' : 'Thesis Strengthening'}
+              </div>
+
+              <button 
+                onClick={() => setIsShareOpen(true)}
+                className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-[13px] font-extrabold rounded-xl transition-colors cursor-pointer shadow-sm w-full sm:w-auto justify-center"
+              >
+                <Share2 className="w-4 h-4 text-blue-500" />
+                Share Thesis ↗
+              </button>
+
             </div>
-          </div>
+          )}
         </div>
 
+        {/* ANALYSIS STATES */}
         {isAnalyzing ? (
           <div className="mb-10 bg-white border border-slate-200 rounded-3xl p-12 flex flex-col items-center justify-center text-center animate-pulse shadow-sm">
             <Loader2 className="w-8 h-8 animate-spin text-blue-600 mb-6" />
@@ -372,7 +420,7 @@ const getTrendIcon = (type: string) => {
             <div className="w-full bg-slate-50 p-4 rounded-xl border border-slate-200 font-mono text-xs text-slate-600 overflow-x-auto">
               {aiError || "No response generated."}
             </div>
-            <button onClick={() => fetchResearchData(profile)} className="bg-[#0F172A] text-white text-[13px] font-bold px-6 py-2.5 rounded-lg hover:bg-slate-800 transition-colors mt-2">Retry Analysis</button>
+            <button onClick={() => fetchResearchData(profile)} className="bg-[#0F172A] text-white text-[13px] font-bold px-6 py-2.5 rounded-lg hover:bg-slate-800 transition-colors mt-2 cursor-pointer">Retry Analysis</button>
           </div>
         ) : null}
 
@@ -382,50 +430,29 @@ const getTrendIcon = (type: string) => {
               // ==========================================
               // VIEW 1: NEUTRALIZED THESIS DASHBOARD
               // ==========================================
-              
-              /* ✨ WIDTH FIX: Removed max-w-[800px] so it fills the 960px container perfectly */
               <div className="w-full">
+              
+              {/* Modal Logic */}
+              {(() => {
+                const currentPrice = profile?.price || 0;
+                const priceChange = profile?.changes || 0;
+                const previousClose = currentPrice - priceChange;
                 
-               {/* ACTION BAR: SHARE BUTTON & STATUS BADGE */}
-                <div className="mb-12 flex items-center justify-between">
-                  <button 
-                    onClick={() => setIsShareOpen(true)}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-extrabold text-slate-700 bg-white border border-slate-200 shadow-sm hover:bg-slate-50 transition-all active:scale-95 cursor-pointer"
-                  >
-                    <Share2 className="w-3.5 h-3.5 text-blue-600" />
-                    Share Thesis ↗
-                  </button>
+                // Prevent division by zero, calculate the actual percentage
+                const percentMove = previousClose > 0 ? (priceChange / previousClose) * 100 : 0;
 
-                  <div className="text-[11px] font-bold text-slate-500 flex items-center gap-1.5 uppercase tracking-widest bg-white border border-slate-200 px-4 py-2 rounded-full shadow-sm">
-                    <span className={isHighRisk ? 'text-rose-500' : 'text-emerald-500'}>●</span>
-                    {isHighRisk ? 'Thesis Under Pressure' : 'Thesis Strengthening'}
-                  </div>
-                </div>
-
-              {/* 1. Calculate the percentage move safely */}
-{(() => {
-  const currentPrice = profile?.price || 0;
-  const priceChange = profile?.changes || 0;
-  const previousClose = currentPrice - priceChange;
-  
-  // Prevent division by zero, calculate the actual percentage
-  const percentMove = previousClose > 0 ? (priceChange / previousClose) * 100 : 0;
-
-  return (
-    <ShareModal
-      isOpen={isShareOpen}
-      onClose={() => setIsShareOpen(false)}
-      ticker={ticker}
-      // Pass the calculated math right into the modal!
-      percentMove={percentMove} 
-      // Keep your dynamic thesis status
-      status={isHighRisk ? 'weakening' : 'strengthening'}
-      // Use the latest AI headline as the evidence
-      evidence={aiData?.updates?.[0]?.headline || "Monitoring SEC filings and key performance drivers."}
-      username="investor" // (You can map this to their real username later!)
-    />
-  );
-})()}
+                return (
+                  <ShareModal
+                    isOpen={isShareOpen}
+                    onClose={() => setIsShareOpen(false)}
+                    ticker={ticker}
+                    percentMove={percentMove} 
+                    status={isHighRisk ? 'weakening' : 'strengthening'}
+                    evidence={aiData?.updates?.[0]?.headline || "Monitoring SEC filings and key performance drivers."}
+                    username="investor" 
+                  />
+                );
+              })()}
 
                 {/* MY INVESTMENT THESIS */}
                 <section className="mb-16">
