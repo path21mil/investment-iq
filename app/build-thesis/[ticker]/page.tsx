@@ -324,7 +324,7 @@ export default function BuildThesisPage({ params }: { params: Promise<{ ticker: 
       fetch('/api/engine', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId })
+        body: JSON.stringify({})
       }).catch(err => console.log("Silent engine trigger failed:", err));
 
       router.push(`/company/${ticker}`);

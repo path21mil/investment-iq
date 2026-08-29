@@ -147,13 +147,13 @@ export default function CompanyPage({ params }: { params: Promise<{ ticker: stri
 
   const lifecycle = getLifecycleBadgeStyle(aiData?.ratingBadge);
 
-  // ✨ THE FIX: We consolidated data fetching to properly hit the unified API endpoint
+  // Core Research is user-initiated. It must not use the V2 Full Research endpoint,
+  // which has a different payload and is reached from the system Watchlist.
   const fetchResearchData = async (companyProfile: any) => {
     setIsAnalyzing(true);
     setAiError(null);
     try {
-      // Changed to hit your new full-research route!
-      const response = await fetch('/api/full-research', {
+      const response = await fetch('/api/research', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ticker: ticker, companyName: companyProfile.companyName })
@@ -506,7 +506,7 @@ export default function CompanyPage({ params }: { params: Promise<{ ticker: stri
                         <div key={idx} className="bg-white rounded-3xl p-8 border border-slate-200 shadow-sm flex flex-col sm:flex-row gap-6 items-start justify-between hover:border-slate-300 transition-colors">
                           <div className="flex-1">
                             <h4 className="text-[15px] font-bold text-[#0F172A] mb-2">{driver.title}</h4>
-                            <p className="text-[13px] font-medium text-slate-600 leading-relaxed">{driver.whyThisMatters}</p>
+                            <p className="text-[13px] font-medium text-slate-600 leading-relaxed">{driver.whyThisMatters?.trim() || 'No explanation was saved for this driver.'}</p>
                           </div>
                           <div className="text-[11px] font-bold text-slate-500 flex items-center gap-1.5 uppercase tracking-widest shrink-0 mt-1">
                             <span className={status.dotColor}>●</span> {status.label}
@@ -529,7 +529,7 @@ export default function CompanyPage({ params }: { params: Promise<{ ticker: stri
                         <div key={idx} className="bg-white rounded-3xl p-8 border border-slate-200 shadow-sm flex flex-col sm:flex-row gap-6 items-start justify-between hover:border-slate-300 transition-colors">
                           <div className="flex-1">
                             <h4 className="text-[15px] font-bold text-[#0F172A] mb-2">{risk.title}</h4>
-                            <p className="text-[13px] font-medium text-slate-600 leading-relaxed">{risk.whyThisMatters}</p>
+                            <p className="text-[13px] font-medium text-slate-600 leading-relaxed">{risk.whyThisMatters?.trim() || 'No explanation was saved for this risk.'}</p>
                           </div>
                           <div className="text-[11px] font-bold text-slate-500 flex items-center gap-1.5 uppercase tracking-widest shrink-0 mt-1">
                             <span className={status.dotColor}>●</span> {status.label}
@@ -645,7 +645,7 @@ export default function CompanyPage({ params }: { params: Promise<{ ticker: stri
                         <div>
                           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-5">Key Strengths</p>
                           <div className="space-y-4">
-                            {(aiData?.strengths || ["Durable Market Moat", "Strong Balance Sheet", "Predictable Cash Flows"]).map((strength: string, i: number) => (
+                            {(aiData.strengths ?? []).map((strength: string, i: number) => (
                               <p key={i} className="text-[13px] text-slate-700 font-medium flex gap-3 leading-snug"><span className="text-emerald-500 text-[10px] mt-1 shrink-0">●</span> {strength}</p>
                             ))}
                           </div>
@@ -653,7 +653,7 @@ export default function CompanyPage({ params }: { params: Promise<{ ticker: stri
                         <div>
                           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-5">Watch Points</p>
                           <div className="space-y-4">
-                            {(aiData?.risks || ["Macro Sensitivity", "Valuation Multiple", "Competitive Pressure"]).map((risk: string, i: number) => (
+                            {(aiData.risks ?? []).map((risk: string, i: number) => (
                               <p key={i} className="text-[13px] text-slate-700 font-medium flex gap-3 leading-snug"><span className="text-amber-500 text-[10px] mt-1 shrink-0">●</span> {risk}</p>
                             ))}
                           </div>
@@ -666,7 +666,8 @@ export default function CompanyPage({ params }: { params: Promise<{ ticker: stri
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-8">Quick Snapshot</p>
                       <div className="space-y-5">
                         {['quality', 'management', 'valuation', 'understandability', 'financialStrength', 'compoundingPower'].map((key) => {
-                          const data = aiData?.pillars?.[key] || { label: 'Medium', color: 'yellow' };
+                          const data = aiData.pillars?.[key];
+                          if (!data) return null;
                           const dotColor = data.color === 'green' ? 'text-emerald-500' : data.color === 'yellow' ? 'text-amber-500' : 'text-rose-500';
                           return (
                             <div key={key} className="flex justify-between items-center border-b border-slate-200/60 pb-4 last:border-0 last:pb-0">

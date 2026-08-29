@@ -216,10 +216,13 @@ export default function Dashboard() {
       if (!session) return;
       
       await fetch('/api/engine', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: session.user.id })
-      });
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${session.access_token}`,
+  },
+  body: JSON.stringify({}),
+});
       
       await loadDashboard(); 
     } catch (err) {

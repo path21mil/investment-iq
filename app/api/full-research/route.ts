@@ -38,7 +38,7 @@ export async function POST(request: Request) {
     const { data: cacheData, error: cacheError } = await supabase
       .from('ai_cache')
       .select('*')
-      .eq('ticker', `${cleanTicker}_V2`)
+      .eq('ticker', cleanTicker)
       .maybeSingle();
 
     if (cacheData && cacheData.ai_data) {
@@ -253,7 +253,7 @@ const model = genAI.getGenerativeModel({
     await supabase
       .from('ai_cache')
       .upsert({ 
-        ticker: `${cleanTicker}_V2`,
+        ticker: cleanTicker,
         ai_data: finalPayload, 
         updated_at: new Date().toISOString() 
       });

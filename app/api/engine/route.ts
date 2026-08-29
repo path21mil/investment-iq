@@ -4,17 +4,43 @@ import OpenAI from 'openai';
 
 export async function POST(req: Request) {
   try {
-    // Instantiate clients inside request handler to prevent build-time failures
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
-    const { userId } = await req.json();
-    if (!userId) return NextResponse.json({ error: "Missing userId" }, { status: 400 });
+    if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceKey) {
+      return NextResponse.json({ error: 'Server configuration is incomplete' }, { status: 500 });
+    }
+
+    // Never accept a user id from the request body. A caller could replace it
+    // with another account's id. Instead, validate the caller's Supabase token.
+    const authorization = req.headers.get('authorization');
+    if (!authorization?.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const accessToken = authorization.slice('Bearer '.length);
+    const authSupabase = createClient(supabaseUrl, supabaseAnonKey);
+    const {
+      data: { user },
+      error: authError,
+    } = await authSupabase.auth.getUser(accessToken);
+
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const userId = user.id;
+    const userSupabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: `Bearer ${accessToken}` } },
+    });
+    // This client is only for the shared company-intelligence cache. User-owned
+    // theses always use userSupabase so Supabase RLS remains in effect.
+    const adminSupabase = createClient(supabaseUrl, supabaseServiceKey);
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
     // Fetch user's active portfolio / theses
-    const { data: portfolio, error: fetchError } = await supabase
+    const { data: portfolio, error: fetchError } = await userSupabase
       .from('theses')
       .select('*')
       .eq('user_id', userId);
@@ -29,7 +55,7 @@ export async function POST(req: Request) {
       // =================================================================
       // LAYER 1: GLOBAL COMPANY INTELLIGENCE (Finnhub + Cache + Circuit Breaker)
       // =================================================================
-      let { data: companyCache } = await supabase
+      let { data: companyCache } = await adminSupabase
         .from('company_intelligence_cache')
         .select('*')
         .eq('ticker', ticker)
@@ -76,7 +102,7 @@ export async function POST(req: Request) {
           console.log(`[Zero-Cost Skip] No new articles for ${ticker}. Bypassing OpenAI ($0 spent).`);
 
           // Touch timestamp so we don't re-check Finnhub for another 24 hours
-          await supabase
+          await adminSupabase
             .from('company_intelligence_cache')
             .upsert({
               ticker,
@@ -110,7 +136,7 @@ export async function POST(req: Request) {
           companyFacts = JSON.parse(layer1Response.choices[0].message.content || "{}");
 
           // Save into global company intelligence cache
-          const { data: updatedCache } = await supabase
+          const { data: updatedCache } = await adminSupabase
             .from('company_intelligence_cache')
             .upsert({
               ticker,
@@ -130,7 +156,7 @@ export async function POST(req: Request) {
       // =================================================================
       // LAYER 2: PRIVATE USER THESIS EVALUATION (Personalized)
       // =================================================================
-      console.log(`[Layer 2] Evaluating private thesis for user ${userId} on ${ticker}...`);
+      console.log(`[Layer 2] Evaluating private thesis for ${ticker}...`);
 
    const layer2Prompt = `
         You are an expert financial AI evaluating an investor's private thesis. 
@@ -178,7 +204,7 @@ export async function POST(req: Request) {
       const analysis = JSON.parse(layer2Response.choices[0].message.content || "{}");
 
       // Update the user's specific thesis
-      const { error: updateError } = await supabase
+      const { error: updateError } = await userSupabase
         .from('theses')
         .update({
           status: analysis.status,
@@ -189,7 +215,8 @@ export async function POST(req: Request) {
           requires_action: analysis.status === "Weakening" || analysis.status === "Review Needed",
           last_scanned_at: new Date().toISOString()
         })
-        .eq('id', company.id);
+        .eq('id', company.id)
+        .eq('user_id', userId);
 
       if (updateError) {
         console.error(`Failed to update thesis for ${ticker}`, updateError);
