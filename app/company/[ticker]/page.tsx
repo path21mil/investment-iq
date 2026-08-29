@@ -18,14 +18,12 @@ export function CompanyLogo({ ticker, containerClass }: { ticker: string, contai
   const [imgSrc, setImgSrc] = useState(`https://financialmodelingprep.com/image-stock/${ticker}.png`);
   const [isFallback, setIsFallback] = useState(false);
 
-  // If the ticker changes, reset the image source
   useEffect(() => {
     setImgSrc(`https://financialmodelingprep.com/image-stock/${ticker}.png`);
     setIsFallback(false);
   }, [ticker]);
 
   return (
-    // Completely transparent container wrapper
     <div className={`flex items-center justify-center shrink-0 ${containerClass}`}>
       <img 
         src={imgSrc} 
@@ -33,11 +31,9 @@ export function CompanyLogo({ ticker, containerClass }: { ticker: string, contai
         className={`w-full h-full ${
           isFallback 
             ? 'object-cover rounded-xl shadow-sm border border-slate-200' 
-            // ✨ THE MAGIC FIX: drop-shadow traces the actual logo shape, making white text visible!
             : 'object-contain drop-shadow-[0_1px_3px_rgba(0,0,0,0.3)]'
         }`}
         onError={() => {
-          // When FMP fails, swap to the generated letter (which includes its own background)
           if (!isFallback) {
             setImgSrc(`https://ui-avatars.com/api/?name=${ticker}&background=f8fafc&color=0f172a&bold=true&font-size=0.45`);
             setIsFallback(true);
@@ -51,7 +47,6 @@ export function CompanyLogo({ ticker, containerClass }: { ticker: string, contai
 function ProgressiveCard({ question, statusText, statusType, thesisSupportText, thesisSupportType, summary, evidence, showThesisBadge = false }: any) {
   const [isOpen, setIsOpen] = useState(false);
 
-  // Minimalist dot styles
   const styles: any = {
     green: { dotColor: 'text-emerald-500' },
     yellow: { dotColor: 'text-amber-500' },
@@ -135,7 +130,6 @@ export default function CompanyPage({ params }: { params: Promise<{ ticker: stri
   const [aiError, setAiError] = useState<string | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-
   const getLifecycleBadgeStyle = (badge: string = '') => {
     switch (badge.toLowerCase()) {
       case 'expanding':
@@ -153,11 +147,13 @@ export default function CompanyPage({ params }: { params: Promise<{ ticker: stri
 
   const lifecycle = getLifecycleBadgeStyle(aiData?.ratingBadge);
 
+  // ✨ THE FIX: We consolidated data fetching to properly hit the unified API endpoint
   const fetchResearchData = async (companyProfile: any) => {
     setIsAnalyzing(true);
     setAiError(null);
     try {
-      const response = await fetch('/api/research', {
+      // Changed to hit your new full-research route!
+      const response = await fetch('/api/full-research', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ticker: ticker, companyName: companyProfile.companyName })
@@ -175,90 +171,79 @@ export default function CompanyPage({ params }: { params: Promise<{ ticker: stri
       setIsAnalyzing(false);
     }
   };
-useEffect(() => {
+
+  useEffect(() => {
     async function initPage() {
       setIsLoading(true);
-
-      // ✨ THE FIX: We securely call your new API route instead of getCompanyProfile!
-      const res = await fetch(`/api/company-profile?ticker=${ticker}`);
-      let liveProfile: any = await res.json();
-
-      if (Array.isArray(liveProfile) && liveProfile.length > 0) liveProfile = liveProfile[0];
-      setProfile(liveProfile);
-
-      let foundCache = false;
-
       try {
-        const { data: cacheData } = await supabase.from('ai_cache').select('*').eq('ticker', ticker).order('updated_at', { ascending: false }).limit(1).maybeSingle();
-        if (cacheData && cacheData.ai_data) {
-          let cachedPayload = cacheData.ai_data;
-          if (typeof cachedPayload === 'string') {
-            try { cachedPayload = JSON.parse(cachedPayload); } catch (e) {}
-          }
-          setAiData(cachedPayload);
-          foundCache = true;
-        }
-      } catch (err) {}
+        // 1. Fetch live profile
+        const res = await fetch(`/api/company-profile?ticker=${ticker}`);
+        let liveProfile: any = await res.json();
+        if (Array.isArray(liveProfile) && liveProfile.length > 0) liveProfile = liveProfile[0];
+        setProfile(liveProfile);
 
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        setIsLoggedIn(true);
-        const { data: thesis } = await supabase.from('theses').select('*').eq('user_id', session.user.id).ilike('ticker', ticker).maybeSingle();
+        // 2. Fetch User Thesis (if logged in)
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          setIsLoggedIn(true);
+          const { data: thesis } = await supabase.from('theses').select('*').eq('user_id', session.user.id).ilike('ticker', ticker).maybeSingle();
 
-        if (thesis) {
-          setSavedThesis(thesis);
-          
-          // Check the URL. If it says ?view=research, open the research view!
-          const requestedView = searchParams.get('view');
-          setViewMode(requestedView === 'research' ? 'research' : 'dashboard');
-          
-          const { data: optionsCache } = await supabase.from('thesis_options_cache').select('data').ilike('ticker', ticker).maybeSingle();
-          if (optionsCache && optionsCache.data) {
-            const allDrivers = optionsCache.data.drivers || [];
-            const allRisks = optionsCache.data.risks || [];
-
-            // Safely parse strings into arrays before checking!
-            const isSelected = (item: any, savedData: any) => {
-              let arr = savedData;
-              
-              // If Supabase returned stringified JSON, parse it into an array
-              if (typeof arr === 'string') {
-                try { arr = JSON.parse(arr); } catch(e) { arr = []; }
-              }
-              
-              // Failsafe: if it's still not an array, treat it as empty
-              if (!Array.isArray(arr)) arr = [];
-
-              return arr.some((saved: any) => {
-                if (typeof saved === 'string') return saved === item.id; 
-                return saved?.title === item.title; 
-              });
-            };
-
-            setActiveDrivers(allDrivers.filter((d: any) => isSelected(d, thesis.drivers)));
-            setActiveRisks(allRisks.filter((r: any) => isSelected(r, thesis.risks)));
+          if (thesis) {
+            setSavedThesis(thesis);
             
-            setSuggestedConsiderations([
-              ...allDrivers.filter((d: any) => !isSelected(d, thesis.drivers)), 
-              ...allRisks.filter((r: any) => !isSelected(r, thesis.risks))
-            ].slice(0, 2));
-          }
-        
-        } else setViewMode('research');
-      } else {
-        setIsLoggedIn(false);
-        setViewMode('research');
-      }
+            const requestedView = searchParams.get('view');
+            setViewMode(requestedView === 'research' ? 'research' : 'dashboard');
+            
+            const { data: optionsCache } = await supabase.from('thesis_options_cache').select('data').ilike('ticker', ticker).maybeSingle();
+            if (optionsCache && optionsCache.data) {
+              const allDrivers = optionsCache.data.drivers || [];
+              const allRisks = optionsCache.data.risks || [];
 
-      if (!foundCache && liveProfile) {
+              const isSelected = (item: any, savedData: any) => {
+                let arr = savedData;
+                if (typeof arr === 'string') {
+                  try { arr = JSON.parse(arr); } catch(e) { arr = []; }
+                }
+                if (!Array.isArray(arr)) arr = [];
+                return arr.some((saved: any) => {
+                  if (typeof saved === 'string') return saved === item.id; 
+                  return saved?.title === item.title; 
+                });
+              };
+
+              setActiveDrivers(allDrivers.filter((d: any) => isSelected(d, thesis.drivers)));
+              setActiveRisks(allRisks.filter((r: any) => isSelected(r, thesis.risks)));
+              
+              setSuggestedConsiderations([
+                ...allDrivers.filter((d: any) => !isSelected(d, thesis.drivers)), 
+                ...allRisks.filter((r: any) => !isSelected(r, thesis.risks))
+              ].slice(0, 2));
+            }
+          } else {
+            setViewMode('research');
+          }
+        } else {
+          setIsLoggedIn(false);
+          setViewMode('research');
+        }
+
+        // 3. ✨ Let the backend handle the AI Cache and Generation!
+        if (liveProfile) {
+          setIsLoading(false); // Drop the full screen loader
+          await fetchResearchData(liveProfile); // Show the skeleton loader while AI generates
+        } else {
+          setIsLoading(false);
+        }
+
+      } catch (error) {
+        console.error("Initialization error:", error);
         setIsLoading(false);
-        await fetchResearchData(liveProfile);
-      } else setIsLoading(false);
+      }
     }
 
     initPage();
-  }, [ticker]);
- 
+  }, [ticker, searchParams]);
+
   const handleLaunchBuilder = () => router.push(isLoggedIn ? `/build-thesis/${ticker}` : `/login?redirect=/build-thesis/${ticker}`);
 
   const getDynamicStatus = (title: string, type: 'driver' | 'risk') => {
@@ -271,7 +256,7 @@ useEffect(() => {
     return isMatch ? { label: 'Monitoring', dotColor: 'text-amber-500' } : { label: 'Stable', dotColor: 'text-slate-400' };
   };
 
-const getTrendIcon = (type: string) => {
+  const getTrendIcon = (type: string) => {
     switch(type) {
       case 'positive': return <span className="text-emerald-600 font-bold shrink-0 mt-0.5">↑</span>;
       case 'negative': return <span className="text-rose-600 font-bold shrink-0 mt-0.5">↓</span>;
@@ -300,7 +285,7 @@ const getTrendIcon = (type: string) => {
   return (
     <div className="min-h-screen bg-[#F8FAFC] font-sans text-[#0F172A] pb-24">
       
-     {/* NAVIGATION */}
+      {/* NAVIGATION */}
       <header className="sticky top-0 w-full z-50">
         
         {/* TOP BAR (Creates its own layer above the overlay) */}

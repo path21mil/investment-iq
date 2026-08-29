@@ -40,23 +40,22 @@ export const PortfolioShareCard = forwardRef<HTMLDivElement, PortfolioShareCardP
 }, ref) => {
 
   const statusConfig = {
-    STRENGTHENING: { color: '#22C55E', bg: 'rgba(34, 197, 94, 0.1)', border: 'rgba(22, 128, 60, 0.6)' },
-    INTACT: { color: '#5B8DEF', bg: 'rgba(91, 141, 239, 0.1)', border: 'rgba(91, 141, 239, 0.5)' },
-    WEAKENING: { color: '#FF3B4D', bg: 'rgba(255, 59, 77, 0.1)', border: 'rgba(200, 30, 45, 0.5)' }
-  }[overallStatus];
+    STRENGTHENING: { color: '#22C55E' },
+    INTACT: { color: '#3B82F6' },
+    WEAKENING: { color: '#EF4444' }
+  }[overallStatus] || { color: '#3B82F6' };
 
   const getDriverDot = (status: DriverItem['status']) => {
     switch (status) {
-      case 'strengthening': return <span className="w-4 h-4 rounded-full bg-[#22C55E] shadow-[0_0_8px_#22C55E] shrink-0 block" />;
-      case 'monitoring': return <span className="w-4 h-4 rounded-full bg-[#EAB308] shadow-[0_0_8px_#EAB308] shrink-0 block" />;
-      case 'weakening': return <span className="w-4 h-4 rounded-full bg-[#FF3B4D] shadow-[0_0_8px_#FF3B4D] shrink-0 block" />;
+      case 'strengthening': return <span className="w-4 h-4 rounded-full bg-[#22C55E] shrink-0 block" />;
+      case 'monitoring': return <span className="w-4 h-4 rounded-full bg-[#F59E0B] shrink-0 block" />;
+      case 'weakening': return <span className="w-4 h-4 rounded-full bg-[#EF4444] shrink-0 block" />;
       case 'on_track': 
       default: 
-        return <span className="w-4 h-4 rounded-full bg-[#5B8DEF] shadow-[0_0_8px_#5B8DEF] shrink-0 block" />;
+        return <span className="w-4 h-4 rounded-full bg-[#3B82F6] shrink-0 block" />;
     }
   };
 
-  // ✨ SMART COMPANY NAME TRIMMER
   const getCleanCompanyName = (name: string) => {
     let clean = (name || '').replace(/(?:\s+Inc\.?|\s+Corp\.?|\s+Ltd\.?|\s+LLC|\s+PLC|\s+Company)$/i, '').trim();
     const words = clean.split(/\s+/);
@@ -67,26 +66,26 @@ export const PortfolioShareCard = forwardRef<HTMLDivElement, PortfolioShareCardP
   };
   const displayCompanyName = getCleanCompanyName(companyName);
 
+  // Strictly limit to 1 update point
+  const displayUpdates = updates?.slice(0, 1) || [];
+
   return (
     <div 
       ref={ref}
       style={{ width: '1200px', height: '675px' }}
-      className="bg-[#050505] text-[#F5F7FA] px-8 py-5 flex flex-col font-sans shrink-0 overflow-hidden relative border border-[#1B2026] antialiased"
+      className="bg-[#F8FAFC] text-[#0F172A] flex flex-col font-sans shrink-0 overflow-hidden relative antialiased"
     >
-      <div 
-        className="absolute inset-0 opacity-[0.03] pointer-events-none z-0" 
-        style={{ backgroundImage: 'radial-gradient(#ffffff 1px, transparent 1px)', backgroundSize: '24px 24px' }}
-      />
+      {/* Reduced outer padding to p-8 to give the inside more breathing room */}
+      <div className="bg-white w-full h-full shadow-sm flex flex-col justify-between p-8 relative overflow-hidden">
+        
+        {/* 1. HEADER */}
+        {/* Reduced bottom padding to pb-4 */}
+        <div className="flex items-start justify-between z-10 border-b border-slate-100 pb-4 shrink-0">
+          <div className="flex items-center gap-6 min-w-0 flex-1 pr-6">
 
-
-      {/* 1. HEADER */}
-      <div className="flex items-start justify-between z-10 border-b border-[#1B2026] pb-4">
-        <div className="flex items-center gap-5 min-w-0 flex-1 pr-6">
-          
-          {/* ✨ Reduced Logo size from w-24 to w-20 */}
-          <div className="w-20 h-20 flex items-center justify-center shrink-0">
-            {logoUrl ? (
-              <img 
+            <div className="w-24 h-24 flex items-center justify-center shrink-0">
+               {logoUrl ? (
+               <img 
                 src={logoUrl} 
                 alt={`${displayCompanyName} logo`}
                 crossOrigin="anonymous"
@@ -97,115 +96,120 @@ export const PortfolioShareCard = forwardRef<HTMLDivElement, PortfolioShareCardP
                   if (fallback) fallback.style.display = 'flex';
                 }}
               />
-            ) : null}
-            <span 
-              className="text-[36px] font-extrabold text-[#F5F7FA] bg-[#080A0D] w-full h-full items-center justify-center rounded-2xl border border-[#1B2026]" 
-              style={{ display: logoUrl ? 'none' : 'flex' }}
-            >
-              {ticker[0]}
-            </span>
+                ) : (
+             <span className="text-[44px] font-extrabold text-[#0F172A] w-full h-full flex items-center justify-center rounded-2xl border border-slate-200 bg-white shadow-sm">
+             {ticker[0]}
+             </span>
+                 )}
+          </div>
+            
+
+            <div className="flex flex-col min-w-0 flex-1">
+              <div className="flex items-baseline gap-4 min-w-0">
+  <h1 className="text-[48px] font-extrabold text-[#0F172A] leading-none tracking-tight shrink-0">
+    {ticker}
+  </h1>
+  <span className="text-[28px] font-semibold text-slate-500 shrink-0">
+    {displayCompanyName}
+  </span>
+</div>
+              <div className="flex items-center gap-4 mt-2.5">
+                <span className="text-[24px] font-bold text-[#0F172A]">${price}</span>
+                <span className={`text-[20px] font-bold ${dayChange >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                  {dayChange > 0 ? '+' : ''}{dayChange}% <span className="text-slate-400 font-medium">today</span>
+                </span>
+              </div>
+            </div>
           </div>
 
-          <div className="flex flex-col min-w-0 flex-1">
-            <div className="flex items-center gap-4 min-w-0">
-              {/* ✨ Font sized reduced from 64px to 56px */}
-              <h1 className="text-[56px] font-extrabold text-[#F5F7FA] leading-none tracking-tight truncate max-w-[800px]" title={companyName}>
-                {displayCompanyName}
-              </h1>
-            </div>
-            <div className="flex items-center gap-4 mt-2.5">
-              {/* ✨ Price reduced from 44px to 40px */}
-              <span className="text-[40px] font-semibold text-[#F5F7FA]">${price}</span>
-              {/* ✨ Change reduced from 30px to 26px */}
-              <span className={`text-[26px] font-semibold ${dayChange >= 0 ? 'text-[#22C55E]' : 'text-[#FF3B4D]'}`}>
-                {dayChange > 0 ? '+' : ''}{dayChange}% <span className="text-[#8E99AA] font-medium">today</span>
+          <div className="flex flex-col items-end gap-1.5 mt-1 shrink-0">
+            
+            <div className="flex items-center gap-3 px-6 py-4 rounded-full border border-slate-100 bg-slate-50">
+              <span className="w-4 h-4 rounded-full shrink-0" style={{ backgroundColor: statusConfig.color }} />
+              <span className="text-[32px] font-extrabold tracking-widest leading-none text-black uppercase">
+                {overallStatus}
               </span>
             </div>
           </div>
         </div>
 
-        <div className="flex flex-col items-end gap-1.5 mt-1 shrink-0">
-          <span className="text-[14px] font-semibold uppercase tracking-widest text-[#8E99AA]">Thesis Status</span>
-          <div 
-            className="flex items-center gap-3 px-6 py-4 rounded-full border"
-            style={{ backgroundColor: statusConfig.bg, borderColor: statusConfig.border }}
-          >
-            <span className="w-3.5 h-3.5 rounded-full animate-pulse" style={{ backgroundColor: statusConfig.color, boxShadow: `0 0 10px ${statusConfig.color}` }} />
-            {/* ✨ Status text reduced from 32px to 26px */}
-            <span className="text-[30px] font-extrabold tracking-widest leading-none" style={{ color: statusConfig.color }}>
-              {overallStatus}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* 2. BODY */}
-      {/* ✨ Reduced vertical gaps between sections */}
-      <div className="flex flex-col gap-4 mt-5 mb-3 flex-1 z-10 justify-between">
-        
-        {/* WHAT CHANGED */}
-        <div className="bg-[#080A0D]/90 backdrop-blur-sm border border-[#1B2026] rounded-xl p-5 shadow-xl">
-          <h2 className="text-[14px] font-semibold uppercase tracking-widest text-[#8E99AA] mb-3">What Changed</h2>
-          <div className="grid grid-cols-2 gap-6">
-            {updates.slice(0, 2).map((update, idx) => (
-              <div key={idx} className="flex items-center gap-3 pr-2">
-                <div className="shrink-0 flex items-center justify-center">
-                  {update.type === 'positive' && <span className="text-[32px] font-semibold text-[#22C55E]">↑</span>}
-                  {update.type === 'negative' && <span className="text-[32px] font-semibold text-[#FF3B4D]">↓</span>}
-                  {update.type === 'warning' && <span className="text-[32px] font-semibold text-[#EAB308]">⚠</span>}
-                </div>
-                <div>
-                  {/* ✨ Headline reduced from 42px to 32px */}
-                  <h3 className="text-[36px] font-semibold text-[#F5F7FA] leading-tight">{update.headline}</h3>
-                </div>
+        {/* 2. BODY */}
+        {/* Added min-h-0 and tightened gaps to ensure it doesn't push the footer out */}
+        <div className="flex flex-col gap-4 mt-4 mb-2 flex-1 z-10 justify-center min-h-0">
+          
+          {/* WHAT CHANGED */}
+          {displayUpdates.length > 0 && (
+            <div>
+              <h2 className="text-[14px] font-bold uppercase tracking-widest text-slate-400 mb-3">Key Changes</h2>
+              <div className="flex flex-col gap-4">
+                {displayUpdates.map((update, idx) => (
+                  <div key={idx} className="flex items-start gap-4 pr-2">
+                    <div className="shrink-0 flex items-center justify-center mt-1">
+                      {update.type === 'positive' && <span className="text-[32px] font-semibold text-emerald-600 leading-none">↑</span>}
+                      {update.type === 'negative' && <span className="text-[32px] font-semibold text-rose-600 leading-none">↓</span>}
+                      {update.type === 'warning' && <span className="text-[32px] font-semibold text-amber-500 leading-none">⚠</span>}
+                    </div>
+                    <div>
+                      <h3 className="text-[36px] font-semibold text-[#0F172A] leading-snug max-w-[950px]">{update.headline}</h3>
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </div>
-
-        {/* THESIS DRIVERS */}
-        <div className="bg-[#080A0D]/90 backdrop-blur-sm border border-[#1B2026] rounded-xl p-5 shadow-xl">
-          <h2 className="text-[14px] font-semibold uppercase tracking-widest text-[#8E99AA] mb-3">Thesis Drivers</h2>
-          <div className="grid grid-cols-2 gap-6">
-            {drivers.slice(0, 2).map((driver, idx) => (
-              <div key={idx} className="flex items-start gap-3 pr-2">
-                <div className="shrink-0 h-[30px] flex items-center justify-center">
-                  {getDriverDot(driver.status)}
-                </div>
-                {/* ✨ Driver text reduced from 30px to 24px */}
-                <span className="text-[28px] font-semibold text-[#F5F7FA] leading-tight">{driver.name}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* KEY RISK */}
-        {keyRisk && (
-          <div className="bg-[#080A0D]/90 backdrop-blur-sm border border-[#FF3B4D]/30 rounded-xl p-5 shadow-xl">
-            <h2 className="text-[14px] font-semibold uppercase tracking-widest text-[#8E99AA] mb-3">Key Risk</h2>
-            <div className="flex items-start gap-3">
-              <div className="shrink-0 h-[32px] flex items-center justify-center">
-                <span className="w-4 h-4 rounded-full bg-[#FF3B4D] shadow-[0_0_8px_#FF3B4D] block" />
-              </div>
-              {/* ✨ Risk text reduced from 32px to 26px */}
-              <h3 className="text-[32px] font-semibold text-[#F5F7FA] leading-tight">{keyRisk}</h3>
             </div>
-          </div>
-        )}
+          )}
 
-      </div>
+          <hr className="border-slate-100 my-1" />
 
-      {/* 3. FOOTER */}
-      <div className="mt-auto pt-3 border-t border-[#1B2026] flex items-center justify-between z-10">
-        <div className="flex items-center gap-3">
-          <div className="w-7 h-7 rounded-md bg-[#5B8DEF] flex items-center justify-center text-[#050505] font-bold text-[12px] shadow-sm">
-            IQ
+          {/* THESIS DRIVERS */}
+          {drivers && drivers.length > 0 && (
+            <div>
+              <h2 className="text-[14px] font-bold uppercase tracking-widest text-slate-400 mb-3">Thesis Drivers</h2>
+              <div className="grid grid-cols-2 gap-4">
+                {drivers.slice(0, 2).map((driver, idx) => (
+                  <div key={idx} className="flex items-start gap-4 pr-2">
+                    <div className="shrink-0 h-[30px] flex items-center justify-center mt-1">
+                      {getDriverDot(driver.status)}
+                    </div>
+                    <span className="text-[28px] font-semibold text-[#0F172A] leading-tight">{driver.name}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* KEY RISK */}
+          {keyRisk && (
+            <>
+              <hr className="border-slate-100 my-1" />
+              <div>
+                <h2 className="text-[14px] font-bold uppercase tracking-widest text-slate-400 mb-3">Key Risk</h2>
+                <div className="flex items-start gap-4">
+                  <div className="shrink-0 h-[32px] flex items-center justify-center mt-1">
+                    <span className="w-4 h-4 rounded-full bg-rose-500 block shrink-0" />
+                  </div>
+                  <h3 className="text-[32px] font-semibold text-[#0F172A] leading-tight max-w-[950px]">{keyRisk}</h3>
+                </div>
+              </div>
+            </>
+          )}
+
+        </div>
+
+        {/* 3. FOOTER */}
+        {/* Adjusted padding to pt-4 and added shrink-0 so it stays locked to the bottom */}
+        <div className="mt-auto pt-4 border-t border-slate-100 flex items-center justify-between z-10 shrink-0">
+          <div className="flex items-center h-8">
+            <img 
+              src="/Group 1.svg" 
+              alt="Investment IQ" 
+              className="h-full w-auto object-contain"
+            />
           </div>
-          <span className="text-[18px] font-semibold text-[#F5F7FA]">Investment IQ</span>
+          <div className="flex text-slate-400 text-[14px] font-bold uppercase tracking-widest">
+            <span>Saved: {date}</span>
+          </div>
         </div>
-        <div className="flex text-[#8E99AA] text-[14px] font-medium uppercase tracking-widest">
-          <span>Last Reviewed {date}</span>
-        </div>
+
       </div>
     </div>
   );

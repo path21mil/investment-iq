@@ -22,15 +22,23 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Ticker is required' }, { status: 400 });
     }
 
-    const cleanTicker = ticker.toUpperCase().trim();
+    // ==========================================
+    // 🔧 1. UNIVERSAL TICKER NORMALIZATION
+    // ==========================================
+    // Strips '$', trims whitespace, and standardizes share classes (e.g. BRK-B or BRK B -> BRK.B)
+    const rawTicker = (ticker || '').toString().toUpperCase().trim();
+    const cleanTicker = rawTicker
+      .replace('$', '')
+      .replace(/([A-Z]+)[- ]([A-Z]+)$/, '$1.$2')
+      .trim();
 
-  // ==========================================
-    // 🛑 1. CHECK SUPABASE CACHE FIRST
+    // ==========================================
+    // 🛑 2. CHECK SUPABASE CACHE FIRST
     // ==========================================
     const { data: cacheData, error: cacheError } = await supabase
       .from('ai_cache')
       .select('*')
-      .eq('ticker', `${cleanTicker}_V2`) // <-- ADD _V2 HERE
+      .eq('ticker', `${cleanTicker}_V2`)
       .maybeSingle();
 
     if (cacheData && cacheData.ai_data) {
@@ -42,7 +50,7 @@ export async function POST(request: Request) {
     }
 
     // ==========================================
-    // ⚡ 2. FETCH LIVE MARKET DATA
+    // ⚡ 3. FETCH LIVE MARKET DATA
     // ==========================================
     const today = new Date();
     const lastWeek = new Date(today.getTime() - 14 * 24 * 60 * 60 * 1000); // 14 days for more context
@@ -52,7 +60,7 @@ export async function POST(request: Request) {
     let peerTickers: string[] = [];
     let currentPrice = 0;
     let metricsData: any = {};
-    let fetchedCompanyName = companyName; // <-- Add this
+    let fetchedCompanyName = companyName;
 
     if (finnhubKey) {
       try {
@@ -61,16 +69,13 @@ export async function POST(request: Request) {
           fetch(`https://finnhub.io/api/v1/quote?symbol=${cleanTicker}&token=${finnhubKey}`),
           fetch(`https://finnhub.io/api/v1/stock/metric?symbol=${cleanTicker}&metric=all&token=${finnhubKey}`),
           fetch(`https://finnhub.io/api/v1/stock/peers?symbol=${cleanTicker}&token=${finnhubKey}`),
-          fetch(`https://finnhub.io/api/v1/stock/profile2?symbol=${cleanTicker}&token=${finnhubKey}`) // <-- ADD THIS
+          fetch(`https://finnhub.io/api/v1/stock/profile2?symbol=${cleanTicker}&token=${finnhubKey}`)
         ]);
-
-        // ... existing response handlers ...
 
         if (profileRes.ok) {
           const profileData = await profileRes.json();
-          if (profileData?.name) fetchedCompanyName = profileData.name; // <-- ADD THIS
+          if (profileData?.name) fetchedCompanyName = profileData.name;
         }
-
 
         if (newsRes.ok) {
           const newsData = await newsRes.json();
@@ -79,14 +84,17 @@ export async function POST(request: Request) {
             newsText = topNews.map((a: any) => `HEADLINE: ${a.headline} | SOURCE: ${a.source} | URL: ${a.url}\nSUMMARY: ${a.summary}`).join('\n\n');
           }
         }
+
         if (quoteRes.ok) {
           const q = await quoteRes.json();
           currentPrice = q.c || 0;
         }
+
         if (metricRes.ok) {
           const m = await metricRes.json();
           metricsData = m.metric || {};
         }
+
         if (peersRes.ok) {
           const p = await peersRes.json();
           peerTickers = Array.isArray(p) ? p.filter((s: string) => s !== cleanTicker).slice(0, 3) : [];
@@ -96,22 +104,32 @@ export async function POST(request: Request) {
       }
     }
 
-    // Extract quantitative metrics safely
-    const yearHigh = metricsData['52WeekHigh'] || currentPrice;
-    const yearLow = metricsData['52WeekLow'] || currentPrice * 0.7;
+    // ==========================================
+    // 🛡️ 4. QUANTITATIVE METRICS & SANITY GUARDRAIL
+    // ==========================================
+    let yearHigh = Number(metricsData['52WeekHigh']) || currentPrice;
+    let yearLow = Number(metricsData['52WeekLow']) || (currentPrice > 0 ? currentPrice * 0.7 : 0);
+
+    // Guardrail against mixed share classes (e.g. BRK.A $800k high mixed into BRK.B $500 price)
+    if (currentPrice > 0 && yearHigh > currentPrice * 4) {
+      console.warn(`[Data Guardrail] Anomaly detected for ${cleanTicker}: 52W High ($${yearHigh}) is > 4x current price ($${currentPrice}). Normalizing.`);
+      yearHigh = Number((currentPrice * 1.15).toFixed(2));
+      yearLow = Number((currentPrice * 0.85).toFixed(2));
+    }
+
     const pe = metricsData['peTTM'] || metricsData['peNormalizedAnnual'] || null;
     const revGrowth = metricsData['revenueGrowthTTMYoy'] || metricsData['revenueGrowthQuarterlyYoy'] || 0;
     const opMargin = metricsData['operatingMarginTTM'] || 0;
     const netMargin = metricsData['netProfitMarginTTM'] || 0;
     const debtEquity = metricsData['totalDebt/totalEquityQuarterly'] || 0;
-    const earningsYield = pe && pe > 0 ? (1 / pe) * 100 : 0;
+    const earningsYield = pe && Number(pe) > 0 ? (1 / Number(pe)) * 100 : 0;
     const drawdownPct = yearHigh > 0 ? Math.round(((currentPrice - yearHigh) / yearHigh) * 100) : 0;
 
     // ==========================================
-    // 🧠 3. ASK GEMINI TO ANALYZE
+    // 🧠 5. GEMINI INSTITUTIONAL SYNTHESIS
     // ==========================================
-    const model = genAI.getGenerativeModel({ 
-      model: "gemini-3.6-flash", // Using your specific model string
+const model = genAI.getGenerativeModel({ 
+      model: "gemini-3.6-flash",
       generationConfig: { responseMimeType: "application/json" },
       safetySettings: [ 
         { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
@@ -122,17 +140,22 @@ export async function POST(request: Request) {
     });
 
     const prompt = `
-      Analyze ${companyName || cleanTicker} (${cleanTicker}) as a top-tier Wall Street analyst.
+      Analyze ${fetchedCompanyName || cleanTicker} (${cleanTicker}) as an institutional Wall Street equity analyst.
       
       Live Quantitative Metrics:
-      - Current Price: $${currentPrice} (Drawdown: ${drawdownPct}%)
-      - P/E: ${pe || 'N/A'}, Earnings Yield: ${earningsYield.toFixed(1)}%
+      - Current Price: $${currentPrice} (52W High: $${yearHigh}, 52W Low: $${yearLow}, Drawdown: ${drawdownPct}%)
+      - P/E: ${pe || 'N/A'}, Earnings Yield: ${earningsYield ? earningsYield.toFixed(1) + '%' : 'N/A'}
       - Revenue Growth YoY: ${revGrowth}%, Operating Margin: ${opMargin}%, Net Margin: ${netMargin}%
+      - Total Debt / Equity: ${debtEquity}
 
       Recent News & Headlines:
       ${newsText}
 
-      Return a JSON object exactly matching this structure. Do NOT include markdown blocks (\`\`\`json).
+      Consistency Requirements:
+      - Ensure all valuation labels across "pillars.valuation", "executiveSummary.valuation", and "whySurfaced" are mutually consistent.
+      - If P/E is low/compressed (e.g. < 15x), do not label the overall valuation as "Premium".
+
+      Return a JSON object exactly matching this schema:
       {
         "opportunityType": "PULLBACK OPPORTUNITY" | "BALANCED SETUP" | "VALUATION" | "FUNDAMENTAL ACCELERATION",
         "pillars": {
@@ -147,18 +170,18 @@ export async function POST(request: Request) {
         ],
         "executiveSummary": {
           "summary": "2-sentence institutional summary synthesizing fundamentals and recent news.",
-          "businessQuality": "Excellent",
-          "growth": "Strengthening",
-          "profitability": "Strong",
-          "valuation": "Premium",
-          "keyRisk": "Execution / valuation"
+          "businessQuality": "Excellent" | "Good" | "Moderate",
+          "growth": "Strengthening" | "Stable" | "Decelerating",
+          "profitability": "Strong" | "Moderate" | "Compressed",
+          "valuation": "Premium" | "Fair Value" | "Compressed",
+          "keyRisk": "Short description of key risk"
         },
         "whatChanged": [
           {
             "direction": "up" | "down" | "warning",
             "headline": "Short headline of change",
             "detail": "1-sentence elaboration.",
-            "sourceName": "Name of source (e.g. Reuters, Yahoo Finance)",
+            "sourceName": "Name of source (e.g. Reuters, Bloomberg, SEC Filing)",
             "sourceUrl": "URL from the news list or null",
             "evidenceText": "Quoted fact or specific metric from the news"
           }
@@ -173,8 +196,8 @@ export async function POST(request: Request) {
           { "number": "07", "question": "Can this business keep growing for 5–10 years?", "status": "pass" | "warn", "summary": "1-sentence summary" }
         ],
         "management": {
-          "capitalAllocation": "Strong",
-          "execution": "Trusted",
+          "capitalAllocation": "Strong" | "Moderate" | "Weak",
+          "execution": "Trusted" | "Solid" | "Under Review",
           "commentary": "Summary of management tone and execution based on news context."
         },
         "peers": [
@@ -191,7 +214,6 @@ export async function POST(request: Request) {
     const result = await model.generateContent(prompt);
     let rawText = result.response.text();
 
-    // Safely Extract JSON using your existing robust logic
     const firstBrace = rawText.indexOf('{');
     const lastBrace = rawText.lastIndexOf('}');
     if (firstBrace === -1 || lastBrace === -1) {
@@ -200,8 +222,6 @@ export async function POST(request: Request) {
 
     rawText = rawText.substring(firstBrace, lastBrace + 1);
     
-    // Note: Removed the regex replace for newlines here to prevent JSON parse errors if Gemini returns strings with valid spaces/newlines.
-    
     let finalJson;
     try {
       finalJson = JSON.parse(rawText);
@@ -209,7 +229,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "JSON Parsing Failed: " + parseError.message }, { status: 500 });
     }
 
-    // Merge the AI data with our real-time scraped quantitative metrics for the UI
+    // ==========================================
+    // 📦 6. MERGE PAYLOAD & CACHE IN SUPABASE
+    // ==========================================
     const finalPayload = {
       ticker: cleanTicker,
       companyName: fetchedCompanyName || cleanTicker,
@@ -223,18 +245,15 @@ export async function POST(request: Request) {
         revenueGrowth: revGrowth ? `+${Number(revGrowth).toFixed(1)}%` : 'N/A',
         operatingMargin: opMargin ? `${Number(opMargin).toFixed(1)}%` : 'N/A',
         netMargin: netMargin ? `${Number(netMargin).toFixed(1)}%` : 'N/A',
-        debtEquity: debtEquity ? `${Number(debtEquity).toFixed(1)}%` : 'N/A'
+        debtEquity: debtEquity ? `${Number(debtEquity).toFixed(1)}` : 'N/A'
       },
       ...finalJson
     };
 
-  // ==========================================
-    // 💾 4. SAVE TO CACHE
-    // ==========================================
     await supabase
       .from('ai_cache')
       .upsert({ 
-        ticker: `${cleanTicker}_V2`, // <-- ADD _V2 HERE
+        ticker: `${cleanTicker}_V2`,
         ai_data: finalPayload, 
         updated_at: new Date().toISOString() 
       });

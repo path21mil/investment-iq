@@ -28,13 +28,13 @@ export function PortfolioShareModal({ isOpen, onClose, company }: PortfolioShare
       try {
         const apiKey = process.env.FINNHUB_API_KEY;
 
-       // 1. Fetch Quote securely via our backend route
+       
           // 1. Fetch Quote securely via our backend route
-const priceRes = await fetch(`/api/company-profile?ticker=${company.ticker}`);
-const priceData = await priceRes.json();
+const Res = await fetch(`/api/company-profile?ticker=${company.ticker}`);
+const Data = await Res.json();
 
 // If priceData comes back as an array (from FMP) or object (from Finnhub)
-const profile = Array.isArray(priceData) ? priceData[0] : priceData;
+const profile = Array.isArray(Data) ? Data[0] : Data;
 
 if (profile && (profile.price !== undefined || profile.c !== undefined)) {
   const currentPrice = profile.price ?? profile.c;
@@ -44,10 +44,10 @@ if (profile && (profile.price !== undefined || profile.c !== undefined)) {
        const profileRes = await fetch(`/api/company-profile?ticker=${company.ticker}`);
         const profileData = await profileRes.json();
         
-        if (profileData && profileData.logo) {
+        if (profileData && profileData.image) {
           try {
             // ✨ THE FIX: Route the Finnhub URL through our new server proxy!
-            const proxiedUrl = `/api/image-proxy?url=${encodeURIComponent(profileData.logo)}`;
+            const proxiedUrl = `/api/image-proxy?url=${encodeURIComponent(profileData.image)}`;
             
             // Fetch the proxied image and convert it to safe Base64
             const imageResponse = await fetch(proxiedUrl);
@@ -200,7 +200,7 @@ if (profile && (profile.price !== undefined || profile.c !== undefined)) {
         cacheBust: true,
         pixelRatio: 3, 
         quality: 1.0,
-        backgroundColor: '#07090D',
+        backgroundColor: '#FFFFFF',
         style: { transform: 'scale(1)', transformOrigin: 'top left', margin: '0' }
       });
 
