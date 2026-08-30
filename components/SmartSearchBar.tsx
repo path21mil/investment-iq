@@ -65,6 +65,7 @@ export default function SmartSearchBar({ variant = 'header' }: SmartSearchBarPro
   }, [query]);
 
  const handleSelect = (symbol: string) => {
+  console.log("🚨 NEW CODE IS RUNNING FOR:", symbol); // Add this!
   const cleanSymbol = symbol.toUpperCase().trim();
 
   // ✨ Save the search to the browser so the landing page can pick it up
