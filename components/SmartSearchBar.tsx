@@ -64,13 +64,19 @@ export default function SmartSearchBar({ variant = 'header' }: SmartSearchBarPro
     return () => clearTimeout(timer);
   }, [query]);
 
-  const handleSelect = (symbol: string) => {
-    setIsNavigating(true);
-    setIsOpen(false);
-    setErrorMessage('');
-    router.push(`/company/${symbol.toUpperCase()}`);
-  };
+ const handleSelect = (symbol: string) => {
+  const cleanSymbol = symbol.toUpperCase().trim();
 
+  // ✨ Save the search to the browser so the landing page can pick it up
+  const existingSearches = JSON.parse(localStorage.getItem('user_recent_searches') || '[]');
+  const updatedSearches = [cleanSymbol, ...existingSearches.filter((t: string) => t !== cleanSymbol)];
+  localStorage.setItem('user_recent_searches', JSON.stringify(updatedSearches));
+
+  setIsNavigating(true);
+  setIsOpen(false);
+  setErrorMessage('');
+  router.push(`/company/${cleanSymbol}`);
+};
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage('');
@@ -125,7 +131,7 @@ export default function SmartSearchBar({ variant = 'header' }: SmartSearchBarPro
           onFocus={() => {
             if (searchResults.length > 0) setIsOpen(true);
           }}
-          placeholder={isHero ? "Search AAPL, TSLA, etc..." : "Search..."}
+          placeholder={isHero ? "Search NVDA etc..." : "Search..."}
           className={`w-full focus:outline-none transition-all shadow-sm ${
             isHero 
               // ✨ FIX: Changed text-[13px] to text-[16px] for mobile, keeps md:text-base for desktop

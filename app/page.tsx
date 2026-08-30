@@ -98,30 +98,29 @@ export default function Home() {
     }, 5000);
     return () => clearInterval(interval);
   }, []);
-
-// --- 3. FETCH RECENT GENERATIONS FROM SUPABASE ---
-  useEffect(() => {
-    async function fetchRecentCommunityResearch() {
-      try {
+// --- 3. FETCH USER'S RECENT SEARCHES ---
+useEffect(() => {
+  async function fetchUserSearchHistory() {
+    try {
+      // 1. Read the user's specific history from their browser
+      const savedSearches = JSON.parse(localStorage.getItem('user_recent_searches') || '[]');
+      
+      if (savedSearches.length > 0) {
+        const uniqueTickers = [...new Set(savedSearches)].slice(0, 4) as string[];
+        
+        // 2. Fetch ONLY the AI data for the tickers this user searched
         const { data, error } = await supabase
           .from('ai_cache')
           .select('*')
-          .order('updated_at', { ascending: false })
-          .limit(4);
+          .in('ticker', uniqueTickers);
 
-        if (error) {
-          console.error("Supabase API Error:", error);
-          throw error;
-        }
+        if (!error && data && data.length > 0) {
+          const liveFormattedData: any = { ...DEMO_COMPANIES }; // Keep fallbacks
+          const validTickers: string[] = [];
 
-        if (data && data.length > 0) {
-          const liveFormattedData: any = {};
-          const liveTickers: string[] = [];
-          
+          // ✨ CHANGE 1: Added dynamic name fetching back so pills show real names (e.g., "Rocket (RKLB)")
           const dynamicNames: Record<string, string> = {};
           try {
-            const uniqueTickers = [...new Set(data.map(r => r.ticker))];
-            
             const profiles = await Promise.all(uniqueTickers.map(async (t) => {
               const res = await fetch(`/api/company-profile?ticker=${t}`);
               if (!res.ok) return null;
@@ -136,7 +135,7 @@ export default function Home() {
               }
             });
           } catch (nameErr) {
-            console.warn("Could not fetch live names from API, falling back to DB", nameErr);
+            console.warn("Could not fetch live names from API", nameErr);
           }
 
           const extractLabel = (pillar: any, fallback: string) => {
@@ -148,24 +147,22 @@ export default function Home() {
 
           data.forEach((row) => {
             let aiPayload = row.ai_data; 
-            
             if (typeof aiPayload === 'string') {
               try { aiPayload = JSON.parse(aiPayload); } catch (e) {}
             }
 
             if (aiPayload) {
-              liveTickers.push(row.ticker);
-              
+              validTickers.push(row.ticker);
               const rawPillars = aiPayload.pillars || {};
               
+              // Uses the dynamic name fetched above
               let rawName = dynamicNames[row.ticker] || aiPayload.companyName || row.company_name || row.ticker;
               let cleanName = rawName.replace(/(?:\s+Inc\.?|\s+Corp\.?|\s+Ltd\.?|\s+LLC|\s+PLC)$/i, '').trim();
               
               liveFormattedData[row.ticker] = {
                 name: cleanName, 
                 ticker: row.ticker,
-                sector: 'Community Research',
-                // ✨ ADDED: We must map the rating badge from the database to the state here!
+                sector: 'Community Research', // ✨ CHANGE 2: Changed from 'Recent Search'
                 ratingBadge: aiPayload.ratingBadge || aiPayload.stage || 'Mature',
                 overallAssessment: aiPayload.overallAssessment || 'AI Assessment complete.',
                 pillars: { 
@@ -183,21 +180,36 @@ export default function Home() {
             }
           });
 
-          if (liveTickers.length > 0) {
+          if (validTickers.length > 0) {
+            // Sort tickers to match the order they were searched (most recent first)
+            validTickers.sort((a, b) => uniqueTickers.indexOf(a) - uniqueTickers.indexOf(b));
+            
             setCommunityData(liveFormattedData);
-            setPreviewTickers(liveTickers);
-            setSelectedTicker(liveTickers[0]);
+            setPreviewTickers(validTickers);
+            setSelectedTicker(validTickers[0]);
+            setIsLoadingCommunity(false);
+            return; // Exit successfully
           }
         }
-      } catch (err) {
-        console.error("Database fetch failed, falling back to Demo Companies:", err);
-      } finally {
-        setIsLoadingCommunity(false);
       }
-    }
 
-    fetchRecentCommunityResearch();
-  }, []);
+      // 3. Fallback: If no valid local searches exist, show default demos
+      setPreviewTickers(['AAOI', 'NVDA', 'AAPL']);
+      setSelectedTicker('AAOI');
+      setCommunityData(DEMO_COMPANIES);
+
+    } catch (err) {
+      console.error("Failed to load user search history:", err);
+      setPreviewTickers(['AAOI', 'NVDA', 'AAPL']);
+      setSelectedTicker('AAOI');
+      setCommunityData(DEMO_COMPANIES);
+    } finally {
+      setIsLoadingCommunity(false);
+    }
+  }
+
+  fetchUserSearchHistory();
+}, []);
 
   const activeData = communityData[selectedTicker] || DEMO_COMPANIES['AAOI'];
   const lifecycle = getLifecycleBadgeStyle(activeData?.ratingBadge || activeData?.stage);
