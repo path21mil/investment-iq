@@ -44,21 +44,34 @@ export async function POST(request: Request) {
     let newsText = "No recent news.";
     let profileSummary = "";
 
-    if (finnhubKey) {
+   if (finnhubKey) {
       try {
         const [newsRes, profileRes] = await Promise.all([
           fetch(`https://finnhub.io/api/v1/company-news?symbol=${ticker}&from=${lastWeek.toISOString().split('T')[0]}&to=${today.toISOString().split('T')[0]}&token=${finnhubKey}`),
           fetch(`https://finnhub.io/api/v1/stock/profile2?symbol=${ticker}&token=${finnhubKey}`)
         ]);
 
+        // Safely parse News
         if (newsRes.ok) {
-          const newsData = await newsRes.json();
-          const topNews = newsData.slice(0, 8);
-          if (topNews.length > 0) newsText = topNews.map((a: any) => `HEADLINE: ${a.headline}\nSUMMARY: ${a.summary}`).join('\n\n');
+          const rawNewsText = await newsRes.text();
+          try {
+            const newsData = JSON.parse(rawNewsText);
+            const topNews = newsData.slice(0, 8);
+            if (topNews.length > 0) newsText = topNews.map((a: any) => `HEADLINE: ${a.headline}\nSUMMARY: ${a.summary}`).join('\n\n');
+          } catch (parseErr) {
+            console.error("🚨 Finnhub News returned HTML instead of JSON. Raw response:", rawNewsText.substring(0, 200));
+          }
         }
+        
+        // Safely parse Profile
         if (profileRes.ok) {
-          const profileData = await profileRes.json();
-          if (profileData?.finnhubIndustry) profileSummary = `Industry: ${profileData.finnhubIndustry}, Market Cap: $${profileData.marketCapitalization}M`;
+          const rawProfileText = await profileRes.text();
+          try {
+            const profileData = JSON.parse(rawProfileText);
+            if (profileData?.finnhubIndustry) profileSummary = `Industry: ${profileData.finnhubIndustry}, Market Cap: $${profileData.marketCapitalization}M`;
+          } catch (parseErr) {
+            console.error("🚨 Finnhub Profile returned HTML instead of JSON. Raw response:", rawProfileText.substring(0, 200));
+          }
         }
       } catch (err) {
         console.error("Finnhub Fetch Error (Ignored):", err);

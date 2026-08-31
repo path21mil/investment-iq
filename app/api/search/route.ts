@@ -24,7 +24,17 @@ export async function GET(request: Request) {
       return NextResponse.json({ result: [] });
     }
 
-    const data = await res.json();
+    // ✨ FIX: Read as text first to prevent the JSON crash
+    const rawText = await res.text();
+    let data;
+    
+    try {
+      data = JSON.parse(rawText);
+    } catch (parseError) {
+      console.error("🚨 Finnhub Search returned HTML instead of JSON! Raw response:", rawText.substring(0, 250));
+      return NextResponse.json({ result: [] }); // Return empty results safely
+    }
+
     const cleanQuery = query.trim().toUpperCase();
 
     // 🏆 CUSTOM PRIORITY SORTING LOGIC
