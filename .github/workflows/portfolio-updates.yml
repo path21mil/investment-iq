@@ -1,0 +1,14 @@
+name: Portfolio Updates Scan
+
+on:
+  schedule:
+    # Runs every 4 hours
+    - cron: '0 */4 * * *'
+  workflow_dispatch:
+
+jobs:
+  ping-api:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Portfolio Updates
+        run: curl -fsS https://investmentiq.me/api/cron/portfolio-updates
