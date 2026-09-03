@@ -1,14 +1,15 @@
-name: Portfolio Updates Scan
+name: Portfolio Updates Cron
 
 on:
   schedule:
-    # Runs every 4 hours
     - cron: '0 */4 * * *'
-  workflow_dispatch:
+  workflow_dispatch: # Keeps the manual run button enabled
 
 jobs:
-  ping-api:
+  run-portfolio-cron:
     runs-on: ubuntu-latest
     steps:
       - name: Trigger Portfolio Updates
-        run: curl -fsS https://investmentiq.me/api/cron/portfolio-updates
+        run: |
+          curl -s -f -X GET "${{ secrets.APP_URL }}/api/cron/portfolio-updates" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"

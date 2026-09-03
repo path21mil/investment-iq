@@ -3,11 +3,13 @@ name: Hourly Market Scan
 on:
   schedule:
     - cron: '0 * * * *'
-  workflow_dispatch:
+  workflow_dispatch: # Keeps the manual run button enabled
 
 jobs:
-  ping-api:
+  run-market-scan:
     runs-on: ubuntu-latest
     steps:
-      - name: Trigger Market Scan
-        run: curl -fsS https://investmentiq.me/api/cron/scan-market
+      - name: Trigger Market Scanner
+        run: |
+          curl -s -f -X GET "${{ secrets.APP_URL }}/api/cron/scan-market" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"

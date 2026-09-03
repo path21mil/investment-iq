@@ -1,13 +1,25 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Search, Info, ChevronDown, ChevronUp, BookOpen, Loader2, RefreshCw, User, Settings, LogOut, X, Check } from 'lucide-react';
+import { 
+  Search, 
+  Info, 
+  ChevronDown, 
+  ChevronUp, 
+  BookOpen, 
+  Loader2, 
+  RefreshCw, 
+  X, 
+  Check, 
+  ShieldCheck, 
+  ExternalLink 
+} from 'lucide-react';
 import { createClient } from "@supabase/supabase-js";
-import Logo from '@/components/Logo';
 import WatchlistSection from '@/components/WatchlistSection';
-import Header from '@/components/Header'; // Make sure the path matches your setup!
+import SmartSearchBar from '@/components/SmartSearchBar';
+import Header from '@/components/Header';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -23,7 +35,7 @@ interface Driver {
 
 interface CompanyUpdate {
   text: string;
-  headline?: string; // Added to catch AI formatting mistakes
+  headline?: string;
   trend: 'up' | 'down' | 'neutral';
   evidenceText?: string;
   sourceName?: string;
@@ -41,23 +53,35 @@ interface TrackedCompany {
   drivers: Driver[];
   primaryRisk?: string;
   lastUpdated: string;
-  rawUpdatedAt: string; 
+  rawUpdatedAt: string;
   requiresAction: boolean;
 }
 
+interface PortfolioEvent {
+  id: string;
+  ticker: string;
+  headline: string;
+  impact_summary: string;
+  event_type: string;
+  sentiment: 'strengthening' | 'monitoring' | 'risk';
+  source_url?: string | null;
+  source_name?: string | null;
+  detected_at: string;
+}
+
 function getTimeAgo(dateString: string | null) {
-  if (!dateString) return 'Never updated';
+  if (!dateString) return 'recently';
   const now = new Date();
   const past = new Date(dateString);
   const diffInMinutes = Math.floor((now.getTime() - past.getTime()) / 60000);
 
-  if (diffInMinutes < 1) return 'Updated just now';
-  if (diffInMinutes < 60) return `Updated ${diffInMinutes} min ago`;
-  if (diffInMinutes < 1440) return `Updated ${Math.floor(diffInMinutes / 60)} hours ago`;
-  return `Updated ${Math.floor(diffInMinutes / 1440)} days ago`;
+  if (diffInMinutes < 1) return 'just now';
+  if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
+  if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h ago`;
+  return `${Math.floor(diffInMinutes / 1440)}d ago`;
 }
 
-export function CompanyLogo({ ticker, containerClass }: { ticker: string, containerClass: string }) {
+export function CompanyLogo({ ticker, containerClass }: { ticker: string; containerClass: string }) {
   const [imgSrc, setImgSrc] = useState(`https://financialmodelingprep.com/image-stock/${ticker}.png`);
   const [isFallback, setIsFallback] = useState(false);
 
@@ -93,19 +117,20 @@ export default function Dashboard() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [portfolio, setPortfolio] = useState<TrackedCompany[]>([]);
+  const [events, setEvents] = useState<PortfolioEvent[]>([]);
   const [userName, setUserName] = useState('Investor');
-  
+  const [sessionLabel, setSessionLabel] = useState('Past 24 Hours');
+  const [latestEventScanTime, setLatestEventScanTime] = useState<string | null>(null);
+
   const [reviewCompany, setReviewCompany] = useState<TrackedCompany | null>(null);
   const [expandedEvidenceIdx, setExpandedEvidenceIdx] = useState<number | null>(null);
-  const [toastMessage, setToastMessage] = useState<{title: string, description: string} | null>(null);
+  const [toastMessage, setToastMessage] = useState<{title: string; description: string} | null>(null);
   const [showAlphaWelcome, setShowAlphaWelcome] = useState(false);
 
   useEffect(() => {
     const hasSeenWelcome = localStorage.getItem('hasSeenAlphaWelcome');
     if (!hasSeenWelcome) {
-      const timer = setTimeout(() => {
-        setShowAlphaWelcome(true);
-      }, 1500);
+      const timer = setTimeout(() => setShowAlphaWelcome(true), 1500);
       return () => clearTimeout(timer);
     }
   }, []);
@@ -121,12 +146,6 @@ export default function Dashboard() {
 
   useEffect(() => {
     loadDashboard();
-    
-    if (window.location.hash) {
-      setTimeout(() => {
-        window.history.replaceState(null, '', window.location.pathname);
-      }, 500);
-    }
   }, []);
 
   const loadDashboard = async () => {
@@ -140,6 +159,7 @@ export default function Dashboard() {
       const name = session.user.user_metadata?.full_name?.split(' ')[0] || 'Padam';
       setUserName(name);
 
+      // 1. Fetch User Holdings
       const { data: dbTheses, error } = await supabase
         .from("theses")
         .select("*")
@@ -150,24 +170,94 @@ export default function Dashboard() {
 
       if (!dbTheses || dbTheses.length === 0) {
         setPortfolio([]);
+        setEvents([]);
+        setIsLoading(false);
+        return;
+      }
+
+      const tickers = dbTheses.map((t: any) => t.ticker.toUpperCase());
+
+      // 2. Determine Lookback Window (Floor: 24h, Ceiling: 7 days)
+      const storedLastVisit = localStorage.getItem(`last_visit_${session.user.id}`);
+      const now = new Date();
+      let lookbackDate = new Date(now.getTime() - 24 * 60 * 60 * 1000); // Default 24h floor
+
+      if (storedLastVisit) {
+        const lastVisitDate = new Date(storedLastVisit);
+        const diffHours = (now.getTime() - lastVisitDate.getTime()) / (1000 * 60 * 60);
+
+        if (diffHours >= 168) {
+          // 7 days or more -> Ceiling
+          lookbackDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          setSessionLabel('Past 7 Days');
+        } else if (diffHours > 24) {
+          lookbackDate = lastVisitDate;
+          const days = Math.floor(diffHours / 24);
+          setSessionLabel(`Past ${days} Day${days > 1 ? 's' : ''}`);
+        } else {
+          setSessionLabel('Since Yesterday');
+        }
       } else {
-        const mappedPortfolio: TrackedCompany[] = dbTheses.map((t: any) => ({
-          id: t.id,
-          ticker: t.ticker,
-          name: t.company_name || t.ticker,
-          status: t.status || 'Strengthening', 
-          coreThesis: t.drivers?.[0]?.title || 'Long-term growth compounding',
-          aiSummary: t.ai_summary || 'Tracking active. Awaiting next earnings call or SEC filing for new insights.',
-          updates: typeof t.updates === 'string' ? JSON.parse(t.updates) : (t.updates || []), 
-          drivers: typeof t.drivers === 'string' ? JSON.parse(t.drivers) : (t.drivers || []),
-          primaryRisk: t.primary_risk || (typeof t.risks === 'string' ? JSON.parse(t.risks)?.[0]?.title : t.risks?.[0]?.title) || undefined,
-          lastUpdated: new Date(t.last_scanned_at || t.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-          rawUpdatedAt: t.last_scanned_at || t.updated_at || t.created_at, 
-          requiresAction: t.requires_action || false
+        setSessionLabel('Past 24 Hours');
+      }
+
+      // Record current visit timestamp
+      localStorage.setItem(`last_visit_${session.user.id}`, now.toISOString());
+
+      // 3. Fetch Portfolio Events for Held Tickers (Last 7 Days)
+      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      const { data: eventRecords } = await supabase
+        .from('portfolio_events')
+        .select('*')
+        .in('ticker', tickers)
+        .gte('detected_at', sevenDaysAgo)
+        .order('detected_at', { ascending: false });
+
+      const safeEvents: PortfolioEvent[] = eventRecords || [];
+      setEvents(safeEvents);
+
+      if (safeEvents.length > 0) {
+        setLatestEventScanTime(safeEvents[0].detected_at);
+      }
+
+      // 4. Map DB Theses to Dashboard Structure
+      const mappedPortfolio: TrackedCompany[] = dbTheses.map((t: any) => {
+        const ticker = t.ticker.toUpperCase();
+        const tickerEvents = safeEvents.filter(e => e.ticker.toUpperCase() === ticker);
+        
+        let dynamicStatus: TrackedCompany['status'] = 'Strengthening';
+        if (tickerEvents.some(e => e.sentiment === 'risk')) {
+          dynamicStatus = 'Weakening';
+        } else if (tickerEvents.some(e => e.sentiment === 'monitoring')) {
+          dynamicStatus = 'Review Needed';
+        }
+
+        const updates: CompanyUpdate[] = tickerEvents.map(e => ({
+          text: e.headline,
+          headline: e.headline,
+          trend: e.sentiment === 'strengthening' ? 'up' : e.sentiment === 'monitoring' ? 'down' : 'neutral',
+          evidenceText: e.impact_summary,
+          sourceName: e.source_name || 'Market Filing / Disclosure',
+          sourceUrl: e.source_url
         }));
 
-        setPortfolio(mappedPortfolio);
-      }
+        return {
+          id: t.id,
+          ticker: ticker,
+          name: t.company_name || ticker,
+          status: dynamicStatus,
+          coreThesis: t.drivers?.[0]?.title || 'Long-term thesis tracking active',
+          aiSummary: tickerEvents[0]?.impact_summary || t.ai_summary || 'Tracking active. Awaiting next earnings report or SEC filing.',
+          updates: updates.length > 0 ? updates : (typeof t.updates === 'string' ? JSON.parse(t.updates) : t.updates || []),
+          drivers: typeof t.drivers === 'string' ? JSON.parse(t.drivers) : (t.drivers || []),
+          primaryRisk: t.primary_risk || undefined,
+          lastUpdated: new Date(t.last_scanned_at || t.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          rawUpdatedAt: t.last_scanned_at || t.created_at,
+          requiresAction: dynamicStatus !== 'Strengthening'
+        };
+      });
+
+      setPortfolio(mappedPortfolio);
     } catch (err) {
       console.error("Dashboard Load Error:", err);
     } finally {
@@ -191,74 +281,48 @@ export default function Dashboard() {
     router.push(`/company/${searchQuery.trim().toUpperCase()}`);
   };
 
-  const handleSmartSync = async () => {
+  const handleRefresh = async () => {
     setIsSyncing(true);
-    try {
-      if (mostRecentTime) {
-        const now = new Date();
-        const lastUpdate = new Date(mostRecentTime);
-        const diffInHours = (now.getTime() - lastUpdate.getTime()) / (1000 * 60 * 60);
-
-        if (diffInHours < 24) {
-          await new Promise(resolve => setTimeout(resolve, 7500));
-          
-          setToastMessage({
-            title: "Portfolio up to date",
-            description: `All investment drivers are current. Next scheduled market sync is in ${Math.ceil(24 - diffInHours)} hours.`
-          });
-          
-          setTimeout(() => setToastMessage(null), 6000);
-          return; 
-        }
-      }
-
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-      
-      await fetch('/api/engine', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${session.access_token}`,
-  },
-  body: JSON.stringify({}),
-});
-      
-      await loadDashboard(); 
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsSyncing(false);
-    }
+    await loadDashboard();
+    setIsSyncing(false);
+    setToastMessage({
+      title: "Dashboard Refreshed",
+      description: "Surfaced the latest catalogued portfolio alerts."
+    });
+    setTimeout(() => setToastMessage(null), 4000);
   };
 
-  const attentionCompanies = portfolio.filter(p => p.status === 'Weakening' || p.status === 'Review Needed' || p.requiresAction);
-  const attentionIds = new Set(attentionCompanies.map(c => c.id));
-  const riskCompanies = portfolio.filter(p => !attentionIds.has(p.id) && p.updates.some(u => u.trend === 'down'));
-  const riskIds = new Set(riskCompanies.map(c => c.id));
-  const strengtheningCompanies = portfolio.filter(p => !attentionIds.has(p.id) && !riskIds.has(p.id));
+  // --- DERIVE DELTAS FOR "SINCE YOUR LAST VISIT" ---
+  const { strengtheningTickers, riskTickers, attentionTickers } = useMemo(() => {
+    const s = new Set<string>();
+    const r = new Set<string>();
+    const a = new Set<string>();
 
-  const sortedActionItems = [...portfolio].sort((a, b) => {
-    const getPriority = (status: string) => {
-      if (status === 'Weakening') return 1;
-      if (status === 'Review Needed') return 2;
-      return 3;
+    events.forEach(e => {
+      if (e.sentiment === 'strengthening') s.add(e.ticker);
+      if (e.sentiment === 'monitoring') r.add(e.ticker);
+      if (e.sentiment === 'risk') a.add(e.ticker);
+    });
+
+    return {
+      strengtheningTickers: Array.from(s),
+      riskTickers: Array.from(r),
+      attentionTickers: Array.from(a)
     };
-    return getPriority(a.status) - getPriority(b.status);
-  });
+  }, [events]);
 
-  const mostRecentTime = portfolio.length > 0 
-    ? portfolio.reduce((latest, company) => 
-        new Date(company.rawUpdatedAt) > new Date(latest.rawUpdatedAt) ? company : latest
-      ).rawUpdatedAt 
-    : null;
+  // Companies that have at least one active event in the last 7 days
+  const activeEventCompanies = useMemo(() => {
+    const eventTickers = new Set(events.map(e => e.ticker.toUpperCase()));
+    return portfolio.filter(p => eventTickers.has(p.ticker.toUpperCase()));
+  }, [portfolio, events]);
 
   const getStatusStyles = (status: TrackedCompany['status']) => {
     switch(status) {
       case 'Strengthening': return { dotColor: 'text-emerald-500', label: 'Strengthening' };
       case 'Review Needed': return { dotColor: 'text-amber-500', label: 'Review Needed' };
       case 'Weakening': return { dotColor: 'text-rose-500', label: 'Weakening' };
-      default: return { dotColor: 'text-slate-400', label: 'Active' };
+      default: return { dotColor: 'text-slate-400', label: 'Stable' };
     }
   };
 
@@ -283,91 +347,95 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-[#F8FAFC] font-sans text-[#0F172A] pb-24 relative overflow-hidden antialiased">
 
-      {/* RESPONSIVE HEADER */}
       <Header />
 
-      {/* MAIN CONTAINER */}
       <main className="max-w-[960px] mx-auto px-6 pt-12 md:pt-14">
         
         {portfolio.length === 0 ? (
           <div className="text-center py-16">
-            <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-[#0F172A] mb-4">Welcome to Investment IQ, {userName}</h1>
-            <p className="text-slate-500 mb-12 max-w-xl mx-auto text-lg">Your portfolio is empty. Let's build your first investment thesis so we can track risks and drivers on your behalf.</p>
+            <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-[#0F172A] mb-4">
+              Welcome to Investment IQ, {userName}
+            </h1>
+            <p className="text-slate-500 mb-12 max-w-xl mx-auto text-lg">
+              Your portfolio is empty — build your first investment thesis to start monitoring drivers and catalysts.
+            </p>
             
             <div className="bg-white p-10 rounded-3xl border border-slate-200 shadow-sm max-w-xl mx-auto">
               <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-slate-200">
                 <BookOpen className="w-8 h-8 text-slate-400" />
               </div>
-              <h2 className="text-xl font-bold text-[#0F172A] mb-6">Research a company to begin</h2>
-              <form onSubmit={handleSearch} className="relative">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="e.g. AAPL, TSLA, NVDA"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3.5 pl-11 pr-4 text-[#0F172A] font-bold placeholder-slate-400 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all shadow-inner"
-                />
-              </form>
+              <h2 className="text-xl font-bold text-[#0F172A] mb-6">Research a company to get started</h2>
+              <div className="w-full relative z-50">
+                <SmartSearchBar variant="hero" />
+              </div>
             </div>
           </div>
         ) : (
           <>
-            {/* WELCOME HERO & SYNC CONTROLS */}
+            {/* TOP BAR: WELCOME & TRACKING LIMIT STATUS */}
             <div className="mb-10">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
-                <div className="flex items-center gap-3 flex-wrap">
-                  <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-[#0F172A]">Welcome Back, {userName}</h1>
-                  
-                  <div className="flex items-center gap-2 mt-1 sm:mt-0">
-                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest bg-white border border-slate-200 px-2 py-1 rounded shadow-sm">
-                      {getTimeAgo(mostRecentTime)}
-                    </span>
-                    <div className="hidden sm:flex items-center gap-1.5 px-2 py-1 bg-red-50 border border-red-100 rounded shadow-sm text-[9px] font-bold uppercase tracking-widest text-red-600">
-                      <span className="w-1.5 h-1.5 bg-red-500 rounded-full"></span>
-                      <span>{portfolio.length} / {MAX_STOCKS_LIMIT} Limit</span>
-                    </div>
-                  </div>
+                <div>
+                  <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-[#0F172A]">
+                    Welcome Back, {userName}
+                  </h1>
+                  <p className="text-[14px] font-medium text-slate-500 mt-1">
+                    Here’s what shifted across your monitored companies.
+                  </p>
                 </div>
 
-                <button 
-                  onClick={handleSmartSync}
-                  disabled={isSyncing}
-                  className="shrink-0 bg-white border border-slate-200 text-slate-600 text-[11px] font-bold px-3 py-1.5 rounded hover:bg-slate-50 transition-all flex items-center gap-1.5 shadow-sm disabled:opacity-50 cursor-pointer"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-blue-600' : 'text-slate-400'}`} />
-                  {isSyncing ? 'Checking...' : 'Check for updates'}
-                </button>
-              </div>
+                <div className="flex items-center gap-3 self-start sm:self-center">
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100/80 border border-slate-200 rounded-lg text-[10px] font-bold uppercase tracking-wider text-slate-600">
+                    <span className="w-1.5 h-1.5 bg-blue-600 rounded-full"></span>
+                    <span>{portfolio.length} / {MAX_STOCKS_LIMIT} Theses Active</span>
+                  </div>
 
-              <p className="text-[14px] font-medium text-slate-500">
-                Here’s what matters today.
-              </p>
+                  <button 
+                    onClick={handleRefresh}
+                    disabled={isSyncing}
+                    title="Reload data"
+                    className="bg-white border border-slate-200 text-slate-600 p-2 rounded-lg hover:bg-slate-50 transition-all flex items-center shadow-sm disabled:opacity-50 cursor-pointer"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-blue-600' : 'text-slate-400'}`} />
+                  </button>
+                </div>
+              </div>
             </div>
 
-       {/* FLOW ORDER STEP 1: SINCE YOUR LAST VISIT */}
+            {/* SECTION 1: SINCE YOUR LAST VISIT */}
             <div className="mb-12">
-              <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">
-                Since Your Last Visit
-              </h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                  Since Your Last Visit
+                </h2>
+                <span className="text-[10px] font-semibold text-slate-400">
+                  {sessionLabel}
+                </span>
+              </div>
               
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* Box 1: Strengthening */}
                 <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-center gap-3">
                   <div className="flex items-center gap-4">
                     <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center font-extrabold text-lg shrink-0">
-                      {strengtheningCompanies.length}
+                      {strengtheningTickers.length}
                     </div>
-                    <div className="text-xs font-bold text-slate-700 leading-tight">Companies<br/>strengthening</div>
+                    <div className="text-xs font-bold text-slate-700 leading-tight">
+                      Companies<br/>strengthening
+                    </div>
                   </div>
-                  {strengtheningCompanies.length > 0 && (
+                  {strengtheningTickers.length > 0 ? (
                     <div className="flex flex-wrap gap-1.5 pt-3 border-t border-slate-100">
-                      {strengtheningCompanies.map(c => (
-                        <span key={c.ticker} className="text-[12px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100 px-2 py-0.5 rounded flex items-center gap-1">
-                          {c.ticker}
+                      {strengtheningTickers.map(ticker => (
+                        <span key={ticker} className="text-[12px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100 px-2 py-0.5 rounded flex items-center gap-1">
+                          {ticker}
                         </span>
                       ))}
                     </div>
+                  ) : (
+                    <p className="text-[11px] font-medium text-slate-400 pt-2 border-t border-slate-100">
+                      No positive shifts recorded
+                    </p>
                   )}
                 </div>
 
@@ -375,18 +443,24 @@ export default function Dashboard() {
                 <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-center gap-3">
                   <div className="flex items-center gap-4">
                     <div className="w-10 h-10 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center font-extrabold text-lg shrink-0">
-                      {riskCompanies.length}
+                      {riskTickers.length}
                     </div>
-                    <div className="text-xs font-bold text-slate-700 leading-tight">Companies with<br/>increased risks</div>
+                    <div className="text-xs font-bold text-slate-700 leading-tight">
+                      Companies with<br/>increased risks
+                    </div>
                   </div>
-                  {riskCompanies.length > 0 && (
+                  {riskTickers.length > 0 ? (
                     <div className="flex flex-wrap gap-1.5 pt-3 border-t border-slate-100">
-                      {riskCompanies.map(c => (
-                        <span key={c.ticker} className="text-[13px] font-semibold bg-amber-50 text-amber-700 border border-amber-100 px-2 py-0.5 rounded flex items-center gap-1">
-                          {c.ticker}
+                      {riskTickers.map(ticker => (
+                        <span key={ticker} className="text-[12px] font-semibold bg-amber-50 text-amber-700 border border-amber-100 px-2 py-0.5 rounded flex items-center gap-1">
+                          {ticker}
                         </span>
                       ))}
                     </div>
+                  ) : (
+                    <p className="text-[11px] font-medium text-slate-400 pt-2 border-t border-slate-100">
+                      No elevated risks detected
+                    </p>
                   )}
                 </div>
 
@@ -394,30 +468,48 @@ export default function Dashboard() {
                 <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-center gap-3">
                   <div className="flex items-center gap-4">
                     <div className="w-10 h-10 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center font-extrabold text-lg shrink-0">
-                      {attentionCompanies.length}
+                      {attentionTickers.length}
                     </div>
-                    <div className="text-xs font-bold text-slate-700 leading-tight">Companies need<br/>attention</div>
+                    <div className="text-xs font-bold text-slate-700 leading-tight">
+                      Companies need<br/>attention
+                    </div>
                   </div>
-                  {attentionCompanies.length > 0 && (
+                  {attentionTickers.length > 0 ? (
                     <div className="flex flex-wrap gap-1.5 pt-3 border-t border-slate-100">
-                      {attentionCompanies.map(c => (
-                        <span key={c.ticker} className="text-[12px] font-semibold bg-rose-50 text-rose-700 border border-rose-100 px-2 py-0.5 rounded flex items-center gap-1">
-                          {c.ticker}
+                      {attentionTickers.map(ticker => (
+                        <span key={ticker} className="text-[12px] font-semibold bg-rose-50 text-rose-700 border border-rose-100 px-2 py-0.5 rounded flex items-center gap-1">
+                          {ticker}
                         </span>
                       ))}
                     </div>
+                  ) : (
+                    <p className="text-[11px] font-medium text-slate-400 pt-2 border-t border-slate-100">
+                      All investment boundaries hold
+                    </p>
                   )}
                 </div>
               </div>
             </div>
 
-       {/* FLOW ORDER STEP 2: WHAT CHANGED */}
-            {sortedActionItems.length > 0 && (
-              <div className="mb-12">
-                <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">What Changed</h2>
+            {/* SECTION 2: WHAT CHANGED */}
+            <div className="mb-12">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                  What Changed
+                </h2>
+                <span className="text-[10px] font-bold text-emerald-600 flex items-center gap-1.5 uppercase tracking-wider">
+                  <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
+                  Monitored {getTimeAgo(latestEventScanTime)}
+                </span>
+              </div>
+
+              {activeEventCompanies.length > 0 ? (
                 <div className="flex flex-col gap-3">
-                  {sortedActionItems.map(company => (
-                    <div key={`alert-${company.ticker}`} className="bg-white border border-slate-200 rounded-xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-6 shadow-sm hover:shadow-md transition-shadow">
+                  {activeEventCompanies.map(company => (
+                    <div 
+                      key={`alert-${company.ticker}`} 
+                      className="bg-white border border-slate-200 rounded-xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-6 shadow-sm hover:shadow-md transition-shadow"
+                    >
                       <div className="flex items-start gap-4 flex-grow">
                         <CompanyLogo 
                           ticker={company.ticker} 
@@ -425,14 +517,20 @@ export default function Dashboard() {
                         />
                         <div className="flex-grow pt-0.5">
                           <div className="flex items-center gap-3 mb-1.5">
-                            <span className="font-bold text-lg text-[#0F172A] leading-none">{company.ticker}</span>
+                            <span className="font-bold text-lg text-[#0F172A] leading-none">
+                              {company.ticker}
+                            </span>
                             <div className="text-[10px] font-bold text-slate-500 flex items-center gap-1.5 uppercase tracking-widest">
-                              <span className={getStatusStyles(company.status).dotColor}>●</span> {getStatusStyles(company.status).label}
+                              <span className={getStatusStyles(company.status).dotColor}>●</span> 
+                              {getStatusStyles(company.status).label}
                             </div>
                           </div>
-                          <p className="text-xs text-slate-600 font-medium leading-relaxed max-w-2xl line-clamp-2">{company.aiSummary}</p>
+                          <p className="text-xs text-slate-600 font-medium leading-relaxed max-w-2xl line-clamp-2">
+                            {company.aiSummary}
+                          </p>
                         </div>
                       </div>
+
                       <button 
                         onClick={() => setReviewCompany(company)}
                         className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50 transition-all whitespace-nowrap shadow-sm shrink-0 cursor-pointer"
@@ -442,10 +540,20 @@ export default function Dashboard() {
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
+              ) : (
+                <div className="p-8 text-center bg-white border border-slate-200 rounded-2xl shadow-sm flex flex-col items-center justify-center">
+                  <div className="w-10 h-10 bg-slate-50 text-slate-400 rounded-full flex items-center justify-center mb-3">
+                    <ShieldCheck className="w-5 h-5 text-emerald-600" />
+                  </div>
+                  <p className="text-sm font-bold text-[#0F172A]">All Quiet Across Monitored Holdings</p>
+                  <p className="text-xs text-slate-500 mt-1 max-w-md">
+                    No material SEC filings, earnings surprises, or key management disclosures detected in the past 7 days.
+                  </p>
+                </div>
+              )}
+            </div>
 
-            {/* FLOW ORDER STEP 3: MARKET OPPORTUNITIES */}
+            {/* SECTION 3: MARKET OPPORTUNITIES */}
             <WatchlistSection />
 
             {/* BOTTOM SEARCH BAR */}
@@ -516,28 +624,39 @@ export default function Dashboard() {
                     ticker={reviewCompany.ticker} 
                     containerClass="w-12 h-12 rounded-xl" 
                   />
-                  <h2 className="text-3xl font-extrabold text-[#0F172A] tracking-tight">{reviewCompany.ticker}</h2>
+                  <h2 className="text-3xl font-extrabold text-[#0F172A] tracking-tight">
+                    {reviewCompany.ticker}
+                  </h2>
                 </div>
                 
                 <div className="text-[10px] font-bold uppercase tracking-widest text-slate-700 flex items-center gap-1.5">
-                  <span className={getStatusStyles(reviewCompany.status).dotColor}>●</span> {getStatusStyles(reviewCompany.status).label}
+                  <span className={getStatusStyles(reviewCompany.status).dotColor}>●</span> 
+                  {getStatusStyles(reviewCompany.status).label}
                 </div>
               </div>
 
               <div className="mb-10">
-                <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Affected Thesis</h4>
-                <p className="font-bold text-[#0F172A] text-[14px] leading-relaxed">{reviewCompany.coreThesis}</p>
+                <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">
+                  Affected Thesis
+                </h4>
+                <p className="font-bold text-[#0F172A] text-[14px] leading-relaxed">
+                  {reviewCompany.coreThesis}
+                </p>
               </div>
 
               <div className="mb-10">
-                <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 border-t border-slate-100 pt-8">What Changed This Quarter</h4>
+                <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 border-t border-slate-100 pt-8">
+                  Detected Impact
+                </h4>
                 <p className="text-[13px] text-slate-700 leading-relaxed font-medium">
                   {reviewCompany.aiSummary}
                 </p>
               </div>
 
               <div className="mb-10">
-                <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4 border-t border-slate-100 pt-8">Supporting Evidence</h4>
+                <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4 border-t border-slate-100 pt-8">
+                  Supporting Evidence
+                </h4>
                 <div className="space-y-4">
                   {reviewCompany.updates.map((update, idx) => {
                     const isExpanded = expandedEvidenceIdx === idx;
@@ -548,14 +667,11 @@ export default function Dashboard() {
                       >
                         <div className="p-4 flex flex-col gap-2">
                           <div className="flex items-start gap-2.5">
-                            {/* FIX: Ensure the icon is wrapped safely so it doesn't squish */}
                             <div className="flex-shrink-0">
                               {getTrendIcon(update.trend)}
                             </div>
-                            
-                            {/* FIX: Use fallback variables in case the AI messes up the text */}
                             <p className="text-[13px] font-bold text-[#0F172A] leading-tight">
-                              {update.text || update.headline || "New market data detected"}
+                              {update.headline || update.text || "Market catalyst detected"}
                             </p>
                           </div>
                           
@@ -583,9 +699,9 @@ export default function Dashboard() {
                                   href={update.sourceUrl} 
                                   target="_blank" 
                                   rel="noopener noreferrer" 
-                                  className="hover:text-blue-600 underline transition-colors"
+                                  className="hover:text-blue-600 underline transition-colors flex items-center gap-1"
                                 >
-                                  Source: {update.sourceName || 'View Source'} ↗
+                                  Source: {update.sourceName || 'View Source'} <ExternalLink className="w-2.5 h-2.5" />
                                 </a>
                               ) : (
                                 <span>Source: {update.sourceName || 'SEC Filing / Public Disclosure'}</span>
@@ -654,7 +770,7 @@ export default function Dashboard() {
                 We are so excited to have you as one of our early testers. Since we are currently in our closed Alpha phase, your account has been granted <strong className="text-[#0F172A]">free access to track up to 5 stocks</strong>.
               </p>
               <p>
-                As we build out our Pro features (unlimited stocks, instant alerts, etc.), we would love your direct feedback on what we should build next and how we should price it.
+                As we build out our Pro features, we would love your direct feedback on what we should build next and how we should price it.
               </p>
             </div>
             

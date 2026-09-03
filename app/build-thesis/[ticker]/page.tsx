@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Loader2, ArrowRight, Check, Zap, Plus, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import Logo from '@/components/Logo';
 
 export default function BuildThesisPage({ params }: { params: Promise<{ ticker: string }> }) {
   const router = useRouter();
@@ -41,6 +42,10 @@ export default function BuildThesisPage({ params }: { params: Promise<{ ticker: 
 
   // Entertaining Loading State
   const [loadingText, setLoadingText] = useState(`Mining SEC filings for ${ticker}...`);
+
+  const [apiError, setApiError] = useState<string | null>(null);
+
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isLoading) return;
@@ -193,9 +198,10 @@ export default function BuildThesisPage({ params }: { params: Promise<{ ticker: 
         setSuggestedDrivers(finalSuggestedDrivers);
         setSuggestedRisks(finalSuggestedRisks);
 
-      } catch (err: any) {
+     } catch (err: any) {
         console.error("Failed to generate thesis options:", err);
-        alert(`Error: ${err.message}`);
+        // Replace the alert() with this:
+        setApiError("API failed to retrieve data. Please try again later.");
       } finally {
         setIsLoading(false);
       }
@@ -327,31 +333,57 @@ export default function BuildThesisPage({ params }: { params: Promise<{ ticker: 
         body: JSON.stringify({})
       }).catch(err => console.log("Silent engine trigger failed:", err));
 
-      router.push(`/company/${ticker}`);
+    router.push('/dashboard');
 
-    } catch (err: any) {
-      console.error("Supabase Save Error:", JSON.stringify(err, null, 2));
-      
-      if (err.message?.includes('Alpha limit reached') || err.details?.includes('Alpha limit reached')) {
-        setShowLimitModal(true);
-      } else {
-        alert(`Failed to save thesis: ${err.message || err.details || JSON.stringify(err)}`);
+   } catch (err: any) {
+        console.log("Supabase Save Error:", JSON.stringify(err, null, 2));
+        
+        if (err.message?.includes('Alpha limit reached') || err.details?.includes('Alpha limit reached')) {
+          setShowLimitModal(true);
+        } else {
+          // REMOVE alert(...) AND ADD THIS:
+          setSaveError(err.message || "Failed to connect to the database. Please try again.");
+        }
+      } finally {
+        setIsSaving(false);
       }
-    } finally {
-      setIsSaving(false);
-    }
   };
 
+ // Loading State
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
-        <div className="w-16 h-16 bg-white rounded-2xl shadow-sm border border-slate-200 flex items-center justify-center mb-6">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-        </div>
-        <div className="h-8 overflow-hidden relative">
-          <span className="text-slate-500 font-extrabold text-sm tracking-wide animate-pulse">
-            {loadingText}
-          </span>
+      <div className="min-h-screen bg-[#F8FAFC] flex flex-col items-center justify-center font-sans antialiased p-6">
+        <div className="bg-white p-8 sm:p-10 rounded-3xl border border-slate-200 shadow-sm max-w-md w-full flex flex-col items-center text-center animate-in fade-in zoom-in duration-500">
+          
+          {/* Animated Spinner Icon */}
+          <div className="relative mb-6">
+            <div className="absolute inset-0 bg-blue-100 rounded-full animate-ping opacity-60"></div>
+            <div className="relative bg-white rounded-full p-4 border border-slate-100 shadow-sm">
+               <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+            </div>
+          </div>
+          
+          {/* Main Title */}
+          <h3 className="text-xl font-extrabold text-[#0F172A] mb-8 tracking-tight">
+            Preparing Thesis for ${ticker}
+          </h3>
+          
+          {/* Dynamic Rotating Text */}
+          <div className="w-full bg-slate-50 rounded-2xl border border-slate-100 p-6 mb-8 flex flex-col items-center justify-center h-24 shadow-inner">
+            <p 
+              key={loadingText} 
+              className="text-sm font-bold text-blue-600 leading-relaxed text-center animate-in fade-in slide-in-from-bottom-2 duration-500"
+            >
+              {loadingText}
+            </p>
+          </div>
+
+          {/* Do Not Refresh Warning */}
+          <div className="mt-2 flex items-center gap-2 text-[11px] font-black text-rose-500 uppercase tracking-widest bg-rose-50 px-4 py-2 rounded-lg">
+            <AlertTriangle className="w-3.5 h-3.5" />
+            Please do not refresh the page
+          </div>
+          
         </div>
       </div>
     );
@@ -367,14 +399,8 @@ export default function BuildThesisPage({ params }: { params: Promise<{ ticker: 
       {/* HEADER */}
       <header className="border-b border-slate-200 bg-white/80 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link href="/dashboard" className="flex items-center gap-2 group transition-opacity hover:opacity-80">
-            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-extrabold text-lg shadow-sm">
-              IQ
-            </div>
-            <span className="font-extrabold text-slate-900 tracking-tight text-lg">
-              Investment IQ
-            </span>
-          </Link>
+          
+         <Logo href="/dashboard" />
 
           <button
             onClick={() => router.push('/dashboard')}
@@ -385,6 +411,7 @@ export default function BuildThesisPage({ params }: { params: Promise<{ ticker: 
             </svg>
             Cancel
           </button>
+          
         </div>
       </header>
 
@@ -455,96 +482,114 @@ export default function BuildThesisPage({ params }: { params: Promise<{ ticker: 
           </div>
         )}
 
-        {/* STEP 1 & 2: OPTIONS GRID */}
+          {/* STEP 1 & 2: OPTIONS GRID OR ERROR STATE */}
         {step !== 3 && (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
-              {currentOptions.map((item) => {
-                const isSelected = currentSelections.includes(item.id);
-                return (
-                  <div 
-                    key={item.id}
-                    onClick={() => handleToggle(item.id, step === 1 ? 'driver' : 'risk')}
-                    className={`bg-white rounded-3xl p-6 border transition-all cursor-pointer flex flex-col h-full ${
-                      isSelected 
-                        ? (step === 1 ? 'border-blue-500 shadow-md ring-1 ring-blue-500' : 'border-amber-500 shadow-md ring-1 ring-amber-500') 
-                        : 'border-slate-200 hover:border-slate-300 shadow-sm opacity-90 hover:opacity-100'
-                    }`}
-                  >
-                    <div className="flex justify-between items-start mb-4">
-                      <h3 className="text-lg font-extrabold text-slate-900 leading-snug pr-4">{item.title}</h3>
-                      <div className={`w-6 h-6 rounded-full border flex items-center justify-center shrink-0 transition-colors ${
-                        isSelected 
-                          ? (step === 1 ? 'bg-blue-600 border-blue-600' : 'bg-amber-500 border-amber-500')
-                          : 'border-slate-300 bg-white'
-                      }`}>
-                        {isSelected && <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />}
-                      </div>
-                    </div>
-
-                    <div className="mb-4">
-                      <p className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest mb-1.5">Why This Matters</p>
-                      <p className="text-xs font-medium text-slate-700 leading-relaxed">{item.whyThisMatters}</p>
-                    </div>
-
-                    <div className="mb-6">
-                      <p className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest mb-2">Evidence</p>
-                      <ul className="space-y-1.5">
-                        {item.evidence.map((ev: string, idx: number) => (
-                          <li key={idx} className="flex items-start gap-2 text-xs font-medium text-slate-600 leading-snug">
-                            <span className="w-1.5 h-1.5 rounded-full bg-slate-300 mt-1 shrink-0"></span> {ev}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-
-                    <div className="mt-auto mb-4 bg-blue-50/50 border border-blue-100 rounded-2xl p-4">
-                      <p className="text-[8px] font-extrabold text-blue-600 uppercase tracking-widest mb-2.5">Investment IQ Monitors</p>
-                      <ul className="space-y-2">
-                        {item.monitors.map((mon: string, idx: number) => (
-                          <li key={idx} className="flex items-center gap-2 text-[10px] font-bold text-blue-950">
-                            <Zap className="w-3 h-3 text-amber-500 fill-amber-500 shrink-0" /> {mon}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-
-                    <button className={`w-full py-2.5 rounded-xl text-xs font-extrabold transition-colors ${
-                      isSelected 
-                        ? 'bg-slate-100 text-slate-500' 
-                        : 'bg-slate-50 border border-slate-200 text-slate-700 hover:bg-slate-100'
-                    }`}>
-                      {isSelected ? 'Added to Thesis' : '+ Add to Thesis'}
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* CUSTOM INPUT BOX */}
-            <div className="max-w-2xl mx-auto bg-white rounded-3xl p-6 md:p-8 border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4 items-center">
-              <div className="flex-1 w-full">
-                <h4 className="text-sm font-extrabold text-slate-900 flex items-center gap-2 mb-1">
-                  <Plus className="w-4 h-4 text-slate-400" /> Write My Own {step === 1 ? 'Driver' : 'Risk'}
-                </h4>
-                <p className="text-[10px] font-medium text-slate-500 mb-3">Allows experienced investors to create custom tracking parameters.</p>
-                <input 
-                  type="text"
-                  placeholder={step === 1 ? "e.g. Sovereign AI demand scaling in Middle East" : "e.g. Regulatory actions block major acquisition"}
-                  value={customInput}
-                  onChange={(e) => setCustomInput(e.target.value)}
-                  disabled={isAtLimit}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-medium focus:outline-none focus:border-blue-500 focus:bg-white transition-colors disabled:opacity-50"
-                />
+            {apiError ? (
+              <div className="max-w-2xl mx-auto bg-rose-50 border border-rose-200 p-8 rounded-3xl text-center space-y-4 shadow-sm mb-12">
+                <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mx-auto shadow-sm">
+                  <AlertTriangle className="w-6 h-6 text-rose-500" />
+                </div>
+                <h3 className="text-lg font-extrabold text-rose-700">Analysis Interrupted</h3>
+                <p className="text-sm font-medium text-rose-600/80">{apiError}</p>
+                <button 
+                  onClick={() => window.location.reload()} 
+                  className="px-6 py-2 bg-rose-600 text-white text-xs font-bold rounded-xl hover:bg-rose-700 transition-colors shadow-sm cursor-pointer"
+                >
+                  Try Again
+                </button>
               </div>
-              <button 
-                onClick={handleAddCustom}
-                disabled={!customInput.trim() || isAtLimit}
-                className="w-full md:w-auto self-end bg-slate-900 hover:bg-slate-800 disabled:bg-slate-300 text-white text-xs font-extrabold px-6 py-3 rounded-xl transition-colors cursor-pointer"
-              >
-                Add Custom
-              </button>
-            </div>
+            ) : (
+              <> {/* ✨ ADDED FRAGMENT HERE to wrap both the Grid and Custom Input Box */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+                  {currentOptions.map((item) => {
+                    const isSelected = currentSelections.includes(item.id);
+                    return (
+                      <div 
+                        key={item.id}
+                        onClick={() => handleToggle(item.id, step === 1 ? 'driver' : 'risk')}
+                        className={`bg-white rounded-3xl p-6 border transition-all cursor-pointer flex flex-col h-full ${
+                          isSelected 
+                            ? (step === 1 ? 'border-blue-500 shadow-md ring-1 ring-blue-500' : 'border-amber-500 shadow-md ring-1 ring-amber-500') 
+                            : 'border-slate-200 hover:border-slate-300 shadow-sm opacity-90 hover:opacity-100'
+                        }`}
+                      >
+                        <div className="flex justify-between items-start mb-4">
+                          <h3 className="text-lg font-extrabold text-slate-900 leading-snug pr-4">{item.title}</h3>
+                          <div className={`w-6 h-6 rounded-full border flex items-center justify-center shrink-0 transition-colors ${
+                            isSelected 
+                              ? (step === 1 ? 'bg-blue-600 border-blue-600' : 'bg-amber-500 border-amber-500')
+                              : 'border-slate-300 bg-white'
+                          }`}>
+                            {isSelected && <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />}
+                          </div>
+                        </div>
+
+                        <div className="mb-4">
+                          <p className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest mb-1.5">Why This Matters</p>
+                          <p className="text-xs font-medium text-slate-700 leading-relaxed">{item.whyThisMatters}</p>
+                        </div>
+
+                        <div className="mb-6">
+                          <p className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest mb-2">Evidence</p>
+                          <ul className="space-y-1.5">
+                            {item.evidence.map((ev: string, idx: number) => (
+                              <li key={idx} className="flex items-start gap-2 text-xs font-medium text-slate-600 leading-snug">
+                                <span className="w-1.5 h-1.5 rounded-full bg-slate-300 mt-1 shrink-0"></span> {ev}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+
+                        <div className="mt-auto mb-4 bg-blue-50/50 border border-blue-100 rounded-2xl p-4">
+                          <p className="text-[8px] font-extrabold text-blue-600 uppercase tracking-widest mb-2.5">Investment IQ Monitors</p>
+                          <ul className="space-y-2">
+                            {item.monitors.map((mon: string, idx: number) => (
+                              <li key={idx} className="flex items-center gap-2 text-[10px] font-bold text-blue-950">
+                                <Zap className="w-3 h-3 text-amber-500 fill-amber-500 shrink-0" /> {mon}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+
+                        <button className={`w-full py-2.5 rounded-xl text-xs font-extrabold transition-colors ${
+                          isSelected 
+                            ? 'bg-slate-100 text-slate-500' 
+                            : 'bg-slate-50 border border-slate-200 text-slate-700 hover:bg-slate-100'
+                        }`}>
+                          {isSelected ? 'Added to Thesis' : '+ Add to Thesis'}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* CUSTOM INPUT BOX */}
+                <div className="max-w-2xl mx-auto bg-white rounded-3xl p-6 md:p-8 border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4 items-center">
+                  <div className="flex-1 w-full">
+                    <h4 className="text-sm font-extrabold text-slate-900 flex items-center gap-2 mb-1">
+                      <Plus className="w-4 h-4 text-slate-400" /> Write My Own {step === 1 ? 'Driver' : 'Risk'}
+                    </h4>
+                    <p className="text-[10px] font-medium text-slate-500 mb-3">Allows experienced investors to create custom tracking parameters.</p>
+                    <input 
+                      type="text"
+                      placeholder={step === 1 ? "e.g. Sovereign AI demand scaling in Middle East" : "e.g. Regulatory actions block major acquisition"}
+                      value={customInput}
+                      onChange={(e) => setCustomInput(e.target.value)}
+                      disabled={isAtLimit}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-medium focus:outline-none focus:border-blue-500 focus:bg-white transition-colors disabled:opacity-50"
+                    />
+                  </div>
+                  <button 
+                    onClick={handleAddCustom}
+                    disabled={!customInput.trim() || isAtLimit}
+                    className="w-full md:w-auto self-end bg-slate-900 hover:bg-slate-800 disabled:bg-slate-300 text-white text-xs font-extrabold px-6 py-3 rounded-xl transition-colors cursor-pointer"
+                  >
+                    Add Custom
+                  </button>
+                </div>
+              </> /* ✨ CLOSED FRAGMENT HERE */
+            )}    
           </>
         )}
       </main>
@@ -570,14 +615,21 @@ export default function BuildThesisPage({ params }: { params: Promise<{ ticker: 
               </>
             )}
             
-            {step === 3 && (
-              <>
-                <button onClick={() => setStep(2)} className="bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-sm font-extrabold px-5 py-2.5 rounded-xl transition-colors cursor-pointer">Back</button>
-                <button onClick={handleSaveAndFinish} disabled={isSaving || !summaryDraft.trim()} className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white text-sm font-extrabold px-6 py-2.5 rounded-xl transition-colors flex items-center gap-2 shadow-sm shadow-emerald-600/20 cursor-pointer">
-                  {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : (isEditing ? 'Update Thesis' : 'Save & Track Conviction')}
-                </button>
-              </>
-            )}
+       {step === 3 && (
+                  <div className="flex items-center gap-3">
+                    {/* ✨ NEW INLINE ERROR MESSAGE */}
+                    {saveError && (
+                      <div className="text-xs font-bold text-rose-500 bg-rose-50 px-4 py-2 rounded-lg border border-rose-200 animate-in fade-in zoom-in">
+                        {saveError}
+                      </div>
+                    )}
+                    
+                    <button onClick={() => setStep(2)} className="bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-sm font-extrabold px-5 py-2.5 rounded-xl transition-colors cursor-pointer">Back</button>
+                    <button onClick={handleSaveAndFinish} disabled={isSaving || !summaryDraft.trim()} className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white text-sm font-extrabold px-6 py-2.5 rounded-xl transition-colors flex items-center gap-2 shadow-sm shadow-emerald-600/20 cursor-pointer">
+                      {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : (isEditing ? 'Update Thesis' : 'Save & Track Conviction')}
+                    </button>
+                  </div>
+                )}
 
             {step === 1 && (
               <button onClick={() => setStep(2)} disabled={selectedDrivers.length === 0} className="bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:text-slate-50 text-white text-sm font-extrabold px-6 py-2.5 rounded-xl transition-colors flex items-center gap-2 cursor-pointer">Next: Add Risks <ArrowRight className="w-4 h-4" /></button>

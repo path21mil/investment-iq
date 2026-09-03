@@ -246,11 +246,11 @@ export default function PortfolioPage() {
 
                   <div className="pt-6 border-t border-slate-100 flex flex-row items-center justify-between mt-auto">
                     <button 
-                      onClick={() => router.push(`/company/${company.ticker}`)}
-                      className="px-4 py-2 border border-slate-200 rounded-lg text-[13px] font-bold text-[#0F172A] hover:bg-slate-50 hover:border-slate-300 transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
-                    >
-                      Open Thesis →
-                    </button>
+  onClick={() => router.push(`/thesis/${company.ticker}`)}
+  className="px-4 py-2 border border-slate-200 rounded-lg text-[13px] font-bold text-[#0F172A] hover:bg-slate-50 hover:border-slate-300 transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
+>
+  Open Thesis →
+</button>
 
                     <button
                       onClick={() => setShareCompany(company)}

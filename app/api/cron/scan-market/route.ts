@@ -1,7 +1,10 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import OpenAI from 'openai';
 import { LARGE_CAP_UNIVERSE } from '@/lib/universe';
+
+export const maxDuration = 60;
+export const dynamic = 'force-dynamic';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -10,6 +13,8 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // --- QUANTITATIVE SCORING ENGINE ---
 
@@ -23,7 +28,7 @@ function calculateValuationScore(currentPe: number | null, benchmarkPe: number =
   return { score: 95, label: `Historical valuation low (${currentPe.toFixed(1)}x P/E)` };
 }
 
-function calculatePriceScore(currentPrice: number, yearHigh: number, ma200: number | null): { score: number; label: string; drawdownPct: number } {
+function calculatePriceScore(currentPrice: number, yearHigh: number): { score: number; label: string; drawdownPct: number } {
   const drawdownPct = ((currentPrice - yearHigh) / yearHigh) * 100;
   const absDrawdown = Math.abs(drawdownPct);
   let score = 20;
@@ -43,13 +48,6 @@ function calculatePriceScore(currentPrice: number, yearHigh: number, ma200: numb
     label = `${absDrawdown.toFixed(0)}% deep selloff from 52W high`;
   }
 
-  if (ma200 && ma200 > 0) {
-    const maDiffPct = ((currentPrice - ma200) / ma200) * 100;
-    if (maDiffPct >= -2 && maDiffPct <= 6) {
-      score = Math.min(100, score + 8);
-      label += ` · Resting near 200D MA`;
-    }
-  }
   return { score, label, drawdownPct };
 }
 
@@ -91,30 +89,61 @@ function calculateRiskPenalty(debtToEquity: number | null, netMargin: number | n
   return { penalty, watchFlag };
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  // 1. Enforce Authorization Check
+  const authHeader = req.headers.get('authorization');
+  const cronSecret = process.env.CRON_SECRET;
+
+  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const finnhubApiKey = process.env.FINNHUB_API_KEY;
     if (!finnhubApiKey) throw new Error('Missing FINNHUB_API_KEY');
 
-    // 1. Safe batch of 15 stocks
-    const batch = [...LARGE_CAP_UNIVERSE].sort(() => 0.5 - Math.random()).slice(0, 15);
+    const BATCH_SIZE = 12;
+
+    // 1. Fetch persistent cursor index from Supabase
+    const { data: stateData } = await supabase
+      .from('system_state')
+      .select('value')
+      .eq('key', 'market_scan_cursor')
+      .maybeSingle();
+
+    let startIndex = typeof stateData?.value === 'number' ? stateData.value : 0;
+    if (startIndex >= LARGE_CAP_UNIVERSE.length) startIndex = 0;
+
+    // 2. Select next sequential batch of tickers
+    const batch: string[] = [];
+    for (let i = 0; i < BATCH_SIZE; i++) {
+      batch.push(LARGE_CAP_UNIVERSE[(startIndex + i) % LARGE_CAP_UNIVERSE.length]);
+    }
+
+    const nextIndex = (startIndex + BATCH_SIZE) % LARGE_CAP_UNIVERSE.length;
     const scoredCandidates = [];
 
+    // 3. Process batch with 500ms pacing between Finnhub requests
     for (const symbol of batch) {
       try {
+        await sleep(500);
+
         const quoteRes = await fetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${finnhubApiKey}`);
         const quote = await quoteRes.json();
-        
+
         const metricRes = await fetch(`https://finnhub.io/api/v1/stock/metric?symbol=${symbol}&metric=all&token=${finnhubApiKey}`);
         const metricData = await metricRes.json();
         const m = metricData?.metric;
 
         if (!quote || !quote.c || !m) continue;
 
-        // 1. Swap ma200 for yearLow in the variables
-        const currentPrice = quote.c;
-        const yearHigh = m['52WeekHigh'] || currentPrice;
-        const yearLow = m['52WeekLow'] || null; // <--- SWAPPED THIS IN
+       const currentPrice = quote.c;
+        const rawYearHigh = m['52WeekHigh'] || null;
+        const rawYearLow = m['52WeekLow'] || null;
+
+        // Dynamically sanitize bounds for any stock
+        const { yearHigh, yearLow } = sanitizePriceBounds(currentPrice, rawYearHigh, rawYearLow);
+
         const pe = m['peTTM'] || m['peNormalizedAnnual'] || null;
         const revGrowth = m['revenueGrowthTTMYoy'] || m['revenueGrowthQuarterlyYoy'] || null;
         const opMargin = m['operatingMarginTTM'] || null;
@@ -122,7 +151,7 @@ export async function GET() {
         const netMargin = m['netProfitMarginTTM'] || null;
 
         const val = calculateValuationScore(pe);
-        const price = calculatePriceScore(currentPrice, yearHigh, null); // <--- Pass null for the old MA parameter
+        const price = calculatePriceScore(currentPrice, yearHigh);
         const biz = calculateBusinessScore(revGrowth, opMargin);
         const risk = calculateRiskPenalty(debtEquity, netMargin);
 
@@ -142,11 +171,9 @@ export async function GET() {
         else if (val.score >= 75 && biz.score >= 60) oppType = 'VALUATION';
         else if (biz.score >= 75) oppType = 'FUNDAMENTAL ACCELERATION';
 
-        // 2. Calculate the distance from the 52W Low
         const earningsYield = (pe && pe > 0) ? (1 / pe) * 100 : null;
-        const lowDistance = (yearLow && yearLow > 0) ? ((currentPrice - yearLow) / yearLow) * 100 : null; // <--- NEW MATH
+        const lowDistance = (yearLow && yearLow > 0) ? ((currentPrice - yearLow) / yearLow) * 100 : null;
 
-        // 3. Save it to the database
         scoredCandidates.push({
           ticker: symbol,
           company_name: symbol,
@@ -159,11 +186,11 @@ export async function GET() {
           metrics: {
             price: currentPrice,
             year_high: yearHigh,
-            year_low: yearLow ? Number(yearLow.toFixed(2)) : null, // <--- SAVING LOW INSTEAD
+            year_low: yearLow ? Number(yearLow.toFixed(2)) : null,
             pe: pe ? Number(pe.toFixed(1)) : null,
             earnings_yield: earningsYield ? Number(earningsYield.toFixed(2)) : null,
             drawdown: Number((price.drawdownPct).toFixed(1)),
-            low_distance_pct: lowDistance ? Number(lowDistance.toFixed(1)) : null, // <--- SAVING BOUNCE %
+            low_distance_pct: lowDistance ? Number(lowDistance.toFixed(1)) : null,
             revenue_growth: revGrowth ? Number(revGrowth.toFixed(1)) : null,
             op_margin: opMargin ? Number(opMargin.toFixed(1)) : null,
             debt_equity: debtEquity ? Number(debtEquity.toFixed(1)) : null,
@@ -177,7 +204,7 @@ export async function GET() {
       }
     }
 
-    // 2. LLM Synthesis (Fenced off from the math)
+    // 4. Full LLM Synthesis with strict compliance guardrails
     const finalizedOpportunities = [];
 
     for (const c of scoredCandidates) {
@@ -189,7 +216,7 @@ export async function GET() {
 
       if (process.env.OPENAI_API_KEY) {
         try {
-        const aiResponse = await openai.chat.completions.create({
+          const aiResponse = await openai.chat.completions.create({
             model: 'gpt-4o-mini',
             messages: [
               {
@@ -232,7 +259,6 @@ CRITICAL RULES:
               },
               {
                 role: 'user',
-                // ... (rest of your user content)
                 content: JSON.stringify({
                   ticker: c.ticker,
                   type: c.opportunity_type,
@@ -264,30 +290,25 @@ CRITICAL RULES:
         market_cap: c.market_cap,
         opportunity_type: c.opportunity_type,
         reasons: reasons,
-        warning: warning, // <-- Save the dedicated warning here
+        warning: warning,
         metrics: c.metrics,
         score: c.score,
         updated_at: new Date().toISOString()
       });
     }
 
-    // ... (keep your existing Supabase persistence logic below this)
-    // 3. Database Maintenance & Rolling Update
-    
-    // Clean up opportunities older than 48 hours
+    // 5. Database cleanups, insertion, and cursor state persistence
     const expirationThreshold = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
     await supabase
       .from('market_opportunities')
       .delete()
       .lt('updated_at', expirationThreshold);
 
-    // Delete existing records only for the current batch
     await supabase
       .from('market_opportunities')
       .delete()
       .in('ticker', batch);
 
-    // Insert newly qualified items
     if (finalizedOpportunities.length > 0) {
       const { error: insertError } = await supabase
         .from('market_opportunities')
@@ -296,9 +317,21 @@ CRITICAL RULES:
       if (insertError) throw insertError;
     }
 
+    await supabase
+      .from('system_state')
+      .upsert(
+        {
+          key: 'market_scan_cursor',
+          value: nextIndex,
+          updated_at: new Date().toISOString()
+        },
+        { onConflict: 'key' }
+      );
+
     return NextResponse.json({
       success: true,
-      scanned: batch.length,
+      scannedRange: `${startIndex} to ${(startIndex + BATCH_SIZE - 1) % LARGE_CAP_UNIVERSE.length}`,
+      nextCursor: nextIndex,
       qualified: finalizedOpportunities.length,
       opportunities: finalizedOpportunities
     });

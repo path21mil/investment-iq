@@ -387,11 +387,11 @@ export default function WatchlistSection() {
                 )}
               </div>
 
-              {/* Modal Footer (Action) */}
+             {/* Modal Footer (Action) */}
               <div className="p-4 border-t border-slate-100 bg-slate-50/50 flex justify-end">
-                {/* Updated to use Link component for the new research route */}
+                {/* 🔄 CHANGED: Now points to your new /company/ route */}
                 <Link 
-                  href={`/research/${selectedStock.ticker}`}
+                  href={`/company/${selectedStock.ticker}`}
                   className="flex items-center gap-2 px-6 py-2.5 bg-[#0F172A] hover:bg-slate-800 text-white text-[13px] font-bold rounded-lg transition shadow-sm cursor-pointer"
                 >
                   Full Research <ExternalLink className="w-4 h-4" />
