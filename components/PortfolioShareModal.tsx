@@ -111,8 +111,8 @@ export function PortfolioShareModal({ isOpen, onClose, company }: PortfolioShare
   const rawKeyChange = curated?.key_thesis_change || company.aiSummary || company.updates?.[0]?.headline || '';
   const punchyHeadline = shortenForCard(rawKeyChange);
 
-  const mappedUpdates = [{
-    type: currentStatus === 'Weakening' ? 'negative' : currentStatus === 'Review Needed' ? 'warning' : 'positive',
+const mappedUpdates = [{
+    type: (currentStatus === 'Weakening' ? 'negative' : currentStatus === 'Review Needed' ? 'warning' : 'positive') as 'negative' | 'warning' | 'positive',
     headline: punchyHeadline,
     context: 'Recent market development'
   }];
