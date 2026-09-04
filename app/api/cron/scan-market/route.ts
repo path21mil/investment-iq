@@ -109,7 +109,7 @@ export async function GET(req: NextRequest) {
     const finnhubApiKey = process.env.FINNHUB_API_KEY;
     if (!finnhubApiKey) throw new Error('Missing FINNHUB_API_KEY');
 
-    const BATCH_SIZE = 6;
+    const BATCH_SIZE = 2;
 
     // 1. Fetch persistent cursor index from Supabase
     const { data: stateData } = await supabase
