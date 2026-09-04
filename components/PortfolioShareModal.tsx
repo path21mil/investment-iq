@@ -17,8 +17,17 @@ function shortenForCard(text: string, maxLen: number = 105): string {
   const cleaned = text.trim().replace(/\s+/g, ' ');
   if (cleaned.length <= maxLen) return cleaned;
 
-  // 1. Try splitting at common financial clause transitions
-  const clauseSplits = [', signaling ', ', indicating ', ' signal a ', ' signals a ', ', driven by '];
+  // 1. Split at natural financial clause transitions (e.g. ", enhancing", ", signaling")
+  const clauseSplits = [
+    ', enhancing ', 
+    ', signaling ', 
+    ', indicating ', 
+    ' signal a ', 
+    ' signals a ', 
+    ', driven by ',
+    ', potentially '
+  ];
+  
   for (const splitter of clauseSplits) {
     if (cleaned.toLowerCase().includes(splitter)) {
       const prefix = cleaned.split(new RegExp(splitter, 'i'))[0].trim();
@@ -28,7 +37,7 @@ function shortenForCard(text: string, maxLen: number = 105): string {
     }
   }
 
-  // 2. Fall back to trimming at nearest word boundary
+  // 2. Fall back to trimming cleanly at the nearest word boundary
   const sliced = cleaned.slice(0, maxLen - 3);
   const lastSpace = sliced.lastIndexOf(' ');
   return (lastSpace > 40 ? sliced.slice(0, lastSpace) : sliced).trim() + '...';
@@ -44,12 +53,11 @@ export function PortfolioShareModal({ isOpen, onClose, company }: PortfolioShare
   const [liveChange, setLiveChange] = useState(0);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
 
-  // Fetch live price AND logo from Finnhub when modal opens
+  // Fetch live price AND logo from backend proxy when modal opens
   useEffect(() => {
     async function fetchFinnhubData() {
       if (!company?.ticker || !isOpen) return;
       try {
-        // 1. Fetch Quote securely via backend route
         const res = await fetch(`/api/company-profile?ticker=${company.ticker}`);
         const data = await res.json();
         const profile = Array.isArray(data) ? data[0] : data;
@@ -59,7 +67,6 @@ export function PortfolioShareModal({ isOpen, onClose, company }: PortfolioShare
           setLivePrice(Number(currentPrice).toFixed(2));
         }
 
-        // 2. Fetch Profile (Official Company Logo)
         if (profile && profile.image) {
           try {
             const proxiedUrl = `/api/image-proxy?url=${encodeURIComponent(profile.image)}`;
@@ -78,7 +85,7 @@ export function PortfolioShareModal({ isOpen, onClose, company }: PortfolioShare
           }
         }
       } catch (err) {
-        console.error("Failed to fetch Finnhub data:", err);
+        console.error("Failed to fetch profile data:", err);
       }
     }
     fetchFinnhubData();
@@ -86,7 +93,7 @@ export function PortfolioShareModal({ isOpen, onClose, company }: PortfolioShare
 
   if (!isOpen || !company) return null;
 
-  // 1. Parse Curated Updates & Raw Data
+  // 1. Parse Curated Updates & Raw Data from Supabase
   const curated = typeof company.curated_updates === 'string'
     ? JSON.parse(company.curated_updates)
     : (company.curated_updates || company.curatedUpdates || null);
@@ -99,7 +106,7 @@ export function PortfolioShareModal({ isOpen, onClose, company }: PortfolioShare
     ? JSON.parse(company.risks)
     : company.risks;
 
-  // 2. Overall Status
+  // 2. Status Mapping
   const currentStatus = curated?.status || company.status || 'Strengthening';
   const statusMap: Record<string, 'STRENGTHENING' | 'INTACT' | 'WEAKENING'> = {
     'Strengthening': 'STRENGTHENING',
@@ -107,40 +114,54 @@ export function PortfolioShareModal({ isOpen, onClose, company }: PortfolioShare
     'Weakening': 'WEAKENING',
   };
 
-  // 3. Key Changes (Pulls from cron synthesis, shortens for card)
-  const rawKeyChange = curated?.key_thesis_change || company.aiSummary || company.updates?.[0]?.headline || '';
+  // 3. Extract Synthesized Key Change
+  const rawKeyChange = 
+    curated?.impact_summary || 
+    curated?.key_thesis_change || 
+    curated?.summary || 
+    curated?.key_changes || 
+    company.aiSummary || 
+    company.updates?.[0]?.headline || 
+    '';
+
   const punchyHeadline = shortenForCard(rawKeyChange);
 
-const mappedUpdates = [{
+  const mappedUpdates = [{
     type: (currentStatus === 'Weakening' ? 'negative' : currentStatus === 'Review Needed' ? 'warning' : 'positive') as 'negative' | 'warning' | 'positive',
     headline: punchyHeadline,
     context: 'Recent market development'
   }];
 
-  // 4. Max 2 Thesis Drivers (Prioritizes cron-affected drivers, fills with saved)
-  const affectedDriverTitles = new Set(
-    (curated?.affected_drivers || []).map((d: any) => 
-      (typeof d === 'string' ? d : d.title || '').toLowerCase()
-    )
+  // 4. Extract Affected Drivers First, Capped at Exactly 2
+  const affectedDriverList: string[] = (curated?.affected_drivers || curated?.affectedDrivers || []).map((d: any) => 
+    typeof d === 'string' ? d : d.title || d.name || ''
   );
+  const affectedSet = new Set(affectedDriverList.map(s => s.toLowerCase()));
 
-  const normalizedDrivers: DriverItem[] = safeDrivers.map((d: any) => {
-    const title = typeof d === 'string' ? d : d.title || d.name || 'Core Driver';
-    const isAffected = affectedDriverTitles.has(title.toLowerCase());
-    return {
+  let mappedDrivers: DriverItem[] = [];
+
+  if (affectedDriverList.length > 0) {
+    mappedDrivers = affectedDriverList.slice(0, 2).map(title => ({
       name: title,
-      status: isAffected 
-        ? (currentStatus === 'Weakening' ? 'weakening' : currentStatus === 'Review Needed' ? 'monitoring' : 'strengthening')
-        : 'on_track'
-    };
-  });
+      status: currentStatus === 'Weakening' ? 'weakening' : currentStatus === 'Review Needed' ? 'monitoring' : 'strengthening'
+    }));
+  }
 
-  // Sort affected drivers first, then cap at 2 maximum
-  const mappedDrivers: DriverItem[] = normalizedDrivers
-    .sort((a, b) => (affectedDriverTitles.has(b.name.toLowerCase()) ? 1 : 0) - (affectedDriverTitles.has(a.name.toLowerCase()) ? 1 : 0))
-    .slice(0, 2);
+  // Backfill with saved thesis drivers if less than 2
+  if (mappedDrivers.length < 2) {
+    for (const d of safeDrivers) {
+      const title = typeof d === 'string' ? d : d.title || d.name || 'Core Driver';
+      if (!affectedSet.has(title.toLowerCase())) {
+        mappedDrivers.push({
+          name: title,
+          status: 'on_track'
+        });
+      }
+      if (mappedDrivers.length >= 2) break;
+    }
+  }
 
-  // 5. Exactly 1 Key Risk
+  // 5. Extract Exactly 1 Primary Risk
   const rawRisk = company.primaryRisk || company.primary_risk || (Array.isArray(safeRisks) ? safeRisks[0] : safeRisks);
   const primaryRisk = typeof rawRisk === 'string' 
     ? rawRisk 
