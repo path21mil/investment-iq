@@ -89,6 +89,13 @@ function calculateRiskPenalty(debtToEquity: number | null, netMargin: number | n
   return { penalty, watchFlag };
 }
 
+function sanitizePriceBounds(currentPrice: number, rawYearHigh: number | null, rawYearLow: number | null) {
+  // Fallbacks in case Finnhub returns null or weird data
+  const yearHigh = (rawYearHigh && rawYearHigh >= currentPrice) ? rawYearHigh : currentPrice * 1.1;
+  const yearLow = (rawYearLow && rawYearLow > 0 && rawYearLow <= currentPrice) ? rawYearLow : currentPrice * 0.5;
+  return { yearHigh, yearLow };
+}
+
 export async function GET(req: NextRequest) {
   // 1. Enforce Authorization Check
   const authHeader = req.headers.get('authorization');
@@ -102,7 +109,7 @@ export async function GET(req: NextRequest) {
     const finnhubApiKey = process.env.FINNHUB_API_KEY;
     if (!finnhubApiKey) throw new Error('Missing FINNHUB_API_KEY');
 
-    const BATCH_SIZE = 12;
+    const BATCH_SIZE = 6;
 
     // 1. Fetch persistent cursor index from Supabase
     const { data: stateData } = await supabase
@@ -128,16 +135,20 @@ export async function GET(req: NextRequest) {
       try {
         await sleep(500);
 
-        const quoteRes = await fetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${finnhubApiKey}`);
+      const quoteRes = await fetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${finnhubApiKey}`);
+        if (!quoteRes.ok) continue; // Skips if Finnhub sends an error instead of JSON
         const quote = await quoteRes.json();
 
         const metricRes = await fetch(`https://finnhub.io/api/v1/stock/metric?symbol=${symbol}&metric=all&token=${finnhubApiKey}`);
+        if (!metricRes.ok) continue; // Skips if Finnhub sends an error instead of JSON
         const metricData = await metricRes.json();
+        
+        // Safely extract metric data using optional chaining
         const m = metricData?.metric;
 
         if (!quote || !quote.c || !m) continue;
 
-       const currentPrice = quote.c;
+        const currentPrice = quote.c;
         const rawYearHigh = m['52WeekHigh'] || null;
         const rawYearLow = m['52WeekLow'] || null;
 
