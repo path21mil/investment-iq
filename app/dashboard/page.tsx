@@ -81,6 +81,55 @@ function getTimeAgo(dateString: string | null) {
   return `${Math.floor(diffInMinutes / 1440)}d ago`;
 }
 
+function isEventRelevantToThesis(
+  event: PortfolioEvent,
+  drivers: Driver[],
+  primaryRisk?: string
+): boolean {
+  const targetTopics: string[] = [];
+
+  if (Array.isArray(drivers)) {
+    drivers.forEach((d) => {
+      if (d.title) targetTopics.push(d.title.toLowerCase());
+      if (d.description) targetTopics.push(d.description.toLowerCase());
+    });
+  }
+
+  if (primaryRisk) {
+    targetTopics.push(primaryRisk.toLowerCase());
+  }
+
+  if (targetTopics.length === 0) return true;
+
+  const eventContent = `${event.headline} ${event.impact_summary} ${event.event_type || ''}`.toLowerCase();
+
+  const categoryKeywords: Record<string, string[]> = {
+    valuation_financials: ['valuation', 'multiple', 'pe', 'revenue', 'earnings', 'margin', 'ebitda', 'guidance', 'profit', 'cash flow'],
+    product_tech: ['product', 'launch', 'tech', 'software', 'hardware', 'fsd', 'ai', 'delivery', 'fleet', 'chip'],
+    regulatory_legal: ['sec', 'court', 'lawsuit', 'legal', 'regulation', 'investigation', 'compliance', 'approval', 'doj'],
+    leadership_ops: ['ceo', 'cfo', 'executive', 'board', 'layoff', 'restructuring', 'operations', 'musk'],
+    macro_market: ['interest rate', 'inflation', 'fed', 'recession', 'tariff', 'macro', 'sector']
+  };
+
+  const hasDirectTextMatch = targetTopics.some((topic) => {
+    const significantWords = topic.split(/\s+/).filter((w) => w.length > 3);
+    return significantWords.some((word) => eventContent.includes(word));
+  });
+
+  if (hasDirectTextMatch) return true;
+
+  const eventCategory = event.event_type;
+  if (eventCategory && categoryKeywords[eventCategory]) {
+    const relevantKeywords = categoryKeywords[eventCategory];
+    const userTracksThisCategory = targetTopics.some((topic) =>
+      relevantKeywords.some((kw) => topic.includes(kw))
+    );
+    if (userTracksThisCategory) return true;
+  }
+
+  return false;
+}
+
 export function CompanyLogo({ ticker, containerClass }: { ticker: string; containerClass: string }) {
   const [imgSrc, setImgSrc] = useState(`https://financialmodelingprep.com/image-stock/${ticker}.png`);
   const [isFallback, setIsFallback] = useState(false);
@@ -180,14 +229,13 @@ export default function Dashboard() {
       // 2. Determine Lookback Window (Floor: 24h, Ceiling: 7 days)
       const storedLastVisit = localStorage.getItem(`last_visit_${session.user.id}`);
       const now = new Date();
-      let lookbackDate = new Date(now.getTime() - 24 * 60 * 60 * 1000); // Default 24h floor
+      let lookbackDate = new Date(now.getTime() - 24 * 60 * 60 * 1000); 
 
       if (storedLastVisit) {
         const lastVisitDate = new Date(storedLastVisit);
         const diffHours = (now.getTime() - lastVisitDate.getTime()) / (1000 * 60 * 60);
 
         if (diffHours >= 168) {
-          // 7 days or more -> Ceiling
           lookbackDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
           setSessionLabel('Past 7 Days');
         } else if (diffHours > 24) {
@@ -201,7 +249,6 @@ export default function Dashboard() {
         setSessionLabel('Past 24 Hours');
       }
 
-      // Record current visit timestamp
       localStorage.setItem(`last_visit_${session.user.id}`, now.toISOString());
 
       // 3. Fetch Portfolio Events for Held Tickers (Last 7 Days)
@@ -223,13 +270,28 @@ export default function Dashboard() {
       // 4. Map DB Theses to Dashboard Structure
       const mappedPortfolio: TrackedCompany[] = dbTheses.map((t: any) => {
         const ticker = t.ticker.toUpperCase();
-        const tickerEvents = safeEvents.filter(e => e.ticker.toUpperCase() === ticker);
+        const rawDrivers = typeof t.drivers === 'string' ? JSON.parse(t.drivers) : (t.drivers || []);
+        const primaryRisk = t.primary_risk || undefined;
         
-        let dynamicStatus: TrackedCompany['status'] = 'Strengthening';
-        if (tickerEvents.some(e => e.sentiment === 'risk')) {
-          dynamicStatus = 'Weakening';
-        } else if (tickerEvents.some(e => e.sentiment === 'monitoring')) {
-          dynamicStatus = 'Review Needed';
+        // Use the AI evaluation status from curated_updates if it exists, otherwise calculate from raw events
+        const parsedCurated = typeof t.curated_updates === 'string' 
+          ? JSON.parse(t.curated_updates) 
+          : (t.curated_updates || null);
+
+        const tickerEvents = safeEvents.filter(e => e.ticker.toUpperCase() === ticker);
+        const relevantEvents = tickerEvents.filter(e =>
+          isEventRelevantToThesis(e, rawDrivers, primaryRisk)
+        );
+
+        let dynamicStatus: TrackedCompany['status'] = parsedCurated?.status || t.status || 'Strengthening';
+        
+        // Fallback status calculation if cron hasn't run yet
+        if (!parsedCurated?.status) {
+            if (relevantEvents.some(e => e.sentiment === 'risk')) {
+              dynamicStatus = 'Weakening';
+            } else if (relevantEvents.some(e => e.sentiment === 'monitoring')) {
+              dynamicStatus = 'Review Needed';
+            }
         }
 
         const updates: CompanyUpdate[] = tickerEvents.map(e => ({
@@ -246,11 +308,13 @@ export default function Dashboard() {
           ticker: ticker,
           name: t.company_name || ticker,
           status: dynamicStatus,
-          coreThesis: t.drivers?.[0]?.title || 'Long-term thesis tracking active',
-          aiSummary: tickerEvents[0]?.impact_summary || t.ai_summary || 'Tracking active. Awaiting next earnings report or SEC filing.',
-          updates: updates.length > 0 ? updates : (typeof t.updates === 'string' ? JSON.parse(t.updates) : t.updates || []),
-          drivers: typeof t.drivers === 'string' ? JSON.parse(t.drivers) : (t.drivers || []),
-          primaryRisk: t.primary_risk || undefined,
+          coreThesis: rawDrivers[0]?.title || 'Long-term thesis tracking active',
+          aiSummary: parsedCurated?.key_thesis_change || relevantEvents[0]?.impact_summary || tickerEvents[0]?.impact_summary || t.ai_summary || 'Tracking active. Awaiting next earnings report or SEC filing.',
+          updates: parsedCurated?.supporting_events?.map((e: any) => ({
+            headline: e.headline, text: e.headline, sourceName: e.source_name, sourceUrl: e.source_url
+          })) || updates.slice(0, 3) || [],
+          drivers: rawDrivers,
+          primaryRisk: primaryRisk,
           lastUpdated: new Date(t.last_scanned_at || t.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
           rawUpdatedAt: t.last_scanned_at || t.created_at,
           requiresAction: dynamicStatus !== 'Strengthening'
@@ -298,10 +362,14 @@ export default function Dashboard() {
     const r = new Set<string>();
     const a = new Set<string>();
 
-    events.forEach(e => {
-      if (e.sentiment === 'strengthening') s.add(e.ticker);
-      if (e.sentiment === 'monitoring') r.add(e.ticker);
-      if (e.sentiment === 'risk') a.add(e.ticker);
+    portfolio.forEach((company) => {
+      if (company.status === 'Weakening') {
+        a.add(company.ticker);
+      } else if (company.status === 'Review Needed') {
+        r.add(company.ticker);
+      } else if (company.status === 'Strengthening' && company.updates.length > 0) {
+        s.add(company.ticker); 
+      }
     });
 
     return {
@@ -309,15 +377,39 @@ export default function Dashboard() {
       riskTickers: Array.from(r),
       attentionTickers: Array.from(a)
     };
-  }, [events]);
+  }, [portfolio]);
 
-  // Companies that have at least one active event in the last 7 days
-  const activeEventCompanies = useMemo(() => {
-    const eventTickers = new Set(events.map(e => e.ticker.toUpperCase()));
-    return portfolio.filter(p => eventTickers.has(p.ticker.toUpperCase()));
-  }, [portfolio, events]);
+  // --- EVENT-CENTRIC SUMMARY FOR "WHAT CHANGED" SECTION ---
+  const portfolioEventsSummary = useMemo(() => {
+    const summary: any[] = [];
+    const seenTickers = new Set<string>();
 
-  const getStatusStyles = (status: TrackedCompany['status']) => {
+    for (const event of events) {
+      if (!seenTickers.has(event.ticker)) {
+        const company = portfolio.find(p => p.ticker === event.ticker);
+        if (company) {
+          const updatesCount = company.updates?.length || 0;
+          summary.push({
+            id: event.id,
+            ticker: event.ticker,
+            synthesized_summary: event.impact_summary,
+            sentiment: event.sentiment,
+            source_url: event.source_url,
+            source_name: event.source_name,
+            hasMultipleEvidence: updatesCount > 1,
+            company: company,
+            detected_at: event.detected_at
+          });
+          seenTickers.add(event.ticker);
+        }
+      }
+      if (summary.length >= 5) break;
+    }
+    
+    return summary;
+  }, [events, portfolio]);
+
+  const getStatusStyles = (status?: TrackedCompany['status']) => {
     switch(status) {
       case 'Strengthening': return { dotColor: 'text-emerald-500', label: 'Strengthening' };
       case 'Review Needed': return { dotColor: 'text-amber-500', label: 'Review Needed' };
@@ -338,7 +430,7 @@ export default function Dashboard() {
     return (
       <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center font-sans antialiased">
         <div className="text-slate-500 font-bold flex items-center gap-3 animate-pulse">
-          <Loader2 className="w-5 h-5 animate-spin" /> Loading Dashboard...
+          <Loader2 className="w-5 h-5 animate-spin text-blue-600" /> Loading Dashboard...
         </div>
       </div>
     );
@@ -491,7 +583,7 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* SECTION 2: WHAT CHANGED */}
+    {/* SECTION 2: WHAT CHANGED (EVENT-CENTRIC FEED) */}
             <div className="mb-12">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
@@ -503,42 +595,64 @@ export default function Dashboard() {
                 </span>
               </div>
 
-              {activeEventCompanies.length > 0 ? (
+              {portfolioEventsSummary.length > 0 ? (
                 <div className="flex flex-col gap-3">
-                  {activeEventCompanies.map(company => (
-                    <div 
-                      key={`alert-${company.ticker}`} 
-                      className="bg-white border border-slate-200 rounded-xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-6 shadow-sm hover:shadow-md transition-shadow"
-                    >
-                      <div className="flex items-start gap-4 flex-grow">
-                        <CompanyLogo 
-                          ticker={company.ticker} 
-                          containerClass="w-10 h-10 rounded-lg" 
-                        />
-                        <div className="flex-grow pt-0.5">
-                          <div className="flex items-center gap-3 mb-1.5">
-                            <span className="font-bold text-lg text-[#0F172A] leading-none">
-                              {company.ticker}
-                            </span>
-                            <div className="text-[10px] font-bold text-slate-500 flex items-center gap-1.5 uppercase tracking-widest">
-                              <span className={getStatusStyles(company.status).dotColor}>●</span> 
-                              {getStatusStyles(company.status).label}
-                            </div>
-                          </div>
-                          <p className="text-xs text-slate-600 font-medium leading-relaxed max-w-2xl line-clamp-2">
-                            {company.aiSummary}
-                          </p>
-                        </div>
-                      </div>
+                  {portfolioEventsSummary.map((eventSummary) => {
+                    const hasMultiple = eventSummary.hasMultipleEvidence;
 
-                      <button 
-                        onClick={() => setReviewCompany(company)}
-                        className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50 transition-all whitespace-nowrap shadow-sm shrink-0 cursor-pointer"
+                    return (
+                      <div 
+                        key={`alert-${eventSummary.ticker}-${eventSummary.id}`} 
+                        className="bg-white border border-slate-200 rounded-[24px] p-6 sm:p-7 flex flex-col sm:flex-row sm:items-center justify-between gap-6 shadow-sm hover:shadow-md transition-shadow"
                       >
-                        Review
-                      </button>
-                    </div>
-                  ))}
+                        <div className="flex items-start gap-4 flex-grow">
+                          <CompanyLogo 
+                            ticker={eventSummary.ticker} 
+                            containerClass="w-11 h-11 sm:w-12 sm:h-12 rounded-xl" 
+                          />
+                          <div className="flex-grow pt-0.5">
+                            <div className="flex flex-wrap items-center gap-3 mb-2">
+                              <span className="font-extrabold text-xl text-[#0F172A] tracking-tight leading-none">
+                                {eventSummary.ticker}
+                              </span>
+                              <div className="text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5">
+                                <span className={eventSummary.sentiment === 'strengthening' ? 'text-emerald-500' : eventSummary.sentiment === 'risk' ? 'text-rose-500' : 'text-amber-500'}>●</span> 
+                                <span className={eventSummary.sentiment === 'strengthening' ? 'text-emerald-600' : eventSummary.sentiment === 'risk' ? 'text-rose-600' : 'text-amber-600'}>
+                                  {eventSummary.sentiment === 'strengthening' ? 'Positive Event' : eventSummary.sentiment === 'risk' ? 'Risk Event' : 'Monitoring Event'}
+                                </span>
+                              </div>
+                            </div>
+
+                            <p className="text-[14px] text-slate-700 font-medium leading-relaxed max-w-2xl">
+                              {eventSummary.synthesized_summary}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Symmetrical Right Action */}
+                        {hasMultiple ? (
+                          <button 
+                            onClick={() => setReviewCompany(eventSummary.company)}
+                            className="px-5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-[#0F172A] hover:bg-slate-50 hover:border-slate-300 transition-all whitespace-nowrap shadow-sm shrink-0 cursor-pointer self-start sm:self-center"
+                          >
+                            Review 
+                          </button>
+                        ) : (
+                          eventSummary.source_url ? (
+                            <a 
+                              href={eventSummary.source_url} 
+                              target="_blank" 
+                              rel="noopener noreferrer" 
+                              className="px-4 py-2 bg-slate-50 border border-slate-200/80 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 hover:text-[#0F172A] transition-all whitespace-nowrap shadow-sm shrink-0 flex items-center gap-1.5 self-start sm:self-center"
+                            >
+                              <span>{eventSummary.source_name || 'Source'}</span>
+                              <ExternalLink className="w-3 h-3 text-slate-400" />
+                            </a>
+                          ) : null
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="p-8 text-center bg-white border border-slate-200 rounded-2xl shadow-sm flex flex-col items-center justify-center">
@@ -553,6 +667,7 @@ export default function Dashboard() {
               )}
             </div>
 
+            
             {/* SECTION 3: MARKET OPPORTUNITIES */}
             <WatchlistSection />
 
@@ -621,17 +736,17 @@ export default function Dashboard() {
               <div className="flex items-center justify-between gap-4 mb-10">
                 <div className="flex items-center gap-4">
                   <CompanyLogo 
-                    ticker={reviewCompany.ticker} 
+                    ticker={reviewCompany?.ticker} 
                     containerClass="w-12 h-12 rounded-xl" 
                   />
                   <h2 className="text-3xl font-extrabold text-[#0F172A] tracking-tight">
-                    {reviewCompany.ticker}
+                    {reviewCompany?.ticker}
                   </h2>
                 </div>
                 
                 <div className="text-[10px] font-bold uppercase tracking-widest text-slate-700 flex items-center gap-1.5">
-                  <span className={getStatusStyles(reviewCompany.status).dotColor}>●</span> 
-                  {getStatusStyles(reviewCompany.status).label}
+                  <span className={getStatusStyles(reviewCompany?.status).dotColor}>●</span> 
+                  {getStatusStyles(reviewCompany?.status).label}
                 </div>
               </div>
 
@@ -640,7 +755,7 @@ export default function Dashboard() {
                   Affected Thesis
                 </h4>
                 <p className="font-bold text-[#0F172A] text-[14px] leading-relaxed">
-                  {reviewCompany.coreThesis}
+                  {reviewCompany?.coreThesis}
                 </p>
               </div>
 
@@ -649,83 +764,58 @@ export default function Dashboard() {
                   Detected Impact
                 </h4>
                 <p className="text-[13px] text-slate-700 leading-relaxed font-medium">
-                  {reviewCompany.aiSummary}
+                  {reviewCompany?.aiSummary}
                 </p>
               </div>
-
-              <div className="mb-10">
+<div className="mb-10">
                 <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4 border-t border-slate-100 pt-8">
-                  Supporting Evidence
+                  Supporting Evidence ({reviewCompany?.updates?.length || 0})
                 </h4>
-                <div className="space-y-4">
-                  {reviewCompany.updates.map((update, idx) => {
-                    const isExpanded = expandedEvidenceIdx === idx;
-                    return (
-                      <div 
-                        key={idx} 
-                        className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm transition-all"
-                      >
-                        <div className="p-4 flex flex-col gap-2">
-                          <div className="flex items-start gap-2.5">
-                            <div className="flex-shrink-0">
-                              {getTrendIcon(update.trend)}
-                            </div>
-                            <p className="text-[13px] font-bold text-[#0F172A] leading-tight">
-                              {update.headline || update.text || "Market catalyst detected"}
-                            </p>
-                          </div>
-                          
-                          {update.evidenceText && (
-                            <button 
-                              onClick={() => setExpandedEvidenceIdx(isExpanded ? null : idx)}
-                              className="text-[10px] font-bold text-blue-600 hover:text-blue-800 transition-colors pl-5 self-start flex items-center gap-1 mt-1 cursor-pointer"
+                <div className="space-y-3">
+                  {reviewCompany?.updates?.map((update, idx) => (
+                    <div 
+                      key={idx} 
+                      className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-sm hover:border-slate-300 transition-all flex items-start gap-3.5"
+                    >
+                      <span className="text-[11px] font-mono font-bold text-slate-400 bg-slate-50 border border-slate-100 px-2 py-0.5 rounded-lg mt-0.5 shrink-0">
+                        {String(idx + 1).padStart(2, '0')}
+                      </span>
+                      <div className="flex-1">
+                        <p className="text-[13px] font-bold text-[#0F172A] leading-snug">
+                          {update.headline || update.text || "Market catalyst detected"}
+                        </p>
+                        <div className="mt-2.5 flex items-center gap-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                          {update.sourceUrl ? (
+                            <a 
+                              href={update.sourceUrl} 
+                              target="_blank" 
+                              rel="noopener noreferrer" 
+                              className="hover:text-blue-600 transition-colors flex items-center gap-1"
                             >
-                              {isExpanded ? 'Hide evidence' : 'View evidence'} 
-                              {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                            </button>
+                              Source: {update.sourceName || 'Market Disclosure'} <ExternalLink className="w-2.5 h-2.5" />
+                            </a>
+                          ) : (
+                            <span>Source: {update.sourceName || 'Market Disclosure'}</span>
                           )}
                         </div>
-
-                        {isExpanded && update.evidenceText && (
-                          <div className="bg-slate-50 px-5 py-4 border-t border-slate-100">
-                            <p className="text-[13px] text-slate-600 font-medium italic leading-relaxed">
-                              "{update.evidenceText}"
-                            </p>
-                            
-                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-3 flex items-center gap-1">
-                              <Info className="w-3 h-3" /> 
-                              {update.sourceUrl ? (
-                                <a 
-                                  href={update.sourceUrl} 
-                                  target="_blank" 
-                                  rel="noopener noreferrer" 
-                                  className="hover:text-blue-600 underline transition-colors flex items-center gap-1"
-                                >
-                                  Source: {update.sourceName || 'View Source'} <ExternalLink className="w-2.5 h-2.5" />
-                                </a>
-                              ) : (
-                                <span>Source: {update.sourceName || 'SEC Filing / Public Disclosure'}</span>
-                              )}
-                            </p>
-                          </div>
-                        )}
                       </div>
-                    );
-                  })}
+                    </div>
+                  ))}
                 </div>
               </div>
+             
             </div>
 
             <div className="p-6 border-t border-slate-200 bg-white flex flex-col gap-3">
               <button 
-                onClick={() => router.push(`/build-thesis/${reviewCompany.ticker}`)}
+                onClick={() => router.push(`/build-thesis/${reviewCompany?.ticker}`)}
                 className="w-full bg-[#0F172A] hover:bg-slate-800 text-white font-bold py-3 rounded-xl transition-colors text-[13px] cursor-pointer"
               >
                 Modify My Thesis
               </button>
               
               <button 
-                onClick={() => router.push(`/company/${reviewCompany.ticker}?view=research`)}
+                onClick={() => router.push(`/company/${reviewCompany?.ticker}?view=research`)}
                 className="w-full text-blue-600 hover:text-blue-800 font-bold py-2 rounded-xl transition-colors text-[13px] mt-1 cursor-pointer"
               >
                 Open Full Research →
@@ -743,9 +833,9 @@ export default function Dashboard() {
               <Check className="w-4 h-4 text-emerald-600" />
             </div>
             <div className="flex-1 pr-2">
-              <h4 className="text-[14px] font-bold text-[#0F172A] mb-1">{toastMessage.title}</h4>
+              <h4 className="text-[14px] font-bold text-[#0F172A] mb-1">{toastMessage?.title}</h4>
               <p className="text-[13px] font-medium text-slate-500 leading-relaxed">
-                {toastMessage.description}
+                {toastMessage?.description}
               </p>
             </div>
             <button onClick={() => setToastMessage(null)} className="text-slate-400 hover:text-slate-600 transition-colors cursor-pointer mt-0.5">

@@ -9,16 +9,15 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
-
 export const dynamic = 'force-dynamic';
-export const maxDuration = 60; // Extends execution window (up to 300 on Pro plans)
+export const maxDuration = 60;
+
 export async function GET(req: NextRequest) {
-  // Optional secret verification: only enforces if CRON_SECRET is configured
   const authHeader = req.headers.get('authorization');
- const cronSecret = process.env.CRON_SECRET;
-if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
-  return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-}
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
 
   try {
     // 1. Fetch distinct tickers currently held in user portfolios
@@ -31,7 +30,6 @@ if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
       return NextResponse.json({ message: 'No active portfolio tickers to monitor' });
     }
 
-    // Deduplicate tickers (e.g. 50 users holding TSLA becomes 1 scan)
     const uniqueTickers = Array.from(
       new Set(userTheses.map((t) => t.ticker.toUpperCase()))
     );
@@ -57,7 +55,6 @@ if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
       const newsItems: any[] = await res.json();
       if (!Array.isArray(newsItems) || newsItems.length === 0) continue;
 
-      // Take the top 3 most relevant headlines
       const topNews = newsItems.slice(0, 3);
 
       for (const item of topNews) {
@@ -71,9 +68,9 @@ if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
 
         if (existing && existing.length > 0) continue;
 
-        // 3. Evaluate catalyst significance with OpenAI
         if (!OPENAI_API_KEY) continue;
 
+        // 3. Evaluate catalyst significance & driver category with OpenAI
         const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
           headers: {
@@ -86,28 +83,27 @@ if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
             messages: [
               {
                 role: 'system',
-     content: `You are an equity analyst evaluating portfolio holding developments.
-Analyze this news item. Set "is_material": true if the news represents:
-- Earnings releases, guidance adjustments, or financial performance updates
-- Key product launches, technological milestones, or major contract wins/partnerships
-- Executive leadership shifts, board changes, or corporate restructuring
-- Regulatory decisions, legal actions, or antitrust/compliance matters
-- Significant analyst upgrades, downgrades, or price target revisions
+                content: `You are an equity research analyst evaluating portfolio holding catalysts.
+CRITICAL RULES:
+1. First verify that the article is PRIMARILY about the target company (${ticker}). If the article is primarily about another company or competitor (e.g., Salesforce mentioned in a Palantir article), reject it by returning "is_material": false.
+2. Filter out generic market noise, listicles, or daily index roundups.
 
-If the news is generic market commentary, general market recaps (e.g. "why tech dipped today"), or repetitive listicles (e.g. "top 3 dividend stocks"), set "is_material": false.
-
-Classify sentiment as:
-- "strengthening" (clear positive tailwinds, expansion, beats)
-- "monitoring" (neutral updates, leadership changes, minor headwinds, watch items)
-- "risk" (legal hurdles, misses, severe downgrades, lost contracts)
-
-Provide a concise 1-sentence impact summary.
+If material and specifically about ${ticker}, determine:
+- "sentiment": "strengthening" (clear growth, contract wins, earnings beat), "monitoring" (neutral updates, leadership transitions), or "risk" (losses, downgrades, lawsuits, valuation alarms).
+- "category": Choose one of:
+    * "product_tech" (launches, patents, product milestones)
+    * "valuation_financials" (earnings, revenue, multiples, price target upgrades/downgrades)
+    * "leadership_ops" (executive changes, restructuring, operational efficiency)
+    * "regulatory_legal" (SEC filings, court rulings, government policy)
+    * "macro_market" (industry trends, broader macroeconomic factors)
+- "impact_summary": 1 concise sentence explaining the effect directly on ${ticker}.
 
 Return JSON format:
 {
   "is_material": boolean,
   "sentiment": "strengthening" | "monitoring" | "risk",
-  "impact_summary": "1 concise sentence explaining the effect"
+  "category": "product_tech" | "valuation_financials" | "leadership_ops" | "regulatory_legal" | "macro_market",
+  "impact_summary": "1 concise sentence explaining the effect on ${ticker}"
 }`
               },
               {
@@ -116,7 +112,7 @@ Return JSON format:
               }
             ],
             temperature: 0.1,
-            max_tokens: 150
+            max_tokens: 180
           })
         });
 
@@ -125,7 +121,7 @@ Return JSON format:
         const aiData = await aiResponse.json();
         const analysis = JSON.parse(aiData.choices[0].message.content);
 
-        // 4. Save significant catalysts to the database
+        // 4. Save significant catalysts with their mapped category
         if (analysis.is_material) {
           const { data: newEvent, error: insertError } = await supabase
             .from('portfolio_events')
@@ -133,7 +129,7 @@ Return JSON format:
               ticker: ticker,
               headline: item.headline,
               impact_summary: analysis.impact_summary,
-              event_type: 'news',
+              event_type: analysis.category || 'general',
               sentiment: analysis.sentiment,
               source_name: item.source || 'Market Disclosure',
               source_url: item.url || null,
@@ -149,11 +145,10 @@ Return JSON format:
         }
       }
 
-      // 100ms pause between tickers to stay well under rate limits
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
 
-    // 5. Housekeeping: Purge events older than 7 days
+    // 5. Housekeeping: Purge expired events
     await supabase
       .from('portfolio_events')
       .delete()

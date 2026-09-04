@@ -11,6 +11,29 @@ interface PortfolioShareModalProps {
   company: any; 
 }
 
+// Smart text condenser to keep the social card punchy without losing meaning
+function shortenForCard(text: string, maxLen: number = 105): string {
+  if (!text) return 'Initial Baseline Established';
+  const cleaned = text.trim().replace(/\s+/g, ' ');
+  if (cleaned.length <= maxLen) return cleaned;
+
+  // 1. Try splitting at common financial clause transitions
+  const clauseSplits = [', signaling ', ', indicating ', ' signal a ', ' signals a ', ', driven by '];
+  for (const splitter of clauseSplits) {
+    if (cleaned.toLowerCase().includes(splitter)) {
+      const prefix = cleaned.split(new RegExp(splitter, 'i'))[0].trim();
+      if (prefix.length >= 35 && prefix.length <= maxLen) {
+        return prefix;
+      }
+    }
+  }
+
+  // 2. Fall back to trimming at nearest word boundary
+  const sliced = cleaned.slice(0, maxLen - 3);
+  const lastSpace = sliced.lastIndexOf(' ');
+  return (lastSpace > 40 ? sliced.slice(0, lastSpace) : sliced).trim() + '...';
+}
+
 export function PortfolioShareModal({ isOpen, onClose, company }: PortfolioShareModalProps) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -21,42 +44,32 @@ export function PortfolioShareModal({ isOpen, onClose, company }: PortfolioShare
   const [liveChange, setLiveChange] = useState(0);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
 
-// Fetch live price AND logo from Finnhub when modal opens
+  // Fetch live price AND logo from Finnhub when modal opens
   useEffect(() => {
     async function fetchFinnhubData() {
       if (!company?.ticker || !isOpen) return;
       try {
-        const apiKey = process.env.FINNHUB_API_KEY;
+        // 1. Fetch Quote securely via backend route
+        const res = await fetch(`/api/company-profile?ticker=${company.ticker}`);
+        const data = await res.json();
+        const profile = Array.isArray(data) ? data[0] : data;
 
-       
-          // 1. Fetch Quote securely via our backend route
-const Res = await fetch(`/api/company-profile?ticker=${company.ticker}`);
-const Data = await Res.json();
+        if (profile && (profile.price !== undefined || profile.c !== undefined)) {
+          const currentPrice = profile.price ?? profile.c;
+          setLivePrice(Number(currentPrice).toFixed(2));
+        }
 
-// If priceData comes back as an array (from FMP) or object (from Finnhub)
-const profile = Array.isArray(Data) ? Data[0] : Data;
-
-if (profile && (profile.price !== undefined || profile.c !== undefined)) {
-  const currentPrice = profile.price ?? profile.c;
-  setLivePrice(Number(currentPrice).toFixed(2));
-}
-      // 2. Fetch Profile (Official Company Logo)
-       const profileRes = await fetch(`/api/company-profile?ticker=${company.ticker}`);
-        const profileData = await profileRes.json();
-        
-        if (profileData && profileData.image) {
+        // 2. Fetch Profile (Official Company Logo)
+        if (profile && profile.image) {
           try {
-            // ✨ THE FIX: Route the Finnhub URL through our new server proxy!
-            const proxiedUrl = `/api/image-proxy?url=${encodeURIComponent(profileData.image)}`;
-            
-            // Fetch the proxied image and convert it to safe Base64
+            const proxiedUrl = `/api/image-proxy?url=${encodeURIComponent(profile.image)}`;
             const imageResponse = await fetch(proxiedUrl);
             if (!imageResponse.ok) throw new Error("Proxy failed to load image");
             
             const blob = await imageResponse.blob();
             const reader = new FileReader();
             reader.onloadend = () => {
-              setLogoUrl(reader.result as string); // 100% safe for canvas export
+              setLogoUrl(reader.result as string);
             };
             reader.readAsDataURL(blob);
           } catch (imgError) {
@@ -73,115 +86,68 @@ if (profile && (profile.price !== undefined || profile.c !== undefined)) {
 
   if (!isOpen || !company) return null;
 
-  // 1. Map Overall Conviction Status
+  // 1. Parse Curated Updates & Raw Data
+  const curated = typeof company.curated_updates === 'string'
+    ? JSON.parse(company.curated_updates)
+    : (company.curated_updates || company.curatedUpdates || null);
+
+  const safeDrivers = typeof company.drivers === 'string' 
+    ? JSON.parse(company.drivers) 
+    : (company.drivers || []);
+
+  const safeRisks = typeof company.risks === 'string'
+    ? JSON.parse(company.risks)
+    : company.risks;
+
+  // 2. Overall Status
+  const currentStatus = curated?.status || company.status || 'Strengthening';
   const statusMap: Record<string, 'STRENGTHENING' | 'INTACT' | 'WEAKENING'> = {
     'Strengthening': 'STRENGTHENING',
     'Review Needed': 'INTACT', 
     'Weakening': 'WEAKENING',
   };
 
-  // Safe parsing helper for updates
-  const safeUpdates = typeof company.updates === 'string' 
-    ? JSON.parse(company.updates) 
-    : (company.updates || []);
+  // 3. Key Changes (Pulls from cron synthesis, shortens for card)
+  const rawKeyChange = curated?.key_thesis_change || company.aiSummary || company.updates?.[0]?.headline || '';
+  const punchyHeadline = shortenForCard(rawKeyChange);
 
-  const safeRisks = typeof company.risks === 'string'
-    ? JSON.parse(company.risks)
-    : company.risks;
+  const mappedUpdates = [{
+    type: currentStatus === 'Weakening' ? 'negative' : currentStatus === 'Review Needed' ? 'warning' : 'positive',
+    headline: punchyHeadline,
+    context: 'Recent market development'
+  }];
 
-  // ----------------------------------------------------------------
-  // 1. THE $10M ZERO-STATE FOR "WHAT CHANGED"
-  // ----------------------------------------------------------------
-  const mappedUpdates = safeUpdates.length > 0 
-    ? safeUpdates.slice(0, 3).map((u: any) => ({
-        type: u.trend === 'up' || u.type === 'positive' ? 'positive' : u.trend === 'down' || u.type === 'negative' ? 'negative' : 'warning',
-        headline: u.text || u.headline || 'Tracking core drivers',
-        context: 'Recent market development'
-      }))
-    : [{
-        type: 'positive',
-        headline: 'Initial Baseline Established',
-        context: 'Tracking initiated. Awaiting first market catalyst.'
-      }];
+  // 4. Max 2 Thesis Drivers (Prioritizes cron-affected drivers, fills with saved)
+  const affectedDriverTitles = new Set(
+    (curated?.affected_drivers || []).map((d: any) => 
+      (typeof d === 'string' ? d : d.title || '').toLowerCase()
+    )
+  );
 
-  // 3. Robust Driver Normalization (Fixes "d0", "d1", "d2" key extraction)
-  const normalizeDrivers = (raw: any): DriverItem[] => {
-    if (!raw) return [];
-    
-    let parsed = raw;
-    if (typeof parsed === 'string') {
-      try { parsed = JSON.parse(parsed); } catch (e) { return []; }
-    }
-
-    let items: any[] = [];
-
-    if (Array.isArray(parsed)) {
-      items = parsed;
-    } else if (typeof parsed === 'object') {
-      items = Object.entries(parsed).map(([key, val]) => {
-        if (val && typeof val === 'object') {
-          return val;
-        }
-        if (typeof val === 'string') {
-          return { title: val, status: 'on_track' };
-        }
-        return { title: key, status: 'on_track' };
-      });
-    }
-
-    return items.slice(0, 3).map((item: any) => {
-      let name = '';
-      if (typeof item === 'string') {
-        name = item;
-      } else if (item && typeof item === 'object') {
-        name = item.title || item.name || item.headline || item.text || item.driver || item.label || '';
-        
-        if (/^d\d+$/i.test(name)) {
-          const innerVal = Object.values(item).find(
-            v => typeof v === 'string' && !/^d\d+$/i.test(v) && !['strengthening', 'on_track', 'monitoring', 'weakening'].includes(v.toLowerCase())
-          );
-          if (innerVal) name = innerVal as string;
-        }
-      }
-
-      const rawStatus = (item?.status || item?.trend || '').toString().toLowerCase();
-      let status: DriverItem['status'] = 'on_track';
-      if (rawStatus === 'strengthening' || rawStatus === 'positive' || rawStatus === 'up') status = 'strengthening';
-      else if (rawStatus === 'weakening' || rawStatus === 'negative' || rawStatus === 'down') status = 'weakening';
-      else if (rawStatus === 'monitoring' || rawStatus === 'warning' || rawStatus === 'review needed') status = 'monitoring';
-
-      return {
-        name: name || 'Core Thesis Driver',
-        status
-      };
-    });
-  };
-
-  // ----------------------------------------------------------------
-  // 2. THE GLITCH-PROOF DRIVER FALLBACK (Fixing d0, d1, d2)
-  // ----------------------------------------------------------------
-  const mappedDrivers: DriverItem[] = normalizeDrivers(company.drivers).map((driver, index) => {
-    let safeName = driver.name;
-    
-    if (/^d\d+$/i.test(safeName) || !safeName) {
-      safeName = `Core Driver ${index + 1}`;
-    }
-
+  const normalizedDrivers: DriverItem[] = safeDrivers.map((d: any) => {
+    const title = typeof d === 'string' ? d : d.title || d.name || 'Core Driver';
+    const isAffected = affectedDriverTitles.has(title.toLowerCase());
     return {
-      name: safeName,
-      status: driver.status
+      name: title,
+      status: isAffected 
+        ? (currentStatus === 'Weakening' ? 'weakening' : currentStatus === 'Review Needed' ? 'monitoring' : 'strengthening')
+        : 'on_track'
     };
   });
 
-  // 4. Primary Risk Extraction
-  const rawRisk = company.primaryRisk || (Array.isArray(safeRisks) ? safeRisks[0] : safeRisks);
-  
+  // Sort affected drivers first, then cap at 2 maximum
+  const mappedDrivers: DriverItem[] = normalizedDrivers
+    .sort((a, b) => (affectedDriverTitles.has(b.name.toLowerCase()) ? 1 : 0) - (affectedDriverTitles.has(a.name.toLowerCase()) ? 1 : 0))
+    .slice(0, 2);
+
+  // 5. Exactly 1 Key Risk
+  const rawRisk = company.primaryRisk || company.primary_risk || (Array.isArray(safeRisks) ? safeRisks[0] : safeRisks);
   const primaryRisk = typeof rawRisk === 'string' 
     ? rawRisk 
     : rawRisk?.title || rawRisk?.name || rawRisk?.text || "Macroeconomic pressures and sector rotation";
 
   const tweetText = `Just reviewed my $${company.ticker} investment thesis 👇\n\n` +
-    `Conviction Status: ${statusMap[company.status] || 'INTACT'}\n\n` +
+    `Conviction Status: ${statusMap[currentStatus] || 'INTACT'}\n\n` +
     `Tracking my portfolio rationale via @InvestmentIQ`;
 
   const handleCopyText = () => {
@@ -242,8 +208,8 @@ if (profile && (profile.price !== undefined || profile.c !== undefined)) {
                 ref={cardRef}
                 ticker={company.ticker}
                 companyName={company.name || company.ticker}
-                logoUrl={logoUrl || undefined} // 👈 Pass official logo URL
-                overallStatus={statusMap[company.status] || 'INTACT'}
+                logoUrl={logoUrl || undefined}
+                overallStatus={statusMap[currentStatus] || 'INTACT'}
                 updates={mappedUpdates}
                 drivers={mappedDrivers}
                 keyRisk={primaryRisk}

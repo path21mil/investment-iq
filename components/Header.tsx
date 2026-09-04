@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import Logo from '@/components/Logo';
 import { Menu, X, ChevronDown } from 'lucide-react'; 
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { supabase } from '@/lib/supabase'; // Adjust this path if your supabase client is located elsewhere!
 
 export default function Header() {
@@ -13,6 +13,7 @@ export default function Header() {
   
   // ✨ NEW: Initialize router
   const router = useRouter();
+  const pathname = usePathname();
 
   // ✨ NEW: The logout execution function
   const handleLogout = async () => {
@@ -40,9 +41,24 @@ export default function Header() {
 
           {/* 2. DESKTOP NAVIGATION */}
           <div className="hidden md:flex items-center gap-8 text-[14px] font-bold">
-            <Link href="/dashboard" className="text-blue-600">Dashboard</Link>
-            <Link href="/portfolio" className="text-slate-600 hover:text-slate-900 transition-colors">Portfolio</Link>
-            <Link href="/watchlist" className="text-slate-600 hover:text-slate-900 transition-colors">Watchlist</Link>
+            <Link 
+              href="/dashboard" 
+              className={pathname === '/dashboard' ? 'text-blue-600' : 'text-slate-600 hover:text-slate-900 transition-colors'}
+            >
+              Dashboard
+            </Link>
+            <Link 
+              href="/portfolio" 
+              className={pathname === '/portfolio' ? 'text-blue-600' : 'text-slate-600 hover:text-slate-900 transition-colors'}
+            >
+              Portfolio
+            </Link>
+            <Link 
+              href="/watchlist" 
+              className={pathname === '/watchlist' ? 'text-blue-600' : 'text-slate-600 hover:text-slate-900 transition-colors'}
+            >
+              Watchlist
+            </Link>
           </div>
 
           {/* 3. DESKTOP PROFILE W/ DROPDOWN */}
@@ -100,21 +116,21 @@ export default function Header() {
             <Link 
               href="/dashboard" 
               onClick={() => setIsMobileMenuOpen(false)} 
-              className="text-slate-700 hover:text-slate-900 font-bold text-[16px]"
+              className={pathname === '/dashboard' ? 'text-blue-600 font-bold text-[16px]' : 'text-slate-700 hover:text-slate-900 font-bold text-[16px]'}
             >
               Dashboard
             </Link>
             <Link 
               href="/portfolio" 
               onClick={() => setIsMobileMenuOpen(false)} 
-              className="text-slate-700 hover:text-slate-900 font-bold text-[16px]"
+              className={pathname === '/portfolio' ? 'text-blue-600 font-bold text-[16px]' : 'text-slate-700 hover:text-slate-900 font-bold text-[16px]'}
             >
               Portfolio
             </Link>
             <Link 
               href="/watchlist" 
               onClick={() => setIsMobileMenuOpen(false)} 
-              className="text-slate-700 hover:text-slate-900 font-bold text-[16px]"
+              className={pathname === '/watchlist' ? 'text-blue-600 font-bold text-[16px]' : 'text-slate-700 hover:text-slate-900 font-bold text-[16px]'}
             >
               Watchlist
             </Link>
