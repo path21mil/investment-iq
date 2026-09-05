@@ -176,16 +176,14 @@ export default function Dashboard() {
   const [toastMessage, setToastMessage] = useState<{title: string; description: string} | null>(null);
   const [showAlphaWelcome, setShowAlphaWelcome] = useState(false);
 
+  // NO LOCAL STORAGE: Shows the modal 1.5 seconds after page load, every time
   useEffect(() => {
-    const hasSeenWelcome = localStorage.getItem('hasSeenAlphaWelcome');
-    if (!hasSeenWelcome) {
-      const timer = setTimeout(() => setShowAlphaWelcome(true), 1500);
-      return () => clearTimeout(timer);
-    }
+    const timer = setTimeout(() => setShowAlphaWelcome(true), 1500);
+    return () => clearTimeout(timer);
   }, []);
 
+  // Closes the modal without saving to local storage
   const closeAlphaWelcome = () => {
-    localStorage.setItem('hasSeenAlphaWelcome', 'true');
     setShowAlphaWelcome(false);
   };
 
@@ -635,7 +633,7 @@ export default function Dashboard() {
                             onClick={() => setReviewCompany(eventSummary.company)}
                             className="px-5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-[#0F172A] hover:bg-slate-50 hover:border-slate-300 transition-all whitespace-nowrap shadow-sm shrink-0 cursor-pointer self-start sm:self-center"
                           >
-                            Review 
+                            Review ({eventSummary.company.updates?.length})
                           </button>
                         ) : (
                           eventSummary.source_url ? (

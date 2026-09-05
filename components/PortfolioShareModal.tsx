@@ -11,33 +11,26 @@ interface PortfolioShareModalProps {
   company: any; 
 }
 
-// Smart text condenser to keep the social card punchy without losing meaning
-function shortenForCard(text: string, maxLen: number = 105): string {
+// Smarter text condenser to keep the social card punchy without losing meaning
+function shortenForCard(text: string, maxLen: number = 100): string {
   if (!text) return 'Initial Baseline Established';
   const cleaned = text.trim().replace(/\s+/g, ' ');
   if (cleaned.length <= maxLen) return cleaned;
 
-  // 1. Split at natural financial clause transitions (e.g. ", enhancing", ", signaling")
-  const clauseSplits = [
-    ', enhancing ', 
-    ', signaling ', 
-    ', indicating ', 
-    ' signal a ', 
-    ' signals a ', 
-    ', driven by ',
-    ', potentially '
-  ];
-  
-  for (const splitter of clauseSplits) {
-    if (cleaned.toLowerCase().includes(splitter)) {
-      const prefix = cleaned.split(new RegExp(splitter, 'i'))[0].trim();
-      if (prefix.length >= 35 && prefix.length <= maxLen) {
-        return prefix;
-      }
+  // 1. Look for natural transition words (with or without commas)
+  const transitionRegex = /(?:,\s*)?(enhancing|signaling|indicating|driving|potentially|which|thereby|leading to|resulting in)\b/i;
+  const match = cleaned.match(transitionRegex);
+
+  if (match && match.index && match.index > 35) {
+    const prefix = cleaned.substring(0, match.index).trim();
+    
+    // If the prefix fits our size limit, return it cleanly with a period
+    if (prefix.length <= maxLen + 15) { 
+      return prefix.replace(/,+$/, '') + '.';
     }
   }
 
-  // 2. Fall back to trimming cleanly at the nearest word boundary
+  // 2. Fallback: Trim cleanly at the nearest word boundary
   const sliced = cleaned.slice(0, maxLen - 3);
   const lastSpace = sliced.lastIndexOf(' ');
   return (lastSpace > 40 ? sliced.slice(0, lastSpace) : sliced).trim() + '...';
@@ -93,20 +86,20 @@ export function PortfolioShareModal({ isOpen, onClose, company }: PortfolioShare
 
   if (!isOpen || !company) return null;
 
-  // 1. Parse Curated Updates & Raw Data from Supabase
+// 1. Robust parse of curated_updates from the thesis evaluation
   const curated = typeof company.curated_updates === 'string'
-    ? JSON.parse(company.curated_updates)
+    ? (() => { try { return JSON.parse(company.curated_updates); } catch { return null; } })()
     : (company.curated_updates || company.curatedUpdates || null);
 
   const safeDrivers = typeof company.drivers === 'string' 
-    ? JSON.parse(company.drivers) 
+    ? (() => { try { return JSON.parse(company.drivers); } catch { return []; } })()
     : (company.drivers || []);
 
   const safeRisks = typeof company.risks === 'string'
-    ? JSON.parse(company.risks)
+    ? (() => { try { return JSON.parse(company.risks); } catch { return []; } })()
     : company.risks;
 
-  // 2. Status Mapping
+  // 2. Map Conviction Status
   const currentStatus = curated?.status || company.status || 'Strengthening';
   const statusMap: Record<string, 'STRENGTHENING' | 'INTACT' | 'WEAKENING'> = {
     'Strengthening': 'STRENGTHENING',
@@ -114,32 +107,36 @@ export function PortfolioShareModal({ isOpen, onClose, company }: PortfolioShare
     'Weakening': 'WEAKENING',
   };
 
-  // 3. Extract Synthesized Key Change
-  const rawKeyChange = 
-    curated?.impact_summary || 
+  // 3. Extract the Synthesized Key Change across all schema possibilities
+  // Prioritize the new AI-generated social headline, fallback to older summaries if missing
+  const punchyHeadline = 
+    curated?.social_card_headline || 
     curated?.key_thesis_change || 
-    curated?.summary || 
-    curated?.key_changes || 
+    curated?.impact_summary || 
     company.aiSummary || 
-    company.updates?.[0]?.headline || 
-    '';
+    'Initial Baseline Established';
 
-  const punchyHeadline = shortenForCard(rawKeyChange);
+  // If falling back to an old long summary, just enforce a hard cap to prevent UI breaking
+  const finalHeadline = punchyHeadline.length > 115 
+    ? punchyHeadline.substring(0, 112).trim() + '...' 
+    : punchyHeadline;
 
   const mappedUpdates = [{
     type: (currentStatus === 'Weakening' ? 'negative' : currentStatus === 'Review Needed' ? 'warning' : 'positive') as 'negative' | 'warning' | 'positive',
-    headline: punchyHeadline,
+    headline: finalHeadline,
     context: 'Recent market development'
   }];
 
-  // 4. Extract Affected Drivers First, Capped at Exactly 2
+  // 4. Pull Affected Drivers first, then cap at 2
   const affectedDriverList: string[] = (curated?.affected_drivers || curated?.affectedDrivers || []).map((d: any) => 
     typeof d === 'string' ? d : d.title || d.name || ''
-  );
+  ).filter(Boolean);
+
   const affectedSet = new Set(affectedDriverList.map(s => s.toLowerCase()));
 
   let mappedDrivers: DriverItem[] = [];
 
+  // Add the AI-flagged drivers first
   if (affectedDriverList.length > 0) {
     mappedDrivers = affectedDriverList.slice(0, 2).map(title => ({
       name: title,
@@ -147,7 +144,7 @@ export function PortfolioShareModal({ isOpen, onClose, company }: PortfolioShare
     }));
   }
 
-  // Backfill with saved thesis drivers if less than 2
+  // Backfill with saved thesis drivers if fewer than 2 affected drivers exist
   if (mappedDrivers.length < 2) {
     for (const d of safeDrivers) {
       const title = typeof d === 'string' ? d : d.title || d.name || 'Core Driver';

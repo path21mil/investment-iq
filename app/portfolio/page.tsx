@@ -44,10 +44,11 @@ interface CuratedUpdate {
   override_category?: string | null;
   untracked_risk_type?: string | null;
   key_thesis_change: string;
+  social_card_headline?: string; // <--- Add this line
   evidence_count: number;
   supporting_events: SupportingEvent[];
   last_evaluated_at?: string;
-  affected_drivers?: string[]; // Adding this for the AI mapping
+  affected_drivers?: string[]; 
 }
 
 interface TrackedCompany {
@@ -59,6 +60,7 @@ interface TrackedCompany {
   drivers: Driver[];
   primaryRisk?: string;
   curatedUpdate?: CuratedUpdate | null;
+  curated_updates?: any; // <--- Add this line
   lastUpdated: string;
   rawUpdatedAt: string;
 }
@@ -142,6 +144,7 @@ export default function PortfolioPage() {
             drivers: rawDrivers,
             primaryRisk: t.primary_risk || undefined,
             curatedUpdate: parsedCurated && parsedCurated.key_thesis_change ? parsedCurated : null,
+            curated_updates: t.curated_updates, // <--- Add this line!
             lastUpdated: new Date(t.last_scanned_at || t.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
             rawUpdatedAt: t.last_scanned_at || t.updated_at || t.created_at
           };

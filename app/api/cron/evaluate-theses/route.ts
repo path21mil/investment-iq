@@ -105,7 +105,7 @@ export async function GET(req: NextRequest) {
 
       if (eventsToEvaluate.length === 0) continue;
 
-      // 4. AI Synthesis Prompt with Dynamic Affected Driver Mapping
+      // 4. AI Synthesis Prompt with Dual Text Generation
       if (!OPENAI_API_KEY) continue;
       
       const driverTitles = rawDrivers.map((d: any) => d.title).filter(Boolean);
@@ -137,7 +137,8 @@ RULES:
        - If 2 drivers are affected, return an array of 2.
        - If 3 or more are affected, select ONLY the top 2 most material drivers.
        - If none match directly, select the single closest related driver title.`}
-2. Synthesize all related news into ONE high-conviction sentence under "key_thesis_change". Do not repeat the same event across multiple thoughts.
+2. For "key_thesis_change", write a detailed 2-3 sentence analysis of the event and its structural impact.
+3. For "social_card_headline", act as a financial journalist writing a tweet. State the definitive verdict and core catalyst in a single, complete sentence under 100 characters. Never cut off mid-sentence.
 
 JSON OUTPUT STRUCTURE:
 {
@@ -146,7 +147,8 @@ JSON OUTPUT STRUCTURE:
   "is_critical_override": ${isCritical},
   "override_category": ${isCritical ? '"Leadership" | "Solvency" | "Legal" | "Integrity"' : null},
   "untracked_risk_type": ${isCritical ? '"string naming untracked risk"' : null},
-  "key_thesis_change": "1 concise statement synthesizing the impact",
+  "key_thesis_change": "Detailed 2-3 sentence analysis of the event and its impact",
+  "social_card_headline": "A punchy, definitive 1-sentence summary of the event under 100 characters",
   "evidence_count": number,
   "supporting_events": [
     { "headline": "string", "source_name": "string", "source_url": "string" }
