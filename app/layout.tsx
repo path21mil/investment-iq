@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import { GlobalAuthModal } from "@/components/GlobalAuthModal";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -26,9 +27,13 @@ export default function RootLayout({
         </div>
         
         {children}
+        
         <footer className="text-center py-6 text-xs font-medium text-gray-400">
-  &copy; {new Date().getFullYear()} Investment IQ. All rights reserved.
-</footer>
+          &copy; {new Date().getFullYear()} Investment IQ. All rights reserved.
+        </footer>
+
+        {/* GLOBAL AUTH MODAL */}
+        <GlobalAuthModal />
       </body>
     </html>
   );

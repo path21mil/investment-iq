@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { supabase } from '@/lib/supabase';
 import { 
   ArrowRight, 
   TrendingUp,
@@ -63,6 +65,22 @@ export default function CompanyResearchPage() {
   const [data, setData] = useState<any>(null);
   const [activeTab, setActiveTab] = useState('overview');
   const [imageError, setImageError] = useState(false);
+  
+  // ✨ NEW: Session Tracker State
+  const [session, setSession] = useState<any>(null);
+
+  // ✨ NEW: Fetch and listen for session changes
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, activeSession) => {
+      setSession(activeSession);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   // Fetch data on load
   useEffect(() => {
@@ -88,14 +106,14 @@ export default function CompanyResearchPage() {
     loadResearch();
   }, [ticker]);
 
- // Loading State
+  // Loading State
   if (loading) {
     return (
       <div className="min-h-screen bg-[#F8FAFC] flex flex-col items-center justify-center font-sans antialiased p-6">
         <div className="bg-white p-8 sm:p-10 rounded-3xl border border-slate-200 shadow-sm max-w-md w-full flex flex-col items-center text-center animate-in fade-in zoom-in duration-500">
           
           {/* Animated Spinner Icon */}
-          <div className="relative mb-6">
+          <div className="relative mb-6 w-16 h-16 mx-auto flex items-center justify-center">
             <div className="absolute inset-0 bg-blue-100 rounded-full animate-ping opacity-60"></div>
             <div className="relative bg-white rounded-full p-4 border border-slate-100 shadow-sm">
                <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
@@ -155,44 +173,72 @@ export default function CompanyResearchPage() {
   return (
     <div className="min-h-screen bg-[#F8FAFC] font-sans text-[#0F172A] pb-24 antialiased">
       
-      {/* Top Navbar */}
+      {/* ✨ NEW: Top Navbar (Session Aware) */}
       <nav className="w-full bg-white/90 backdrop-blur-md border-b border-slate-200 sticky top-0 z-40 h-[64px] flex items-center mb-8">
-        <div className="max-w-[900px] w-full mx-auto px-6 flex items-center justify-between">
-          <Logo href="/" />
-         <button 
-            onClick={() => router.push(`/build-thesis/${ticker}`)}
-            className="px-6 py-2.5 bg-[#0F172A] hover:bg-slate-800 text-white rounded-full text-sm font-bold transition-all shadow-sm"
-          >
-            Build Thesis
-          </button>
+        <div className="max-w-[900px] w-full mx-auto px-4 sm:px-6 flex items-center justify-between">
+          <Logo href={session ? "/dashboard" : "/"} />
+          
+          {session ? (
+            // LOGGED IN: Premium App Control Center
+            <div className="flex items-center gap-4 sm:gap-6">
+              <Link href="/dashboard" className="text-[13px] font-bold text-slate-500 hover:text-[#0F172A] hidden sm:block transition-colors">
+                Dashboard
+              </Link>
+              <Link href="/portfolio" className="text-[13px] font-bold text-slate-500 hover:text-[#0F172A] hidden sm:block transition-colors">
+                Portfolio
+              </Link>
+              <button 
+                onClick={() => router.push(`/build-thesis/${ticker}`)}
+                className="px-4 sm:px-5 py-2 bg-[#0F172A] hover:bg-slate-800 text-white rounded-full text-xs sm:text-[13px] font-bold transition-all shadow-sm"
+              >
+                Build Thesis
+              </button>
+            </div>
+          ) : (
+            // LOGGED OUT: Public Capture Flow
+            <div className="flex items-center gap-4">
+              <button 
+                onClick={() => router.push('?auth=login', { scroll: false })}
+                className="text-[13px] font-bold text-slate-500 hover:text-[#0F172A] transition-colors"
+              >
+                Log In
+              </button>
+              <button 
+                onClick={() => router.push('?auth=signup', { scroll: false })}
+                className="px-4 sm:px-5 py-2 bg-[#0F172A] hover:bg-slate-800 text-white rounded-full text-xs sm:text-[13px] font-bold transition-all shadow-sm"
+              >
+                Get Started
+              </button>
+            </div>
+          )}
         </div>
       </nav>
 
       <div className="max-w-[900px] mx-auto w-full px-4 md:px-6">
     
-       {/* COMPANY HERO BANNER WITH INLINE PRICE & INTEGRATED MODE SELECTOR */}
-        <div className="mb-8 bg-white border border-slate-200 rounded-2xl sm:rounded-3xl p-5 sm:p-7 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      {/* COMPANY HERO BANNER WITH INLINE PRICE & INTEGRATED MODE SELECTOR */}
+        <div className="mb-8 bg-white border border-slate-200 rounded-2xl sm:rounded-3xl p-5 sm:p-7 shadow-sm flex flex-col items-center text-center sm:text-left sm:flex-row sm:justify-between gap-5 sm:gap-4">
           
-          {/* LEFT: Logo, Name, Ticker & Clean Price */}
-          <div className="flex items-center gap-3.5 sm:gap-5 min-w-0">
+          {/* LEFT: Logo, Name, Ticker & Clean Price (Stacked on mobile, row on desktop) */}
+          <div className="flex flex-col sm:flex-row items-center gap-3.5 sm:gap-5 min-w-0">
             <CompanyLogo 
               ticker={data?.ticker || ticker} 
-              containerClass="w-12 h-12 sm:w-16 sm:h-16 shrink-0" 
+              containerClass="w-14 h-14 sm:w-16 sm:h-16 shrink-0" 
             />
             
-            <div className="flex flex-col justify-center gap-1.5 min-w-0">
-             <h1 
-  className="text-xl sm:text-2xl md:text-3xl font-extrabold tracking-tight text-[#0F172A] leading-tight line-clamp-2 sm:line-clamp-1"
-  title={data?.companyName || ticker}
->
-  {getDisplayName(data?.companyName, ticker)}
-</h1>
-              <div className="flex items-center gap-2.5 text-xs font-bold text-slate-500">
+            <div className="flex flex-col items-center sm:items-start justify-center gap-1.5 min-w-0">
+              <h1 
+                className="text-xl sm:text-2xl md:text-3xl font-extrabold tracking-tight text-[#0F172A] leading-tight line-clamp-2 sm:line-clamp-1"
+                title={data?.companyName || ticker}
+              >
+                {getDisplayName(data?.companyName, ticker)}
+              </h1>
+              <div className="flex items-center justify-center sm:justify-start gap-2.5 text-xs font-bold text-slate-500">
                 <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded border border-slate-200 text-[11px] shadow-sm">
                   {data?.ticker || ticker}
                 </span>
                 
-                {/* CURRENT PRICE - No dot, using a premium deep slate instead of harsh black */}
+                {/* CURRENT PRICE */}
                 <span className="text-slate-700 font-black text-sm sm:text-base tracking-tight">
                   ${typeof data?.price === 'number' ? data.price.toFixed(2) : data?.metrics?.currentPrice?.replace('$', '') || '0.00'}
                 </span>
@@ -201,11 +247,11 @@ export default function CompanyResearchPage() {
           </div>
 
           {/* RIGHT: Mode Selector Pill Toggle */}
-          <div className="flex items-center gap-1 text-[10px] sm:text-[11px] font-black tracking-widest uppercase cursor-pointer bg-slate-50 sm:bg-white border border-slate-200 p-1 rounded-full shadow-sm shrink-0 self-start sm:self-auto">
+          <div className="flex items-center justify-center gap-1 text-[10px] sm:text-[11px] font-black tracking-widest uppercase cursor-pointer bg-slate-50 sm:bg-white border border-slate-200 p-1 rounded-full shadow-sm shrink-0 w-full sm:w-auto">
             <button
               type="button"
               onClick={() => setActiveTab('overview')}
-              className={`flex items-center gap-1.5 px-3.5 sm:px-4 py-2 rounded-full transition-all ${
+              className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 sm:px-4 py-2 rounded-full transition-all ${
                 activeTab === 'overview' 
                   ? 'bg-slate-100 text-[#0F172A]' 
                   : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'
@@ -218,14 +264,14 @@ export default function CompanyResearchPage() {
             <button
               type="button"
               onClick={() => setActiveTab('questions')}
-              className={`flex items-center gap-1.5 px-3.5 sm:px-4 py-2 rounded-full transition-all ${
+              className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 sm:px-4 py-2 rounded-full transition-all ${
                 activeTab !== 'overview' 
                   ? 'bg-slate-100 text-[#0F172A]' 
                   : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'
               }`}
             >
               {activeTab !== 'overview' && <span className="text-blue-600">●</span>}
-              DEEP DIVE {activeTab === 'overview' && <span className="text-slate-400"></span>}
+              DEEP DIVE
             </button>
           </div>
 
@@ -265,6 +311,7 @@ export default function CompanyResearchPage() {
     </div>
   );
 }
+
 // ==========================================
 // ⚡ OVERVIEW (QUICK READ)
 // ==========================================

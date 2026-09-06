@@ -230,15 +230,16 @@ useEffect(() => {
             
             {/* Sign In (Removed 'hidden sm:block', updated to dark text) */}
             <Link 
-              href="/login" 
+              href="?auth=login"
               className="text-xs sm:text-sm font-bold text-[#0F172A] hover:text-blue-600 transition-colors"
             >
               Sign In
             </Link>
             
-            {/* Get Started (Changed to dark theme, smaller mobile padding) */}
+            {/* Get Started (Triggers Global Auth Modal) */}
             <Link 
-              href="/login?mode=signup" 
+              href="?auth=signup"
+              scroll={false}
               className="bg-[#0F172A] hover:bg-slate-800 text-white text-xs sm:text-sm font-bold px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-xl transition-colors shadow-sm"
             >
               Get Started
