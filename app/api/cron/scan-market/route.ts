@@ -135,13 +135,18 @@ export async function GET(req: NextRequest) {
       try {
         await sleep(500);
 
-      const quoteRes = await fetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${finnhubApiKey}`);
-        if (!quoteRes.ok) continue; // Skips if Finnhub sends an error instead of JSON
+        const quoteRes = await fetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${finnhubApiKey}`);
+        if (!quoteRes.ok) continue; 
         const quote = await quoteRes.json();
 
         const metricRes = await fetch(`https://finnhub.io/api/v1/stock/metric?symbol=${symbol}&metric=all&token=${finnhubApiKey}`);
-        if (!metricRes.ok) continue; // Skips if Finnhub sends an error instead of JSON
+        if (!metricRes.ok) continue; 
         const metricData = await metricRes.json();
+
+        // 🚀 NEW: Fetch company profile to get the actual name
+        const profileRes = await fetch(`https://finnhub.io/api/v1/stock/profile2?symbol=${symbol}&token=${finnhubApiKey}`);
+        const profileData = profileRes.ok ? await profileRes.json() : {};
+        const realCompanyName = profileData?.name || symbol;
         
         // Safely extract metric data using optional chaining
         const m = metricData?.metric;
@@ -187,7 +192,7 @@ export async function GET(req: NextRequest) {
 
         scoredCandidates.push({
           ticker: symbol,
-          company_name: symbol,
+          company_name: realCompanyName,
           market_cap: m['marketCapitalization'] || 0,
           opportunity_type: oppType,
           rawPrice: price.label,

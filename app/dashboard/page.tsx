@@ -81,6 +81,14 @@ function getTimeAgo(dateString: string | null) {
   return `${Math.floor(diffInMinutes / 1440)}d ago`;
 }
 
+// PREMIUM UX: Clean company names by removing legal jargon
+function cleanCompanyName(name: string, ticker: string): string {
+  if (!name) return ticker;
+  let cleaned = name.replace(/\b(Inc\.?|Corp\.?|Corporation|Company|Co\.?|Ltd\.?|Limited|Plc|Holdings?|Group|Class [A-Z])\b/gi, '').trim();
+  cleaned = cleaned.replace(/[,.\- ]+$/, '').trim();
+  return cleaned.length > 1 ? cleaned : ticker;
+}
+
 function isEventRelevantToThesis(
   event: PortfolioEvent,
   drivers: Driver[],
@@ -176,13 +184,11 @@ export default function Dashboard() {
   const [toastMessage, setToastMessage] = useState<{title: string; description: string} | null>(null);
   const [showAlphaWelcome, setShowAlphaWelcome] = useState(false);
 
-  // NO LOCAL STORAGE: Shows the modal 1.5 seconds after page load, every time
   useEffect(() => {
     const timer = setTimeout(() => setShowAlphaWelcome(true), 1500);
     return () => clearTimeout(timer);
   }, []);
 
-  // Closes the modal without saving to local storage
   const closeAlphaWelcome = () => {
     setShowAlphaWelcome(false);
   };
@@ -206,7 +212,6 @@ export default function Dashboard() {
       const name = session.user.user_metadata?.full_name?.split(' ')[0] || 'Padam';
       setUserName(name);
 
-      // 1. Fetch User Holdings
       const { data: dbTheses, error } = await supabase
         .from("theses")
         .select("*")
@@ -224,7 +229,6 @@ export default function Dashboard() {
 
       const tickers = dbTheses.map((t: any) => t.ticker.toUpperCase());
 
-      // 2. Determine Lookback Window (Floor: 24h, Ceiling: 7 days)
       const storedLastVisit = localStorage.getItem(`last_visit_${session.user.id}`);
       const now = new Date();
       let lookbackDate = new Date(now.getTime() - 24 * 60 * 60 * 1000); 
@@ -249,7 +253,6 @@ export default function Dashboard() {
 
       localStorage.setItem(`last_visit_${session.user.id}`, now.toISOString());
 
-      // 3. Fetch Portfolio Events for Held Tickers (Last 7 Days)
       const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
       const { data: eventRecords } = await supabase
         .from('portfolio_events')
@@ -265,13 +268,11 @@ export default function Dashboard() {
         setLatestEventScanTime(safeEvents[0].detected_at);
       }
 
-      // 4. Map DB Theses to Dashboard Structure
       const mappedPortfolio: TrackedCompany[] = dbTheses.map((t: any) => {
         const ticker = t.ticker.toUpperCase();
         const rawDrivers = typeof t.drivers === 'string' ? JSON.parse(t.drivers) : (t.drivers || []);
         const primaryRisk = t.primary_risk || undefined;
         
-        // Use the AI evaluation status from curated_updates if it exists, otherwise calculate from raw events
         const parsedCurated = typeof t.curated_updates === 'string' 
           ? JSON.parse(t.curated_updates) 
           : (t.curated_updates || null);
@@ -283,7 +284,6 @@ export default function Dashboard() {
 
         let dynamicStatus: TrackedCompany['status'] = parsedCurated?.status || t.status || 'Strengthening';
         
-        // Fallback status calculation if cron hasn't run yet
         if (!parsedCurated?.status) {
             if (relevantEvents.some(e => e.sentiment === 'risk')) {
               dynamicStatus = 'Weakening';
@@ -355,25 +355,30 @@ export default function Dashboard() {
   };
 
   // --- DERIVE DELTAS FOR "SINCE YOUR LAST VISIT" ---
-  const { strengtheningTickers, riskTickers, attentionTickers } = useMemo(() => {
-    const s = new Set<string>();
-    const r = new Set<string>();
-    const a = new Set<string>();
+  const { strengtheningCompanies, riskCompanies, attentionCompanies } = useMemo(() => {
+    const s = new Map<string, { ticker: string, name: string }>();
+    const r = new Map<string, { ticker: string, name: string }>();
+    const a = new Map<string, { ticker: string, name: string }>();
 
     portfolio.forEach((company) => {
+      const brandData = {
+        ticker: company.ticker,
+        name: cleanCompanyName(company.name, company.ticker)
+      };
+
       if (company.status === 'Weakening') {
-        a.add(company.ticker);
+        a.set(company.ticker, brandData);
       } else if (company.status === 'Review Needed') {
-        r.add(company.ticker);
+        r.set(company.ticker, brandData);
       } else if (company.status === 'Strengthening' && company.updates.length > 0) {
-        s.add(company.ticker); 
+        s.set(company.ticker, brandData); 
       }
     });
 
     return {
-      strengtheningTickers: Array.from(s),
-      riskTickers: Array.from(r),
-      attentionTickers: Array.from(a)
+      strengtheningCompanies: Array.from(s.values()),
+      riskCompanies: Array.from(r.values()),
+      attentionCompanies: Array.from(a.values())
     };
   }, [portfolio]);
 
@@ -390,6 +395,7 @@ export default function Dashboard() {
           summary.push({
             id: event.id,
             ticker: event.ticker,
+            companyName: cleanCompanyName(company.name, company.ticker),
             synthesized_summary: event.impact_summary,
             sentiment: event.sentiment,
             source_url: event.source_url,
@@ -492,7 +498,7 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* SECTION 1: SINCE YOUR LAST VISIT */}
+            {/* SECTION 1: SINCE YOUR LAST VISIT (UNIFIED HEALTH CARD) */}
             <div className="mb-12">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
@@ -503,85 +509,132 @@ export default function Dashboard() {
                 </span>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Box 1: Strengthening */}
-                <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-center gap-3">
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center font-extrabold text-lg shrink-0">
-                      {strengtheningTickers.length}
+              <div className="bg-white rounded-[24px] border border-slate-200/90 shadow-sm overflow-hidden grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-slate-100">
+                
+                {/* 1. Strengthening */}
+                <div className="p-6 flex flex-col justify-between">
+                  <div className="flex items-center gap-3.5">
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-extrabold text-sm shrink-0 transition-colors ${
+                      strengtheningCompanies.length > 0 
+                        ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' 
+                        : 'bg-slate-50 text-slate-400 border border-slate-100'
+                    }`}>
+                      {strengtheningCompanies.length}
                     </div>
-                    <div className="text-xs font-bold text-slate-700 leading-tight">
-                      Companies<br/>strengthening
+                    <div className="leading-tight">
+                      <p className={`text-xs font-bold ${strengtheningCompanies.length > 0 ? 'text-slate-800' : 'text-slate-400'}`}>
+                        Companies
+                      </p>
+                      <p className={`text-xs font-bold ${strengtheningCompanies.length > 0 ? 'text-slate-800' : 'text-slate-400'}`}>
+                        strengthening
+                      </p>
                     </div>
                   </div>
-                  {strengtheningTickers.length > 0 ? (
-                    <div className="flex flex-wrap gap-1.5 pt-3 border-t border-slate-100">
-                      {strengtheningTickers.map(ticker => (
-                        <span key={ticker} className="text-[12px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100 px-2 py-0.5 rounded flex items-center gap-1">
-                          {ticker}
+
+                  {strengtheningCompanies.length > 0 ? (
+                    <div className="flex flex-wrap gap-2 pt-4 border-t border-slate-100/80 mt-4">
+                      {strengtheningCompanies.map(company => (
+                        <span 
+                          key={company.ticker} 
+                          className="flex items-center gap-1.5 text-[11px] bg-emerald-50 border border-emerald-200/60 px-2.5 py-1 rounded-lg"
+                        >
+                          <span className="font-extrabold text-emerald-900">{company.name}</span>
+                          <span className="font-bold text-emerald-600/70">{company.ticker}</span>
                         </span>
                       ))}
                     </div>
                   ) : (
-                    <p className="text-[11px] font-medium text-slate-400 pt-2 border-t border-slate-100">
-                      No positive shifts recorded
-                    </p>
+                    <div className="pt-4 border-t border-slate-100/80 mt-4 flex items-center gap-2 text-[11px] font-medium text-slate-400">
+                      <span className="w-1.5 h-1.5 rounded-full bg-slate-300 shrink-0"></span>
+                      <span>No positive shifts recorded</span>
+                    </div>
                   )}
                 </div>
 
-                {/* Box 2: Risks */}
-                <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-center gap-3">
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center font-extrabold text-lg shrink-0">
-                      {riskTickers.length}
+                {/* 2. Increased Risks */}
+                <div className="p-6 flex flex-col justify-between">
+                  <div className="flex items-center gap-3.5">
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-extrabold text-sm shrink-0 transition-colors ${
+                      riskCompanies.length > 0 
+                        ? 'bg-amber-50 text-amber-600 border border-amber-100' 
+                        : 'bg-slate-50 text-slate-400 border border-slate-100'
+                    }`}>
+                      {riskCompanies.length}
                     </div>
-                    <div className="text-xs font-bold text-slate-700 leading-tight">
-                      Companies with<br/>increased risks
+                    <div className="leading-tight">
+                      <p className={`text-xs font-bold ${riskCompanies.length > 0 ? 'text-slate-800' : 'text-slate-400'}`}>
+                        Companies with
+                      </p>
+                      <p className={`text-xs font-bold ${riskCompanies.length > 0 ? 'text-slate-800' : 'text-slate-400'}`}>
+                        increased risks
+                      </p>
                     </div>
                   </div>
-                  {riskTickers.length > 0 ? (
-                    <div className="flex flex-wrap gap-1.5 pt-3 border-t border-slate-100">
-                      {riskTickers.map(ticker => (
-                        <span key={ticker} className="text-[12px] font-semibold bg-amber-50 text-amber-700 border border-amber-100 px-2 py-0.5 rounded flex items-center gap-1">
-                          {ticker}
+
+                  {riskCompanies.length > 0 ? (
+                    <div className="flex flex-wrap gap-2 pt-4 border-t border-slate-100/80 mt-4">
+                      {riskCompanies.map(company => (
+                        <span 
+                          key={company.ticker} 
+                          className="flex items-center gap-1.5 text-[11px] bg-amber-50 border border-amber-200/60 px-2.5 py-1 rounded-lg"
+                        >
+                          <span className="font-extrabold text-amber-900">{company.name}</span>
+                          <span className="font-bold text-amber-600/70">{company.ticker}</span>
                         </span>
                       ))}
                     </div>
                   ) : (
-                    <p className="text-[11px] font-medium text-slate-400 pt-2 border-t border-slate-100">
-                      No elevated risks detected
-                    </p>
+                    <div className="pt-4 border-t border-slate-100/80 mt-4 flex items-center gap-2 text-[11px] font-medium text-slate-400">
+                      <span className="w-1.5 h-1.5 rounded-full bg-slate-300 shrink-0"></span>
+                      <span>No elevated risks detected</span>
+                    </div>
                   )}
                 </div>
 
-                {/* Box 3: Attention */}
-                <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-center gap-3">
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center font-extrabold text-lg shrink-0">
-                      {attentionTickers.length}
+                {/* 3. Attention Needed */}
+                <div className="p-6 flex flex-col justify-between">
+                  <div className="flex items-center gap-3.5">
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-extrabold text-sm shrink-0 transition-colors ${
+                      attentionCompanies.length > 0 
+                        ? 'bg-rose-50 text-rose-600 border border-rose-100' 
+                        : 'bg-slate-50 text-slate-400 border border-slate-100'
+                    }`}>
+                      {attentionCompanies.length}
                     </div>
-                    <div className="text-xs font-bold text-slate-700 leading-tight">
-                      Companies need<br/>attention
+                    <div className="leading-tight">
+                      <p className={`text-xs font-bold ${attentionCompanies.length > 0 ? 'text-slate-800' : 'text-slate-400'}`}>
+                        Companies need
+                      </p>
+                      <p className={`text-xs font-bold ${attentionCompanies.length > 0 ? 'text-slate-800' : 'text-slate-400'}`}>
+                        attention
+                      </p>
                     </div>
                   </div>
-                  {attentionTickers.length > 0 ? (
-                    <div className="flex flex-wrap gap-1.5 pt-3 border-t border-slate-100">
-                      {attentionTickers.map(ticker => (
-                        <span key={ticker} className="text-[12px] font-semibold bg-rose-50 text-rose-700 border border-rose-100 px-2 py-0.5 rounded flex items-center gap-1">
-                          {ticker}
+
+                  {attentionCompanies.length > 0 ? (
+                    <div className="flex flex-wrap gap-2 pt-4 border-t border-slate-100/80 mt-4">
+                      {attentionCompanies.map(company => (
+                        <span 
+                          key={company.ticker} 
+                          className="flex items-center gap-1.5 text-[11px] bg-rose-50 border border-rose-200/60 px-2.5 py-1 rounded-lg"
+                        >
+                          <span className="font-extrabold text-rose-900">{company.name}</span>
+                          <span className="font-bold text-rose-600/70">{company.ticker}</span>
                         </span>
                       ))}
                     </div>
                   ) : (
-                    <p className="text-[11px] font-medium text-slate-400 pt-2 border-t border-slate-100">
-                      All investment boundaries hold
-                    </p>
+                    <div className="pt-4 border-t border-slate-100/80 mt-4 flex items-center gap-2 text-[11px] font-medium text-slate-400">
+                      <span className="w-1.5 h-1.5 rounded-full bg-slate-300 shrink-0"></span>
+                      <span>All investment boundaries hold</span>
+                    </div>
                   )}
                 </div>
+
               </div>
             </div>
 
-    {/* SECTION 2: WHAT CHANGED (EVENT-CENTRIC FEED) */}
+            {/* SECTION 2: WHAT CHANGED (EVENT-CENTRIC FEED) */}
             <div className="mb-12">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
@@ -610,8 +663,9 @@ export default function Dashboard() {
                           />
                           <div className="flex-grow pt-0.5">
                             <div className="flex flex-wrap items-center gap-3 mb-2">
+                              {/* PREMIUM UX: Display Brand Name + Ticker side-by-side */}
                               <span className="font-extrabold text-xl text-[#0F172A] tracking-tight leading-none">
-                                {eventSummary.ticker}
+                                {eventSummary.companyName} <span className="text-slate-400 font-bold text-[16px] ml-1">{eventSummary.ticker}</span>
                               </span>
                               <div className="text-[10px] font-bold uppercase tracking-widest flex items-center gap-1.5">
                                 <span className={eventSummary.sentiment === 'strengthening' ? 'text-emerald-500' : eventSummary.sentiment === 'risk' ? 'text-rose-500' : 'text-amber-500'}>●</span> 
@@ -737,8 +791,9 @@ export default function Dashboard() {
                     ticker={reviewCompany?.ticker} 
                     containerClass="w-12 h-12 rounded-xl" 
                   />
+                  {/* PREMIUM UX: Drawer Name Header */}
                   <h2 className="text-3xl font-extrabold text-[#0F172A] tracking-tight">
-                    {reviewCompany?.ticker}
+                    {cleanCompanyName(reviewCompany?.name || '', reviewCompany?.ticker || '')} <span className="text-slate-400 ml-1.5 font-bold text-2xl">{reviewCompany?.ticker}</span>
                   </h2>
                 </div>
                 
@@ -765,7 +820,8 @@ export default function Dashboard() {
                   {reviewCompany?.aiSummary}
                 </p>
               </div>
-<div className="mb-10">
+              
+              <div className="mb-10">
                 <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4 border-t border-slate-100 pt-8">
                   Supporting Evidence ({reviewCompany?.updates?.length || 0})
                 </h4>

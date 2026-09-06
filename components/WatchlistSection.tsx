@@ -34,6 +34,14 @@ interface Opportunity {
   score: number;
 }
 
+// PREMIUM UX: Clean company names by removing legal jargon
+function cleanCompanyName(name: string, ticker: string): string {
+  if (!name) return ticker;
+  let cleaned = name.replace(/\b(Inc\.?|Corp\.?|Corporation|Company|Co\.?|Ltd\.?|Limited|Plc|Holdings?|Group|Class [A-Z])\b/gi, '').trim();
+  cleaned = cleaned.replace(/[,.\- ]+$/, '').trim();
+  return cleaned.length > 1 ? cleaned : ticker;
+}
+
 // ==========================================
 // 🎨 NAKED LOGO COMPONENT
 // ==========================================
@@ -117,7 +125,7 @@ export default function WatchlistSection() {
     );
   };
 
- const handleShareToX = () => {
+  const handleShareToX = () => {
     if (!selectedStock) return;
     
     const m = selectedStock.metrics;
@@ -166,17 +174,18 @@ export default function WatchlistSection() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-3 mb-2 flex-wrap">
                       
-                      {/* TICKER + NAME WRAPPER */}
+                     {/* TICKER + NAME WRAPPER */}
                       <div className="flex items-baseline gap-1.5 min-w-0">
-                        <span className="font-bold text-slate-900 text-base tracking-tight shrink-0">
-                          ${stock.ticker}
+                        <span 
+                          className="font-extrabold text-lg text-[#0F172A] tracking-tight truncate max-w-[160px] sm:max-w-[220px]" 
+                          title={cleanCompanyName(stock.company_name, stock.ticker)}
+                        >
+                          {cleanCompanyName(stock.company_name, stock.ticker)}
                         </span>
-                        {stock.company_name && (
-                          <span 
-                            className="text-[13px] font-medium text-slate-500 truncate max-w-[140px] sm:max-w-[200px]" 
-                            title={stock.company_name}
-                          >
-                            {stock.company_name}
+                        {/* Only show the faded ticker if it's different from the brand name */}
+                        {cleanCompanyName(stock.company_name, stock.ticker).toUpperCase() !== stock.ticker.toUpperCase() && (
+                          <span className="font-bold text-[14px] text-slate-400 shrink-0">
+                            {stock.ticker}
                           </span>
                         )}
                       </div>
@@ -214,13 +223,16 @@ export default function WatchlistSection() {
                       <div className="flex items-center gap-2 min-w-0 pr-2">
                         <CompanyLogo ticker={stock.ticker} containerClass="w-5 h-5" />
                         <div className="flex items-baseline gap-1.5 min-w-0">
-                          <span className="font-bold text-slate-900 text-xs shrink-0">${stock.ticker}</span>
-                          {stock.company_name && (
-                            <span 
-                              className="text-[11px] font-medium text-slate-500 truncate" 
-                              title={stock.company_name}
-                            >
-                              {stock.company_name}
+                          <span 
+                            className="font-extrabold text-[13px] text-[#0F172A] truncate max-w-[100px] sm:max-w-[120px]" 
+                            title={cleanCompanyName(stock.company_name, stock.ticker)}
+                          >
+                            {cleanCompanyName(stock.company_name, stock.ticker)}
+                          </span>
+                          {/* Only show the faded ticker if it's different from the brand name */}
+                          {cleanCompanyName(stock.company_name, stock.ticker).toUpperCase() !== stock.ticker.toUpperCase() && (
+                            <span className="font-bold text-[11px] text-slate-400 shrink-0">
+                              {stock.ticker}
                             </span>
                           )}
                         </div>
@@ -250,9 +262,17 @@ export default function WatchlistSection() {
             >
               {/* Modal Header */}
               <div className="flex justify-between items-start p-6 border-b border-slate-100 bg-slate-50/50">
-                <div className="space-y-1">
-                  <h3 className="text-2xl font-extrabold text-slate-900 tracking-tight">
-                    ${selectedStock.ticker}
+                <div className="space-y-1.5">
+                {/* Premium Brand Name + Ticker Format */}
+                  <h3 className="text-2xl md:text-3xl font-extrabold text-[#0F172A] tracking-tight flex items-baseline gap-2">
+                    {cleanCompanyName(selectedStock.company_name, selectedStock.ticker)}
+                    
+                    {/* Only show the faded ticker if it's different from the brand name */}
+                    {cleanCompanyName(selectedStock.company_name, selectedStock.ticker).toUpperCase() !== selectedStock.ticker.toUpperCase() && (
+                      <span className="text-xl md:text-2xl text-slate-400 font-bold">
+                        {selectedStock.ticker}
+                      </span>
+                    )}
                   </h3>
                   {getDotBadge(selectedStock.opportunity_type)}
                 </div>
