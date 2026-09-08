@@ -1,5 +1,5 @@
 // A robust list of Nasdaq 100 leaders (NDX constituents).
-export const LARGE_CAP_UNIVERSE = [
+export const NASDAQ_100_UNIVERSE = [
   "AAPL", "MSFT", "NVDA", "AMZN", "META", "GOOGL", "GOOG", "TSLA", "AVGO", "COST",
   "PEP", "TMUS", "CSCO", "NFLX", "AMD", "INTC", "LIN", "TXN", "QCOM", "INTU",
   "AMGN", "CMCSA", "AMAT", "BKNG", "ISRG", "SBUX", "VRTX", "MDLZ", "GILD", "LRCX",

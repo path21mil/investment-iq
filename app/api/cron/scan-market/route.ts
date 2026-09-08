@@ -119,15 +119,15 @@ export async function GET(req: NextRequest) {
       .maybeSingle();
 
     let startIndex = typeof stateData?.value === 'number' ? stateData.value : 0;
-    if (startIndex >= LARGE_CAP_UNIVERSE.length) startIndex = 0;
+    if (startIndex >= NASDAQ_100_UNIVERSE.length) startIndex = 0;
 
     // 2. Select next sequential batch of tickers
     const batch: string[] = [];
     for (let i = 0; i < BATCH_SIZE; i++) {
-      batch.push(LARGE_CAP_UNIVERSE[(startIndex + i) % LARGE_CAP_UNIVERSE.length]);
+      batch.push(NASDAQ_100_UNIVERSE[(startIndex + i) % NASDAQ_100_UNIVERSE.length]);
     }
 
-    const nextIndex = (startIndex + BATCH_SIZE) % LARGE_CAP_UNIVERSE.length;
+    const nextIndex = (startIndex + BATCH_SIZE) % NASDAQ_100_UNIVERSE.length;
     const scoredCandidates = [];
 
     // 3. Process batch with 500ms pacing between Finnhub requests
@@ -346,7 +346,7 @@ CRITICAL RULES:
 
     return NextResponse.json({
       success: true,
-      scannedRange: `${startIndex} to ${(startIndex + BATCH_SIZE - 1) % LARGE_CAP_UNIVERSE.length}`,
+      scannedRange: `${startIndex} to ${(startIndex + BATCH_SIZE - 1) % NASDAQ_100_UNIVERSE.length}`,
       nextCursor: nextIndex,
       qualified: finalizedOpportunities.length,
       opportunities: finalizedOpportunities
