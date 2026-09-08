@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import OpenAI from 'openai';
-import { LARGE_CAP_UNIVERSE } from '@/lib/universe';
+import { NASDAQ_100_UNIVERSE } from '@/lib/universe';
 
 export const maxDuration = 60;
 export const dynamic = 'force-dynamic';
