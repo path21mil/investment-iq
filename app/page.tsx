@@ -251,23 +251,27 @@ useEffect(() => {
 
       {/* HERO SECTION */}
       <main className="flex-grow flex flex-col items-center pt-16 md:pt-24 pb-10 px-6 relative">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-blue-100/40 rounded-full blur-[100px] pointer-events-none -z-10"></div>
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-blue-100/40 rounded-full blur-[100px] pointer-events-none -z-10 overflow-x-hidden"></div>
 
-        <div className="text-center max-w-4xl mx-auto mb-10">
-          <h1 className="text-4xl md:text-6xl font-extrabold text-slate-900 tracking-tight leading-tight mb-6">
-            Don't just buy stocks. <br className="hidden md:block"/> 
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">Track your conviction.</span>
+          <div className="text-center max-w-4xl mx-auto mb-10">
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-slate-900 tracking-tight leading-tight mb-6">
+            Investment IQ doesn't just research stocks. <br className="hidden md:block"/> 
+          <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">
+           It tracks if your thesis is holding up.
+           </span>
           </h1>
+  
           <p className="text-lg md:text-xl text-slate-900 font-bold mb-3">
-            Built for long-term investors who buy businesses - not charts.
-          </p>
+          Built for long-term investors who buy businesses — not charts.
+           </p>
+  
           <p className="text-base md:text-lg text-slate-500 font-medium leading-relaxed px-4 md:px-0 max-w-2xl mx-auto">
-            Investment IQ helps you understand great businesses, build your investment thesis, record why you invested, and use AI to track what has changed since you invested.
-          </p>
-        </div>
+           Understand the business, build your investment thesis, and use AI to track the evidence that supports or challenges your conviction after you invest.
+           </p>
+          </div>
 
-        {/* The Contextual Search Bar */}
-        <div className="w-full max-w-2xl mx-auto mb-12 relative z-20">
+         {/* The Contextual Search Bar */}
+         <div className="w-full max-w-2xl mx-auto mb-12 relative z-20">
           <SmartSearchBar variant="hero" />
           <div className="mt-6 h-8 flex items-center justify-center">
             <div className="flex flex-wrap items-center justify-center gap-2 md:gap-3 text-xs md:text-sm font-medium text-slate-400 transition-opacity duration-500">
@@ -279,9 +283,9 @@ useEffect(() => {
               ))}
             </div>
           </div>
-        </div>
+          </div>
 
-        <div className="w-full mt-12 mb-32 relative z-10 flex flex-col items-center px-4">
+          <div className="w-full mt-12 mb-32 relative z-10 flex flex-col items-center px-4">
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-5">Research powered by primary sources</p>
           <div className="flex flex-wrap justify-center items-center gap-3 md:gap-4">
             {['SEC Filings', 'Earnings Reports', 'Financial Statements', 'Management Commentary'].map((tag) => (
