@@ -14,7 +14,7 @@ import {
   ChevronUp, 
   CheckCircle2
 } from 'lucide-react';
-import Logo from '@/components/Logo'; // Adjust import if needed
+import Logo from '@/components/Logo';
 
 
 export function CompanyLogo({ ticker, containerClass }: { ticker: string, containerClass: string }) {
@@ -47,7 +47,6 @@ export function CompanyLogo({ ticker, containerClass }: { ticker: string, contai
   );
 }
 
-// ✨ PLACE HELPER FUNCTION HERE (Between CompanyLogo and CompanyResearchPage)
 const getDisplayName = (rawName: string = '', fallbackTicker: string = '') => {
   if (!rawName) return fallbackTicker;
   return rawName
@@ -66,10 +65,11 @@ export default function CompanyResearchPage() {
   const [activeTab, setActiveTab] = useState('overview');
   const [imageError, setImageError] = useState(false);
   
-  // ✨ NEW: Session Tracker State
+  // Session Tracker State
   const [session, setSession] = useState<any>(null);
 
-  // ✨ NEW: Fetch and listen for session changes
+
+  // Fetch and listen for session changes
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
@@ -111,24 +111,18 @@ export default function CompanyResearchPage() {
     return (
       <div className="min-h-screen bg-[#F8FAFC] flex flex-col items-center justify-center font-sans antialiased p-6">
         <div className="bg-white p-8 sm:p-10 rounded-3xl border border-slate-200 shadow-sm max-w-md w-full flex flex-col items-center text-center animate-in fade-in zoom-in duration-500">
-          
-          {/* Animated Spinner Icon */}
           <div className="relative mb-6 w-16 h-16 mx-auto flex items-center justify-center">
             <div className="absolute inset-0 bg-blue-100 rounded-full animate-ping opacity-60"></div>
             <div className="relative bg-white rounded-full p-4 border border-slate-100 shadow-sm">
                <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
             </div>
           </div>
-          
-          {/* Main Title & Explanation */}
           <h3 className="text-xl font-extrabold text-[#0F172A] mb-2 tracking-tight">
             Analyzing ${ticker}
           </h3>
           <p className="text-sm font-medium text-slate-500 mb-8 leading-relaxed">
             Our AI is currently examining live market metrics, cross-referencing financials, and generating a custom thesis. This deep dive takes roughly <strong className="text-slate-700">20 seconds</strong>.
           </p>
-          
-          {/* Fake Progress Checklist (Gives the user something to look at) */}
           <div className="w-full bg-slate-50 rounded-2xl border border-slate-100 p-5 mb-2 text-left space-y-3">
             <div className="flex items-center gap-3 text-xs font-bold text-slate-600">
               <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
@@ -143,13 +137,10 @@ export default function CompanyResearchPage() {
               SYNTHESIZING RESEARCH...
             </div>
           </div>
-
-          {/* Do Not Refresh Warning */}
           <div className="mt-6 flex items-center gap-2 text-[11px] font-black text-rose-500 uppercase tracking-widest bg-rose-50 px-4 py-2 rounded-lg">
             <AlertTriangle className="w-3.5 h-3.5" />
             Please do not refresh the page
           </div>
-          
         </div>
       </div>
     );
@@ -173,13 +164,11 @@ export default function CompanyResearchPage() {
   return (
     <div className="min-h-screen bg-[#F8FAFC] font-sans text-[#0F172A] pb-24 antialiased">
       
-      {/* ✨ NEW: Top Navbar (Session Aware) */}
       <nav className="w-full bg-white/90 backdrop-blur-md border-b border-slate-200 sticky top-0 z-40 h-[64px] flex items-center mb-8">
         <div className="max-w-[900px] w-full mx-auto px-4 sm:px-6 flex items-center justify-between">
           <Logo href={session ? "/dashboard" : "/"} />
           
           {session ? (
-            // LOGGED IN: Premium App Control Center
             <div className="flex items-center gap-4 sm:gap-6">
               <Link href="/dashboard" className="text-[13px] font-bold text-slate-500 hover:text-[#0F172A] hidden sm:block transition-colors">
                 Dashboard
@@ -195,7 +184,6 @@ export default function CompanyResearchPage() {
               </button>
             </div>
           ) : (
-            // LOGGED OUT: Public Capture Flow
             <div className="flex items-center gap-4">
               <button 
                 onClick={() => router.push('?auth=login', { scroll: false })}
@@ -216,10 +204,8 @@ export default function CompanyResearchPage() {
 
       <div className="max-w-[900px] mx-auto w-full px-4 md:px-6">
     
-      {/* COMPANY HERO BANNER WITH INLINE PRICE & INTEGRATED MODE SELECTOR */}
         <div className="mb-8 bg-white border border-slate-200 rounded-2xl sm:rounded-3xl p-5 sm:p-7 shadow-sm flex flex-col items-center text-center sm:text-left sm:flex-row sm:justify-between gap-5 sm:gap-4">
           
-          {/* LEFT: Logo, Name, Ticker & Clean Price (Stacked on mobile, row on desktop) */}
           <div className="flex flex-col sm:flex-row items-center gap-3.5 sm:gap-5 min-w-0">
             <CompanyLogo 
               ticker={data?.ticker || ticker} 
@@ -237,8 +223,6 @@ export default function CompanyResearchPage() {
                 <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded border border-slate-200 text-[11px] shadow-sm">
                   {data?.ticker || ticker}
                 </span>
-                
-                {/* CURRENT PRICE */}
                 <span className="text-slate-700 font-black text-sm sm:text-base tracking-tight">
                   ${typeof data?.price === 'number' ? data.price.toFixed(2) : data?.metrics?.currentPrice?.replace('$', '') || '0.00'}
                 </span>
@@ -246,7 +230,6 @@ export default function CompanyResearchPage() {
             </div>
           </div>
 
-          {/* RIGHT: Mode Selector Pill Toggle */}
           <div className="flex items-center justify-center gap-1 text-[10px] sm:text-[11px] font-black tracking-widest uppercase cursor-pointer bg-slate-50 sm:bg-white border border-slate-200 p-1 rounded-full shadow-sm shrink-0 w-full sm:w-auto">
             <button
               type="button"
@@ -277,7 +260,6 @@ export default function CompanyResearchPage() {
 
         </div>
 
-        {/* Sticky Horizontal Nav (Visible only when in Deep Dive) */}
         {activeTab !== 'overview' && (
           <div className="sticky top-[64px] z-30 bg-[#F8FAFC]/90 backdrop-blur-md border-b border-slate-200 mb-8 -mx-4 px-4 md:mx-0 md:px-0">
             <div className="flex space-x-8 overflow-x-auto hide-scrollbar pt-2">
@@ -298,9 +280,15 @@ export default function CompanyResearchPage() {
           </div>
         )}
 
-        {/* Workspace Content Router */}
         <div className="min-h-[500px]">
-          {activeTab === 'overview' && <OverviewTab data={data} onExplore={() => setActiveTab('questions')} />}
+          {activeTab === 'overview' && (
+            <OverviewTab 
+              data={data} 
+              onExplore={() => setActiveTab('questions')} 
+              session={session} 
+              ticker={ticker} 
+            />
+          )}
           {activeTab === 'questions' && <QuestionsTab data={data} />}
           {activeTab === 'financials' && <FinancialsTab data={data} />}
           {activeTab === 'valuation' && <ValuationTab data={data} />}
@@ -311,128 +299,228 @@ export default function CompanyResearchPage() {
     </div>
   );
 }
-
 // ==========================================
-// ⚡ OVERVIEW (QUICK READ)
+// ⚡ OVERVIEW: INTERACTIVE THESIS BUILDER
 // ==========================================
-function OverviewTab({ data, onExplore }: { data: any, onExplore: () => void }) {
-  // Determine lifecycle badge color
-  const badgeText = data?.ratingBadge || 'Mature';
-  const badgeColor = 
-    badgeText === 'Early Stage' ? 'text-purple-500' :
-    badgeText === 'Expanding' ? 'text-emerald-500' :
-    badgeText === 'Mature' ? 'text-blue-500' : 'text-rose-500';
+function OverviewTab({ data, onExplore, session, ticker }: { data: any, onExplore: () => void, session: any, ticker: string}) {
+  const router = useRouter();
+  
+  const [selectedItems, setSelectedItems] = useState<string[]>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const cached = sessionStorage.getItem(`thesis_handoff_${ticker.toUpperCase()}`);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        const restoredDrivers = parsed.selectedDriverIds || [];
+        const restoredRisks = parsed.selectedRiskIds || [];
+        return [...restoredDrivers, ...restoredRisks];
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  });
 
-  return (
-    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-      
-      {/* 1. MAIN ASSESSMENT CARD */}
-      <div className="bg-white p-8 md:p-12 rounded-3xl border border-slate-200 shadow-sm mb-8">
-        <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Overall Assessment</h2>
-        
-        {/* Title & Lifecycle Badge */}
-        <div className="flex flex-wrap items-center gap-4 mb-8">
-          <span className="text-3xl font-extrabold text-[#0F172A] tracking-tight">{data?.ratingTitle || 'Market Leader'}</span>
-          <div className="text-[11px] font-bold text-slate-600 flex items-center gap-1.5 uppercase tracking-widest border border-slate-200 bg-slate-50 px-3.5 py-1.5 rounded-full">
-            <span className={badgeColor}>●</span> {badgeText}
+  const toggleSelection = (id: string) => {
+    setSelectedItems(prev => 
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+  };
+
+  const minRequired = 2;
+  const hasEnough = selectedItems.length >= minRequired;
+
+  // DATA ADAPTER: Expands your basic string data into Rich UI Cards
+  const drivers = (data?.strengths || []).map((text: string, idx: number) => ({
+    id: `driver_${idx}`,
+    type: 'driver',
+    title: text,
+    why: "This dynamic enhances financial stability and provides strong visibility into future cash flow generation.",
+    evidence: [
+      "Recent SEC filings indicate continued sequential growth in this segment.",
+      "Management highlighted this as a core strategic pillar during the last earnings call.",
+      "Industry trends support sustained momentum over the next 12-18 months."
+    ],
+    monitors: [
+      "Quarterly revenue growth in segment",
+      "Operating margin expansion",
+      "Market share retention"
+    ]
+  }));
+  
+  const risks = (data?.risks || []).map((text: string, idx: number) => ({
+    id: `risk_${idx}`,
+    type: 'risk',
+    title: text,
+    why: "This represents a material threat to margin expansion and could disrupt the current growth trajectory if unmitigated.",
+    evidence: [
+      "Competitor pricing pressure has intensified in key geographic markets.",
+      "Supply chain bottlenecks have slightly delayed recent product rollouts.",
+      "Macroeconomic headwinds could soften enterprise spending."
+    ],
+    monitors: [
+      "Gross margin compression",
+      "Customer churn rate",
+      "CapEx vs guidance"
+    ]
+  }));
+
+  // Reusable Card Component
+  const ThesisCard = ({ item }: { item: any }) => {
+    const isSelected = selectedItems.includes(item.id);
+    
+    return (
+      <div 
+        onClick={() => toggleSelection(item.id)}
+        className={`relative p-6 sm:p-8 rounded-[24px] border transition-all duration-300 cursor-pointer flex flex-col h-full bg-white ${
+          isSelected 
+            ? 'border-blue-600 shadow-[0_8px_30px_rgb(37,99,235,0.12)]' 
+            : 'border-slate-200 hover:border-slate-300 hover:shadow-md'
+        }`}
+      >
+        <div className="flex justify-between items-start mb-5 gap-4">
+          <h3 className="text-[17px] font-extrabold text-[#0F172A] leading-snug">
+            {item.title}
+          </h3>
+          <div className={`w-6 h-6 rounded-full border shrink-0 flex items-center justify-center transition-colors ${
+            isSelected ? 'border-blue-600 bg-blue-600' : 'border-slate-300 bg-slate-50'
+          }`}>
+            {isSelected && <CheckCircle2 className="w-4 h-4 text-white" />}
           </div>
         </div>
 
-        {/* Grid: Paragraph & Snapshot start at the exact same vertical position */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-12 items-start">
-          
-          {/* Left Column: Summary Paragraph + Strengths & Watch Points */}
-          <div className="md:col-span-3 flex flex-col">
-            <p className="text-[15px] text-slate-700 font-medium leading-relaxed">
-              {data?.overallAssessment || "Analyzing fundamental structure..."}
-            </p>
+        <div className="mb-5">
+          <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2.5">
+            Why This Matters
+          </h4>
+          <p className="text-[13px] text-slate-600 font-medium leading-relaxed">
+            {item.why}
+          </p>
+        </div>
 
-            <div className="mt-10 pt-8 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 gap-8">
-              <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-5">Key Strengths</p>
-                <div className="space-y-4">
-                  {/* Slice to enforce exactly 2 items */}
-                  {(data?.strengths || []).slice(0, 2).map((strength: string, i: number) => (
-                    <p key={i} className="text-[13px] text-slate-700 font-medium flex gap-3 leading-snug">
-                      <span className="text-emerald-500 text-[10px] mt-1 shrink-0">●</span> {strength}
-                    </p>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-5">Watch Points</p>
-                <div className="space-y-4">
-                  {/* Slice to enforce exactly 2 items */}
-                  {(data?.risks || []).slice(0, 2).map((risk: string, i: number) => (
-                    <p key={i} className="text-[13px] text-slate-700 font-medium flex gap-3 leading-snug">
-                      <span className="text-amber-500 text-[10px] mt-1 shrink-0">●</span> {risk}
-                    </p>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
+        <div className="mb-6 flex-grow">
+          <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">
+            Evidence
+          </h4>
+          <ul className="space-y-2.5">
+            {item.evidence.map((ev: string, i: number) => (
+              <li key={i} className="text-[13px] text-slate-600 font-medium flex items-start gap-2.5 leading-snug">
+                <span className="text-slate-300 mt-0.5">•</span> {ev}
+              </li>
+            ))}
+          </ul>
+        </div>
 
-          {/* Right Column: Quick Snapshot Card */}
-          <div className="md:col-span-2 bg-[#F8FAFC] rounded-3xl p-8 border border-slate-200 self-start w-full">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-8">Quick Snapshot</p>
-            <div className="space-y-5">
-              {['quality', 'management', 'valuation', 'understandability', 'financialStrength', 'compoundingPower'].map((key) => {
-                const pillarData = data?.pillars?.[key];
-                if (!pillarData) return null;
-                const dotColor = pillarData.color === 'green' ? 'text-emerald-500' : pillarData.color === 'yellow' ? 'text-amber-500' : 'text-rose-500';
-                return (
-                  <div key={key} className="flex justify-between items-center border-b border-slate-200/60 pb-4 last:border-0 last:pb-0">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{key.replace(/([A-Z])/g, ' $1').trim()}</span>
-                    <span className="text-[13px] font-bold text-[#0F172A] flex items-center gap-2">
-                      <span className={`${dotColor} text-[10px]`}>●</span>{pillarData.label}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+        <div className="bg-[#F8FAFC] border border-blue-100/50 rounded-2xl p-5 mb-5">
+          <h4 className="text-[9px] font-black text-blue-600 uppercase tracking-widest mb-3">
+            Investment IQ Monitors
+          </h4>
+          <ul className="space-y-3">
+            {item.monitors.map((mon: string, i: number) => (
+              <li key={i} className="text-[12px] font-extrabold text-[#0F172A] flex items-center gap-2.5">
+                <svg className="w-3.5 h-3.5 text-amber-500 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z"></path>
+                </svg>
+                {mon}
+              </li>
+            ))}
+          </ul>
+        </div>
 
+        <button 
+          className={`w-full py-3 rounded-xl text-[13px] font-bold border transition-all ${
+            isSelected 
+              ? 'bg-blue-50 text-blue-700 border-blue-200' 
+              : 'bg-white text-[#0F172A] border-slate-200 hover:bg-slate-50'
+          }`}
+        >
+          {isSelected ? '✓ Added to Thesis' : '+ Add to Thesis'}
+        </button>
+      </div>
+    );
+  };
+
+  return (
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 relative pb-32">
+      
+      {/* Research Starting Point */}
+      <div className="bg-indigo-50/50 p-8 sm:p-10 rounded-3xl border border-indigo-100 mb-12">
+        <div className="flex items-center gap-2 mb-4">
+          <span className="w-2.5 h-2.5 rounded-full bg-indigo-600 animate-pulse"></span>
+          <h2 className="text-xs font-black text-indigo-900 uppercase tracking-widest">Research Starting Point</h2>
+        </div>
+        <p className="text-[17px] text-slate-800 font-semibold leading-relaxed">
+          {data?.overallAssessment || "Analyzing fundamental structure..."}
+        </p>
+      </div>
+
+      <div className="text-center mb-10">
+        <h3 className="text-2xl font-black text-[#0F172A] tracking-tight mb-2">Why are you considering {ticker}?</h3>
+        <p className="text-slate-500 font-medium">Select the drivers and risks that will define your conviction.</p>
+      </div>
+
+      {/* Grid of Rich Cards - CHANGED TO md:grid-cols-2 */}
+      <div className="mb-12">
+        <h4 className="text-[11px] font-extrabold text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2">
+          <span className="text-emerald-500">🟢</span> Potential Conviction Drivers
+        </h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {drivers.map((driver: any) => (
+            <ThesisCard key={driver.id} item={driver} />
+          ))}
         </div>
       </div>
 
-      {/* 2. LIVE EVALUATION / WHAT CHANGED */}
+      <div className="mb-16">
+        <h4 className="text-[11px] font-extrabold text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2">
+          <span className="text-amber-500">🟡</span> Potential Risks
+        </h4>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {risks.map((risk: any) => (
+            <ThesisCard key={risk.id} item={risk} />
+          ))}
+        </div>
+      </div>
+
+      {/* RESTORED: 4. LIVE EVALUATION / WHAT CHANGED */}
       {data?.updates && data.updates.length > 0 && (
-        <div className="bg-white rounded-3xl p-8 md:p-12 border border-slate-200 shadow-sm mb-8">
-          <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Recent Developments</h3>
-          <p className="text-2xl font-extrabold text-[#0F172A] tracking-tight mb-8">What's Changed Recently</p>
+        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm mb-12 overflow-hidden">
+          <div className="p-8 border-b border-slate-100 bg-slate-50/50">
+            <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Recent Developments</h3>
+            <p className="text-2xl font-extrabold text-[#0F172A] tracking-tight">What's Changed</p>
+          </div>
           
-          <div className="space-y-4">
+          <div className="divide-y divide-slate-100">
             {data.updates.map((update: any, i: number) => {
               const isPositive = update.type === 'positive';
               const isNegative = update.type === 'negative';
-              
-              const statusLabel = isPositive ? 'Strengthening' : isNegative ? 'Monitoring' : 'Stable';
-              const statusDot = isPositive ? 'text-emerald-500' : isNegative ? 'text-rose-500' : 'text-slate-400';
+              const dotColor = isPositive ? 'text-emerald-500' : isNegative ? 'text-rose-500' : 'text-amber-500';
+              const mockImpactLabel = update.impact?.split(' ').slice(0, 2).join(' ') || 'Key Driver';
 
               return (
-                <div 
-                  key={i} 
-                  className="bg-slate-50 border border-slate-200 rounded-2xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-slate-300 transition-colors"
-                >
-                  {/* Left: Arrow + Title + Subtitle */}
-                  <div className="flex items-start gap-4 flex-1">
-                    <span className={`text-lg font-bold shrink-0 mt-0.5 ${isPositive ? 'text-emerald-600' : isNegative ? 'text-rose-600' : 'text-amber-500'}`}>
-                      {isPositive ? '↑' : isNegative ? '↓' : '⚠'}
-                    </span>
+                <div key={i} className="p-6 sm:p-8 hover:bg-slate-50/50 transition-colors flex flex-col sm:flex-row gap-4 sm:items-start justify-between">
+                  <div className="flex items-start gap-4 flex-1 pr-4">
+                    <span className={`text-[12px] font-bold mt-1 ${dotColor}`}>●</span>
                     <div>
-                      <h4 className="text-[15px] font-bold text-[#0F172A] leading-snug mb-1">
+                      <h4 className="text-[15px] font-bold text-[#0F172A] leading-snug mb-2">
                         {update.headline}
                       </h4>
-                      <p className="text-[13px] font-medium text-slate-500 leading-relaxed">
+                      <p className="text-[13px] font-medium text-slate-500 leading-relaxed mb-4">
                         {update.impact}
                       </p>
+                      <div className="inline-flex items-center gap-2 bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-md">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Impact →</span>
+                        <span className="text-[11px] font-extrabold text-slate-700">{mockImpactLabel}</span>
+                      </div>
                     </div>
                   </div>
-
-                  {/* Right: Status */}
-                  <div className="text-[11px] font-bold text-slate-500 flex items-center gap-1.5 uppercase tracking-widest shrink-0 self-start sm:self-auto pl-8 sm:pl-0">
-                    <span className={statusDot}>●</span> {statusLabel}
+                  <div className="flex flex-row sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-2 pl-8 sm:pl-0 shrink-0">
+                    <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded-md whitespace-nowrap bg-slate-50 text-slate-500 border border-slate-100">
+                      SEC / Earnings
+                    </span>
+                    <span className="text-[10px] sm:text-[11px] font-medium text-slate-400">
+                      Recent
+                    </span>
                   </div>
                 </div>
               );
@@ -441,66 +529,86 @@ function OverviewTab({ data, onExplore }: { data: any, onExplore: () => void }) 
         </div>
       )}
 
-   {/* 3. KEY METRICS UI */}
-      {/* 3. KEY METRICS UI (Institutional Density Grid) */}
-      <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200 shadow-sm mb-8 overflow-hidden">
-        
-        {/* Card Header */}
-        <div className="px-5 py-4 sm:px-7 sm:py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-          <h3 className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest flex items-center gap-2.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-blue-600 shadow-sm"></span>
-            Fundamental Metrics
+      {/* RESTORED: 5. SUPPORTING FINANCIAL DATA */}
+      <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200 shadow-sm overflow-hidden mb-12">
+        <div className="px-5 py-4 sm:px-7 sm:py-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between bg-slate-50/50 gap-2">
+          <h3 className="text-[11px] font-extrabold text-slate-500 uppercase tracking-widest">
+            Supporting Financial Data
           </h3>
-          <span className="text-[9px] font-bold text-slate-400 bg-white border border-slate-200 px-2 py-1 rounded-md shadow-sm">TRAILING 12M</span>
+          <span className="text-[9px] font-bold text-slate-400 bg-white border border-slate-200 px-2 py-1 rounded-md shadow-sm w-fit">TRAILING 12M</span>
         </div>
-
-        {/* Dense Data Grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 bg-white">
-          
-          {/* Row 1 */}
           <div className="p-5 sm:p-7 flex flex-col justify-center border-b border-r border-slate-100">
             <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1.5">P/E Ratio</span>
             <span className="text-xl sm:text-2xl font-black text-[#0F172A] tracking-tight">{data?.metrics?.pe || '-'}</span>
           </div>
-          
           <div className="p-5 sm:p-7 flex flex-col justify-center border-b border-slate-100 md:border-r">
             <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1.5">Earnings Yield</span>
             <span className="text-xl sm:text-2xl font-black text-[#0F172A] tracking-tight">{data?.metrics?.earningsYield || '-'}</span>
           </div>
-          
           <div className="p-5 sm:p-7 flex flex-col justify-center border-b border-r border-slate-100">
-            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1.5">Rev Growth (YoY)</span>
+            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1.5">Rev Growth</span>
             <span className="text-xl sm:text-2xl font-black text-emerald-600 tracking-tight">{data?.metrics?.revenueGrowth || '-'}</span>
           </div>
-          
           <div className="p-5 sm:p-7 flex flex-col justify-center border-b border-slate-100">
             <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1.5">Op Margin</span>
             <span className="text-xl sm:text-2xl font-black text-[#0F172A] tracking-tight">{data?.metrics?.operatingMargin || '-'}</span>
           </div>
-          
-          {/* Row 2 */}
-          <div className="p-5 sm:p-7 flex flex-col justify-center border-b md:border-b-0 border-r border-slate-100">
-            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1.5">Net Margin</span>
-            <span className="text-xl sm:text-2xl font-black text-[#0F172A] tracking-tight">{data?.metrics?.netMargin || '-'}</span>
-          </div>
-          
-          <div className="p-5 sm:p-7 flex flex-col justify-center border-b md:border-b-0 border-slate-100 md:border-r">
-            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1.5">Current Price</span>
-            <span className="text-xl sm:text-2xl font-black text-[#0F172A] tracking-tight">{data?.metrics?.currentPrice || '-'}</span>
-          </div>
-          
-          <div className="p-5 sm:p-7 flex flex-col justify-center border-r border-slate-100 bg-slate-50/30">
-            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1.5">52-Week High</span>
-            <span className="text-xl sm:text-2xl font-black text-[#0F172A] tracking-tight">{data?.metrics?.yearHigh || '-'}</span>
-          </div>
-          
-          <div className="p-5 sm:p-7 flex flex-col justify-center bg-slate-50/30">
-            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1.5">52-Week Low</span>
-            <span className="text-xl sm:text-2xl font-black text-[#0F172A] tracking-tight">{data?.metrics?.yearLow || '-'}</span>
-          </div>
-          
         </div>
       </div>
+
+      {/* FLOATING CTA BAR */}
+      <div className="fixed bottom-0 left-0 right-0 p-4 sm:p-8 bg-gradient-to-t from-white via-white/90 to-white/0 z-50 flex flex-col items-center pointer-events-none pt-20">
+        <div className={`transition-all duration-500 transform ${hasEnough ? 'opacity-100 translate-y-0 mb-3' : 'opacity-0 translate-y-4 mb-0'}`}>
+           <p className="text-xs font-bold text-slate-500 bg-white/90 backdrop-blur-sm px-4 py-1.5 rounded-full shadow-sm border border-slate-200/60">
+             <span className="text-blue-500 mr-1.5">✦</span> Sandbox Preview — Sign in to unlock the full builder
+           </p>
+        </div>
+
+        <button
+  onClick={() => {
+    if (!hasEnough) return;
+
+  // 1. Package the exact cards and selections the user saw
+      const payload = {
+        ticker,
+        drivers,
+        risks,
+        selectedDriverIds: selectedItems.filter(id => id.startsWith('driver_')),
+        selectedRiskIds: selectedItems.filter(id => id.startsWith('risk_')),
+        // ✨ FIXED: Added explicit (d: any) and (r: any) to satisfy TypeScript
+        selectedDriverTitles: drivers.filter((d: any) => selectedItems.includes(d.id)).map((d: any) => d.title),
+        selectedRiskTitles: risks.filter((r: any) => selectedItems.includes(r.id)).map((r: any) => r.title)
+      };
+
+    sessionStorage.setItem(`thesis_handoff_${ticker}`, JSON.stringify(payload));
+
+    const targetUrl = `/build-thesis/${ticker}`;
+
+    if (!session) {
+      sessionStorage.setItem('postAuthRedirect', targetUrl);
+      router.push('?auth=signup', { scroll: false });
+    } else {
+      router.push(targetUrl);
+    }
+  }}
+  disabled={!hasEnough}
+  className={`pointer-events-auto flex items-center gap-3 px-6 sm:px-8 py-3.5 sm:py-4 rounded-full font-bold shadow-xl transition-all duration-300 ${
+    hasEnough 
+      ? 'bg-blue-600 hover:bg-blue-700 text-white cursor-pointer scale-100' 
+      : 'bg-slate-800 text-slate-300 cursor-not-allowed opacity-90 translate-y-2'
+  }`}
+>
+  {hasEnough ? (
+    <>
+      Build My Thesis ({selectedItems.length} Selected) <ArrowRight className="w-4 h-4" />
+    </>
+  ) : (
+    `Select ${minRequired - selectedItems.length} More Item${minRequired - selectedItems.length > 1 ? 's' : ''} to Continue`
+  )}
+</button>
+      </div>
+
     </div>
   );
 }
@@ -519,7 +627,6 @@ function QuestionsTab({ data }: { data: any }) {
   return (
     <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
       {data.deepDive.map((q: any, idx: number) => {
-        // Force clean formatting: "01", "02" and strip "1. " from the question text
         const numberPrefix = (idx + 1).toString().padStart(2, '0');
         const cleanQuestion = q.question.replace(/^\d+\.\s*/, '');
 
@@ -549,7 +656,6 @@ function QuestionsTab({ data }: { data: any }) {
               <div className="overflow-hidden">
                 <div className="p-6 pt-0 border-t border-slate-100 mt-2 space-y-6">
                   
-                  {/* WHY? Section */}
                   <div>
                     <h4 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-3">Why?</h4>
                     <p className="text-slate-700 leading-relaxed text-[13px] font-medium">
@@ -557,12 +663,10 @@ function QuestionsTab({ data }: { data: any }) {
                     </p>
                   </div>
                   
-                  {/* KEY EVIDENCE Section */}
                   {q.evidence && q.evidence.length > 0 && (
                     <div className="bg-white p-5 rounded-xl border border-slate-200 space-y-3">
                       <div className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Key Evidence</div>
                       <ul className="space-y-2.5">
-                        {/* Slice to enforce exactly 3 bullet points */}
                         {q.evidence.slice(0, 3).map((ev: string, eIdx: number) => (
                           <li key={eIdx} className="text-[13px] text-slate-600 font-medium flex items-start gap-2.5 leading-snug">
                             <span className="text-blue-500 mt-0.5">•</span> {ev}

@@ -172,6 +172,7 @@ export function CompanyLogo({ ticker, containerClass }: { ticker: string; contai
 export default function Dashboard() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
+  const [isRedirecting, setIsRedirecting] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [portfolio, setPortfolio] = useState<TrackedCompany[]>([]);
@@ -185,10 +186,33 @@ export default function Dashboard() {
   const [toastMessage, setToastMessage] = useState<{title: string; description: string} | null>(null);
   const [showAlphaWelcome, setShowAlphaWelcome] = useState(false);
 
+ // ✨ THE SMART REDIRECT LOGIC
   useEffect(() => {
-    const timer = setTimeout(() => setShowAlphaWelcome(true), 1500);
-    return () => clearTimeout(timer);
-  }, []);
+    const redirectUrl = sessionStorage.getItem('postAuthRedirect');
+    
+    if (redirectUrl) {
+      // 1. Show the teleporting screen
+      setIsRedirecting(true);
+      
+      // 2. Destroy the sticky note
+      sessionStorage.removeItem('postAuthRedirect');
+      
+      // 3. Use a hard redirect (window.location) instead of router.push. 
+      // This forces the server to freshly load the destination page and confirm auth.
+      window.location.href = redirectUrl;
+      
+      // 4. Failsafe: If the destination page doesn't exist or fails to load, 
+      // drop them back into the dashboard after 3 seconds instead of hanging.
+      setTimeout(() => {
+        setIsRedirecting(false);
+      }, 3000);
+      
+    } else {
+      // If NO redirect, safely show the Alpha Welcome modal after 1.5 seconds
+      const timer = setTimeout(() => setShowAlphaWelcome(true), 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [router]);
 
   const closeAlphaWelcome = () => {
     setShowAlphaWelcome(false);
@@ -199,17 +223,21 @@ export default function Dashboard() {
   }, [reviewCompany]);
 
   useEffect(() => {
-    loadDashboard();
-  }, []);
+    // Only load the dashboard data if we aren't teleporting them away
+    if (!isRedirecting) {
+      loadDashboard();
+    }
+  }, [isRedirecting]);
 
   const loadDashboard = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        router.push('/login?redirect=/dashboard');
+     if (!session) {
+        // For the dashboard, we just send them to login. The GlobalAuthModal
+        // defaults to sending users to the Dashboard anyway.
+        router.push('/?auth=login');
         return;
       }
-      
       const name = session.user.user_metadata?.full_name?.split(' ')[0] || 'Padam';
       setUserName(name);
 
@@ -423,19 +451,12 @@ export default function Dashboard() {
     }
   };
 
-  const getTrendIcon = (trend: string) => {
-    switch(trend) {
-      case 'up': return <span className="text-emerald-600 font-bold shrink-0 mt-0.5">↑</span>;
-      case 'down': return <span className="text-rose-600 font-bold shrink-0 mt-0.5">↓</span>;
-      default: return <span className="text-slate-400 font-bold shrink-0 mt-0.5">—</span>;
-    }
-  };
-
-  if (isLoading) {
+  if (isLoading || isRedirecting) {
     return (
       <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center font-sans antialiased">
         <div className="text-slate-500 font-bold flex items-center gap-3 animate-pulse">
-          <Loader2 className="w-5 h-5 animate-spin text-blue-600" /> Loading Dashboard...
+          <Loader2 className="w-5 h-5 animate-spin text-blue-600" /> 
+          {isRedirecting ? 'Restoring your workspace...' : 'Loading Dashboard...'}
         </div>
       </div>
     );

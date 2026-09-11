@@ -67,8 +67,7 @@ function AuthModalContent() {
       setAcceptedTerms(false);
     }, 200);
   };
-
-  const handleAuth = async (e: React.FormEvent) => {
+const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
@@ -99,11 +98,18 @@ function AuthModalContent() {
           password,
         });
         if (signInError) throw signInError;
+        
+        // ✨ FIX 1: Explicitly wait for the session cookie to be written to the browser
+        await supabase.auth.getSession();
       }
       
-      closeModal();
-      // On standard email login, push them to the dashboard
-      router.push('/dashboard');
+      
+      // Pull the sticky note if it exists, otherwise default to dashboard
+      const redirectTarget = sessionStorage.getItem('postAuthRedirect') || '/dashboard';
+      sessionStorage.removeItem('postAuthRedirect'); // Clean it up so it doesn't fire again later
+
+      // DO NOT call closeModal() here. A hard redirect unmounts the page anyway.
+      window.location.href = redirectTarget;
       
     } catch (err: any) {
       setError(err.message);
@@ -112,18 +118,21 @@ function AuthModalContent() {
     }
   };
 
-  const handleGoogleLogin = async () => {
+ const handleGoogleLogin = async () => {
     if (activeTab === 'signup' && !acceptedTerms) {
       setError('Almost there! Please check the box below to accept the terms before continuing.');
       return;
     }
 
     try {
+      // Pull the sticky note if it exists, otherwise default to dashboard
+      const redirectTarget = sessionStorage.getItem('postAuthRedirect') || '/dashboard';
+      sessionStorage.removeItem('postAuthRedirect');
+
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          // ✨ NEW: Explicitly send them to the dashboard after Google Auth
-          redirectTo: `${window.location.origin}/dashboard`
+          redirectTo: `${window.location.origin}${redirectTarget}`
         }
       });
       if (error) throw error;

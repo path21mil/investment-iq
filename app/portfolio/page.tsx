@@ -422,7 +422,7 @@ export default function PortfolioPage() {
                       </div>
                     ) : (
                       <p className="text-[14px] font-medium text-slate-500 italic">
-                        No recent changes detected.
+                        Your custom parameters are set. We are monitoring the market for catalysts and risks, and will alert you the moment your thesis is impacted.
                       </p>
                     )}
                   </div>
