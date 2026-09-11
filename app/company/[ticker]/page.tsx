@@ -108,42 +108,7 @@ export default function CompanyResearchPage() {
 
   // Loading State
   if (loading) {
-    return (
-      <div className="min-h-screen bg-[#F8FAFC] flex flex-col items-center justify-center font-sans antialiased p-6">
-        <div className="bg-white p-8 sm:p-10 rounded-3xl border border-slate-200 shadow-sm max-w-md w-full flex flex-col items-center text-center animate-in fade-in zoom-in duration-500">
-          <div className="relative mb-6 w-16 h-16 mx-auto flex items-center justify-center">
-            <div className="absolute inset-0 bg-blue-100 rounded-full animate-ping opacity-60"></div>
-            <div className="relative bg-white rounded-full p-4 border border-slate-100 shadow-sm">
-               <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-            </div>
-          </div>
-          <h3 className="text-xl font-extrabold text-[#0F172A] mb-2 tracking-tight">
-            Analyzing ${ticker}
-          </h3>
-          <p className="text-sm font-medium text-slate-500 mb-8 leading-relaxed">
-            Our AI is currently examining live market metrics, cross-referencing financials, and generating a custom thesis. This deep dive takes roughly <strong className="text-slate-700">20 seconds</strong>.
-          </p>
-          <div className="w-full bg-slate-50 rounded-2xl border border-slate-100 p-5 mb-2 text-left space-y-3">
-            <div className="flex items-center gap-3 text-xs font-bold text-slate-600">
-              <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
-              CONNECTING TO LIVE DATA
-            </div>
-            <div className="flex items-center gap-3 text-xs font-bold text-slate-600">
-              <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
-              EXTRACTING KEY METRICS
-            </div>
-            <div className="flex items-center gap-3 text-xs font-bold text-blue-600">
-              <div className="w-2 h-2 rounded-full bg-blue-600 animate-pulse shadow-[0_0_8px_rgba(37,99,235,0.5)]"></div>
-              SYNTHESIZING RESEARCH...
-            </div>
-          </div>
-          <div className="mt-6 flex items-center gap-2 text-[11px] font-black text-rose-500 uppercase tracking-widest bg-rose-50 px-4 py-2 rounded-lg">
-            <AlertTriangle className="w-3.5 h-3.5" />
-            Please do not refresh the page
-          </div>
-        </div>
-      </div>
-    );
+    return <LoadingScreen ticker={ticker} />;
   }
 
   // Error State
@@ -299,6 +264,89 @@ export default function CompanyResearchPage() {
     </div>
   );
 }
+
+// ==========================================
+// ⏳ ANIMATED LOADING SCREEN
+// ==========================================
+function LoadingScreen({ ticker }: { ticker: string }) {
+  const [step, setStep] = useState(0);
+
+  useEffect(() => {
+    // Step 1: Connecting (0-3.5s)
+    const t1 = setTimeout(() => setStep(1), 3500); 
+    // Step 2: Extracting (3.5s - 7s)
+    const t2 = setTimeout(() => setStep(2), 7000); 
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, []);
+
+  return (
+    <div className="min-h-[100dvh] bg-[#F8FAFC] flex flex-col items-center justify-center font-sans antialiased p-4">
+      <div className="bg-white p-6 sm:p-10 rounded-3xl border border-slate-200 shadow-sm max-w-md w-full mx-auto flex flex-col items-center text-center animate-in fade-in zoom-in duration-500">
+        <div className="relative mb-6 w-16 h-16 mx-auto flex items-center justify-center">
+          <div className="absolute inset-0 bg-blue-100 rounded-full animate-ping opacity-60"></div>
+          <div className="relative bg-white rounded-full p-4 border border-slate-100 shadow-sm">
+             <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+          </div>
+        </div>
+        
+        <h3 className="text-xl font-extrabold text-[#0F172A] mb-2 tracking-tight">
+          Analyzing {ticker}
+        </h3>
+        
+        <p className="text-sm font-medium text-slate-500 mb-8 leading-relaxed px-2">
+          Our AI is currently examining live market metrics, cross-referencing financials, and generating a custom thesis. This deep dive takes roughly <strong className="text-slate-700">20 seconds</strong>.
+        </p>
+        
+        <div className="w-full bg-slate-50 rounded-2xl border border-slate-100 p-5 mb-2 text-left space-y-4">
+          
+          {/* STEP 0: CONNECTING */}
+          <div className={`flex items-center gap-3 text-xs font-bold transition-colors duration-500 ${step > 0 ? 'text-slate-600' : 'text-blue-600'}`}>
+            <div className={`w-2 h-2 rounded-full transition-colors duration-500 ${
+              step > 0 
+                ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' 
+                : 'bg-blue-600 animate-pulse shadow-[0_0_8px_rgba(37,99,235,0.5)]'
+            }`}></div>
+            CONNECTING TO LIVE DATA
+          </div>
+
+          {/* STEP 1: EXTRACTING */}
+          <div className={`flex items-center gap-3 text-xs font-bold transition-colors duration-500 ${
+            step > 1 ? 'text-slate-600' : step === 1 ? 'text-blue-600' : 'text-slate-400'
+          }`}>
+            <div className={`w-2 h-2 rounded-full transition-colors duration-500 ${
+              step > 1 
+                ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' 
+                : step === 1 
+                  ? 'bg-blue-600 animate-pulse shadow-[0_0_8px_rgba(37,99,235,0.5)]' 
+                  : 'bg-slate-300'
+            }`}></div>
+            EXTRACTING KEY METRICS
+          </div>
+
+          {/* STEP 2: SYNTHESIZING */}
+          <div className={`flex items-center gap-3 text-xs font-bold transition-colors duration-500 ${
+            step === 2 ? 'text-blue-600' : 'text-slate-400'
+          }`}>
+            <div className={`w-2 h-2 rounded-full transition-colors duration-500 ${
+              step === 2 
+                ? 'bg-blue-600 animate-pulse shadow-[0_0_8px_rgba(37,99,235,0.5)]' 
+                : 'bg-slate-300'
+            }`}></div>
+            SYNTHESIZING RESEARCH...
+          </div>
+
+        </div>
+        
+        <div className="mt-6 flex items-center gap-2 text-[11px] font-black text-rose-500 uppercase tracking-widest bg-rose-50 px-4 py-2 rounded-lg">
+          <AlertTriangle className="w-3.5 h-3.5" />
+          Please do not refresh the page
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
 // ==========================================
 // ⚡ OVERVIEW: INTERACTIVE THESIS BUILDER
 // ==========================================
@@ -444,19 +492,23 @@ function OverviewTab({ data, onExplore, session, ticker }: { data: any, onExplor
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 relative pb-32">
       
       {/* Research Starting Point */}
-      <div className="bg-indigo-50/50 p-8 sm:p-10 rounded-3xl border border-indigo-100 mb-12">
-        <div className="flex items-center gap-2 mb-4">
-          <span className="w-2.5 h-2.5 rounded-full bg-indigo-600 animate-pulse"></span>
-          <h2 className="text-xs font-black text-indigo-900 uppercase tracking-widest">Research Starting Point</h2>
+      <div className="bg-indigo-50/50 p-6 sm:p-8 rounded-3xl border border-indigo-100 mb-10">
+        <div className="flex items-center gap-2 mb-3">
+          <span className="w-2 h-2 rounded-full bg-indigo-600 animate-pulse"></span>
+          <h2 className="text-[10px] font-black text-indigo-900 uppercase tracking-widest">Research Starting Point</h2>
         </div>
-        <p className="text-[17px] text-slate-800 font-semibold leading-relaxed">
+        <p className="text-[14px] sm:text-[15px] text-slate-700 font-medium leading-relaxed">
           {data?.overallAssessment || "Analyzing fundamental structure..."}
         </p>
       </div>
 
-      <div className="text-center mb-10">
-        <h3 className="text-2xl font-black text-[#0F172A] tracking-tight mb-2">Why are you considering {ticker}?</h3>
-        <p className="text-slate-500 font-medium">Select the drivers and risks that will define your conviction.</p>
+      <div className="text-center mb-8">
+        <h3 className="text-lg sm:text-xl font-extrabold text-[#0F172A] tracking-tight mb-1.5">
+          Why are you considering {ticker}?
+        </h3>
+        <p className="text-[13px] text-slate-500 font-medium">
+          Select the drivers and risks that will define your conviction.
+        </p>
       </div>
 
       {/* Grid of Rich Cards - CHANGED TO md:grid-cols-2 */}
@@ -557,56 +609,56 @@ function OverviewTab({ data, onExplore, session, ticker }: { data: any, onExplor
         </div>
       </div>
 
-      {/* FLOATING CTA BAR */}
+     {/* FLOATING CTA BAR */}
       <div className="fixed bottom-0 left-0 right-0 p-4 sm:p-8 bg-gradient-to-t from-white via-white/90 to-white/0 z-50 flex flex-col items-center pointer-events-none pt-20">
+        
         <div className={`transition-all duration-500 transform ${hasEnough ? 'opacity-100 translate-y-0 mb-3' : 'opacity-0 translate-y-4 mb-0'}`}>
-           <p className="text-xs font-bold text-slate-500 bg-white/90 backdrop-blur-sm px-4 py-1.5 rounded-full shadow-sm border border-slate-200/60">
-             <span className="text-blue-500 mr-1.5">✦</span> Sandbox Preview — Sign in to unlock the full builder
+           <p className="text-[11px] font-bold text-blue-800 bg-blue-50/95 backdrop-blur-md px-4 py-2 rounded-full shadow-sm border border-blue-200 flex items-center gap-1.5">
+             <span className="text-blue-600 text-lg leading-none">✦</span> Sandbox Preview — Sign in to unlock full builder
            </p>
         </div>
 
         <button
-  onClick={() => {
-    if (!hasEnough) return;
+          onClick={() => {
+            if (!hasEnough) return;
 
-  // 1. Package the exact cards and selections the user saw
-      const payload = {
-        ticker,
-        drivers,
-        risks,
-        selectedDriverIds: selectedItems.filter(id => id.startsWith('driver_')),
-        selectedRiskIds: selectedItems.filter(id => id.startsWith('risk_')),
-        // ✨ FIXED: Added explicit (d: any) and (r: any) to satisfy TypeScript
-        selectedDriverTitles: drivers.filter((d: any) => selectedItems.includes(d.id)).map((d: any) => d.title),
-        selectedRiskTitles: risks.filter((r: any) => selectedItems.includes(r.id)).map((r: any) => r.title)
-      };
+            const payload = {
+              ticker,
+              drivers,
+              risks,
+              selectedDriverIds: selectedItems.filter(id => id.startsWith('driver_')),
+              selectedRiskIds: selectedItems.filter(id => id.startsWith('risk_')),
+              selectedDriverTitles: drivers.filter((d: any) => selectedItems.includes(d.id)).map((d: any) => d.title),
+              selectedRiskTitles: risks.filter((r: any) => selectedItems.includes(r.id)).map((r: any) => r.title)
+            };
 
-    sessionStorage.setItem(`thesis_handoff_${ticker}`, JSON.stringify(payload));
+            sessionStorage.setItem(`thesis_handoff_${ticker}`, JSON.stringify(payload));
+            const targetUrl = `/build-thesis/${ticker}`;
 
-    const targetUrl = `/build-thesis/${ticker}`;
-
-    if (!session) {
-      sessionStorage.setItem('postAuthRedirect', targetUrl);
-      router.push('?auth=signup', { scroll: false });
-    } else {
-      router.push(targetUrl);
-    }
-  }}
-  disabled={!hasEnough}
-  className={`pointer-events-auto flex items-center gap-3 px-6 sm:px-8 py-3.5 sm:py-4 rounded-full font-bold shadow-xl transition-all duration-300 ${
-    hasEnough 
-      ? 'bg-blue-600 hover:bg-blue-700 text-white cursor-pointer scale-100' 
-      : 'bg-slate-800 text-slate-300 cursor-not-allowed opacity-90 translate-y-2'
-  }`}
->
-  {hasEnough ? (
-    <>
-      Build My Thesis ({selectedItems.length} Selected) <ArrowRight className="w-4 h-4" />
-    </>
-  ) : (
-    `Select ${minRequired - selectedItems.length} More Item${minRequired - selectedItems.length > 1 ? 's' : ''} to Continue`
-  )}
-</button>
+            if (!session) {
+              sessionStorage.setItem('postAuthRedirect', targetUrl);
+              router.push('?auth=signup', { scroll: false });
+            } else {
+              router.push(targetUrl);
+            }
+          }}
+          disabled={!hasEnough}
+          className={`pointer-events-auto flex items-center justify-center gap-3 w-full max-w-sm sm:w-auto px-6 sm:px-8 py-3.5 sm:py-4 rounded-full font-bold shadow-xl transition-all duration-300 ${
+            hasEnough 
+              ? 'bg-blue-600 hover:bg-blue-700 text-white cursor-pointer scale-100' 
+              : 'bg-slate-800 text-slate-300 cursor-not-allowed opacity-95 translate-y-2'
+          }`}
+        >
+          {hasEnough ? (
+            <>
+              Build My Thesis ({selectedItems.length} Selected)
+            </>
+          ) : (
+            selectedItems.length === 0 
+              ? 'Select 2 items to continue' 
+              : 'Select 1 more to continue'
+          )}
+        </button>
       </div>
 
     </div>

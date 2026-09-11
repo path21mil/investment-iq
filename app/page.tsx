@@ -147,14 +147,16 @@ export default function Home() {
 
        {/* DEMO INTERACTIVE TABS */}
         {/* Added mt-10 to create breathing room below the hero text */}
-        <div className="flex items-center justify-center gap-2 mt-10 mb-10 flex-wrap">
-          {['AAOI', 'NVDA', 'AAPL'].map((ticker) => {
+      <div className="flex items-center justify-center gap-2 mt-10 mb-10 flex-wrap">
+          {['AAOI', 'NVDA', 'AAPL'].map((ticker, index) => {
             const isActive = selectedTicker === ticker;
             return (
               <button
                 key={ticker}
                 onClick={() => setSelectedTicker(ticker)}
-                className={`px-5 py-2.5 rounded-full text-xs font-bold transition-all cursor-pointer block ${
+                className={`px-5 py-2.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                  index === 2 ? 'hidden sm:block' : 'block'
+                } ${
                   isActive
                     ? 'bg-slate-900 text-white shadow-md scale-105'
                     : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/80'

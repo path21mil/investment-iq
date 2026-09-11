@@ -34,26 +34,11 @@ export default function BuildThesisPage({ params }: { params: Promise<{ ticker: 
   const [isGeneratingSummary, setIsGeneratingSummary] = useState<boolean>(false);
 
   const [customInput, setCustomInput] = useState('');
-  const [loadingText, setLoadingText] = useState(`Mining SEC filings for ${ticker}...`);
+  
   const [apiError, setApiError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!isLoading) return;
-    const messages = [
-      `Mining SEC filings for ${ticker}...`,
-      "Analyzing recent earnings transcripts...",
-      "Extracting core growth drivers...",
-      "Evaluating macroeconomic risks...",
-      "Finalizing institutional-grade thesis..."
-    ];
-    let i = 0;
-    const interval = setInterval(() => {
-      i = (i + 1) % messages.length;
-      setLoadingText(messages[i]);
-    }, 4000);
-    return () => clearInterval(interval);
-  }, [isLoading, ticker]);
+  
 
   useEffect(() => {
     if (typeof window !== 'undefined' && window.location.hash.includes('access_token')) {
@@ -308,29 +293,8 @@ export default function BuildThesisPage({ params }: { params: Promise<{ ticker: 
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-[#F8FAFC] flex flex-col items-center justify-center font-sans antialiased p-6">
-        <div className="bg-white p-8 sm:p-10 rounded-3xl border border-slate-200 shadow-sm max-w-md w-full flex flex-col items-center text-center animate-in fade-in zoom-in duration-500">
-          <div className="relative mb-6">
-            <div className="absolute inset-0 bg-blue-100 rounded-full animate-ping opacity-60"></div>
-            <div className="relative bg-white rounded-full p-4 border border-slate-100 shadow-sm">
-              <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-            </div>
-          </div>
-          <h3 className="text-xl font-extrabold text-[#0F172A] mb-8 tracking-tight">Preparing Thesis for ${ticker}</h3>
-          <div className="w-full bg-slate-50 rounded-2xl border border-slate-100 p-6 mb-8 flex flex-col items-center justify-center h-24 shadow-inner">
-            <p key={loadingText} className="text-sm font-bold text-blue-600 leading-relaxed text-center animate-in fade-in slide-in-from-bottom-2 duration-500">
-              {loadingText}
-            </p>
-          </div>
-          <div className="mt-2 flex items-center gap-2 text-[11px] font-black text-rose-500 uppercase tracking-widest bg-rose-50 px-4 py-2 rounded-lg">
-            <AlertTriangle className="w-3.5 h-3.5" />
-            Please do not refresh the page
-          </div>
-        </div>
-      </div>
-    );
+ if (isLoading) {
+    return <BuilderLoadingScreen ticker={ticker} />;
   }
 
   const currentOptions = step === 1 ? suggestedDrivers : suggestedRisks;
@@ -672,6 +636,84 @@ export default function BuildThesisPage({ params }: { params: Promise<{ ticker: 
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ==========================================
+// ⏳ ANIMATED LOADING SCREEN (BUILDER)
+// ==========================================
+function BuilderLoadingScreen({ ticker }: { ticker: string }) {
+  const [step, setStep] = useState(0);
+
+  useEffect(() => {
+    // Step 1: Mining (0 - 1.5s)
+    const t1 = setTimeout(() => setStep(1), 1500); 
+    // Step 2: Extracting (1.5s - 3s)
+    const t2 = setTimeout(() => setStep(2), 3000); 
+    // Step 3: Finalizing (3s - 5s)
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, []);
+
+  return (
+    <div className="min-h-[100dvh] bg-[#F8FAFC] flex flex-col items-center justify-center font-sans antialiased p-4">
+      <div className="bg-white p-6 sm:p-10 rounded-3xl border border-slate-200 shadow-sm max-w-md w-full mx-auto flex flex-col items-center text-center animate-in fade-in zoom-in duration-500">
+        <div className="relative mb-6 w-16 h-16 mx-auto flex items-center justify-center">
+          <div className="absolute inset-0 bg-blue-100 rounded-full animate-ping opacity-60"></div>
+          <div className="relative bg-white rounded-full p-4 border border-slate-100 shadow-sm">
+             <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+          </div>
+        </div>
+        
+        <h3 className="text-xl font-extrabold text-[#0F172A] mb-8 tracking-tight">
+          Preparing Thesis for {ticker}
+        </h3>
+        
+        <div className="w-full bg-slate-50 rounded-2xl border border-slate-100 p-5 mb-2 text-left space-y-4">
+          
+          {/* STEP 0 */}
+          <div className={`flex items-center gap-3 text-xs font-bold transition-colors duration-500 ${step > 0 ? 'text-slate-600' : 'text-blue-600'}`}>
+            <div className={`w-2 h-2 rounded-full transition-colors duration-500 ${
+              step > 0 
+                ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' 
+                : 'bg-blue-600 animate-pulse shadow-[0_0_8px_rgba(37,99,235,0.5)]'
+            }`}></div>
+            MINING SEC FILINGS
+          </div>
+
+          {/* STEP 1 */}
+          <div className={`flex items-center gap-3 text-xs font-bold transition-colors duration-500 ${
+            step > 1 ? 'text-slate-600' : step === 1 ? 'text-blue-600' : 'text-slate-400'
+          }`}>
+            <div className={`w-2 h-2 rounded-full transition-colors duration-500 ${
+              step > 1 
+                ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' 
+                : step === 1 
+                  ? 'bg-blue-600 animate-pulse shadow-[0_0_8px_rgba(37,99,235,0.5)]' 
+                  : 'bg-slate-300'
+            }`}></div>
+            EXTRACTING CORE DRIVERS
+          </div>
+
+          {/* STEP 2 */}
+          <div className={`flex items-center gap-3 text-xs font-bold transition-colors duration-500 ${
+            step === 2 ? 'text-blue-600' : 'text-slate-400'
+          }`}>
+            <div className={`w-2 h-2 rounded-full transition-colors duration-500 ${
+              step === 2 
+                ? 'bg-blue-600 animate-pulse shadow-[0_0_8px_rgba(37,99,235,0.5)]' 
+                : 'bg-slate-300'
+            }`}></div>
+            FINALIZING THESIS...
+          </div>
+
+        </div>
+        
+        <div className="mt-6 flex items-center gap-2 text-[11px] font-black text-rose-500 uppercase tracking-widest bg-rose-50 px-4 py-2 rounded-lg">
+          <AlertTriangle className="w-3.5 h-3.5" />
+          Please do not refresh the page
+        </div>
+      </div>
     </div>
   );
 }
