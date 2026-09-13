@@ -2,7 +2,7 @@
 
 import { useState, useEffect, use } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { TrendingUp, TrendingDown, Loader2, Plus, Zap, Check, ArrowRightLeft, X } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import SmartSearchBar from '@/components/SmartSearchBar';
@@ -52,12 +52,14 @@ function CompanyLogo({ ticker, containerClass }: { ticker: string; containerClas
 
 export default function UserThesisPage({ params }: { params: Promise<{ ticker: string }> }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const resolvedParams = use(params);
   const ticker = (resolvedParams.ticker || '').toUpperCase();
 
   const [isLoading, setIsLoading] = useState(true);
   const [profile, setProfile] = useState<any>(null);
   const [thesis, setThesis] = useState<any>(null);
+  const [isHighlighted, setIsHighlighted] = useState(false);
 
   const [activeDrivers, setActiveDrivers] = useState<any[]>([]);
   const [activeRisks, setActiveRisks] = useState<any[]>([]);
@@ -86,6 +88,15 @@ export default function UserThesisPage({ params }: { params: Promise<{ ticker: s
     incomingIndex: null,
     selectedOldIndex: 0
   });
+
+  // Handle Highlighting effect if arriving from email link
+  useEffect(() => {
+    if (searchParams.get('highlight') === 'latest') {
+      setIsHighlighted(true);
+      const timer = setTimeout(() => setIsHighlighted(false), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     async function loadThesisData() {
@@ -408,7 +419,7 @@ export default function UserThesisPage({ params }: { params: Promise<{ ticker: s
       {/* MAIN CONTAINER */}
       <main className="max-w-[960px] mx-auto px-4 sm:px-6 pt-8 md:pt-12">
         {/* HERO BANNER */}
-        <div className="mb-12 bg-white border border-slate-200 rounded-3xl p-5 sm:p-8 shadow-sm flex flex-row items-center justify-between gap-3">
+        <div className="mb-4 bg-white border border-slate-200 rounded-3xl p-5 sm:p-8 shadow-sm flex flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-3 sm:gap-6 min-w-0">
             <CompanyLogo ticker={ticker} containerClass="w-12 h-12 sm:w-20 sm:h-20 shrink-0" />
             <div className="flex flex-col justify-center gap-1 min-w-0">
@@ -446,6 +457,26 @@ export default function UserThesisPage({ params }: { params: Promise<{ ticker: s
             </div>
           </div>
         </div>
+
+        {/* THESIS STATUS (Moved directly under Hero Banner) */}
+        <section className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6 mb-12">
+          <div>
+            <div className="text-[15px] font-bold text-[#0F172A] flex items-center gap-2 mb-1.5">
+              <span className="text-emerald-500 text-xl leading-none">🟢</span> Thesis Intact
+            </div>
+            <p className="text-[11px] font-semibold text-slate-500">Last reviewed: {reviewDate}</p>
+          </div>
+
+          <div className="flex gap-4 w-full md:w-auto">
+            
+            <Link
+              href={`/build-thesis/${ticker}?edit=true`}
+              className="flex-1 md:flex-none inline-flex items-center justify-center px-6 py-3 bg-[#0F172A] hover:bg-slate-800 text-white text-[13px] font-bold rounded-lg transition-colors shadow-sm cursor-pointer"
+            >
+              Modify Thesis
+            </Link>
+          </div>
+        </section>
 
         {/* MY INVESTMENT THESIS */}
         <section className="mb-12">
@@ -518,13 +549,20 @@ export default function UserThesisPage({ params }: { params: Promise<{ ticker: s
           </div>
         </section>
 
-        {/* WHAT'S CHANGED */}
+        {/* WHAT'S CHANGED (With Highlight Logic) */}
         {recentUpdates.length > 0 && (
           <>
             <hr className="border-slate-200 mb-12" />
             <section className="mb-12">
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-6 pl-2">What's Changed</p>
-              <div className="bg-white rounded-3xl p-8 border border-slate-200 shadow-sm">
+              
+              <div 
+                className={`rounded-3xl p-8 border transition-all duration-1000 ${
+                  isHighlighted 
+                    ? 'bg-blue-50/50 border-blue-300 shadow-[0_0_15px_rgba(59,130,246,0.15)]' 
+                    : 'bg-white border-slate-200 shadow-sm'
+                }`}
+              >
                 <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-6">
                   Latest earnings / filings
                 </h3>
@@ -676,32 +714,6 @@ export default function UserThesisPage({ params }: { params: Promise<{ ticker: s
             </section>
           </>
         )}
-
-        {/* THESIS STATUS FOOTER */}
-        <section className="bg-white rounded-3xl p-8 border border-slate-200 shadow-sm flex flex-col md:flex-row items-center justify-between gap-8 mb-12">
-          <div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Thesis Status</p>
-            <div className="text-[15px] font-bold text-[#0F172A] flex items-center gap-2">
-              <span className="text-emerald-500">●</span> Strengthening
-            </div>
-            <p className="text-[11px] font-medium text-slate-500 mt-2">Last reviewed: {reviewDate}</p>
-          </div>
-
-          <div className="flex gap-4 w-full md:w-auto">
-            <button
-              onClick={() => router.push(`/company/${ticker}`)}
-              className="flex-1 md:flex-none px-6 py-3 bg-white border border-slate-200 hover:bg-slate-50 text-[#0F172A] text-[13px] font-bold rounded-lg transition-colors cursor-pointer"
-            >
-              Review Updates
-            </button>
-            <Link
-              href={`/build-thesis/${ticker}`}
-              className="flex-1 md:flex-none inline-flex items-center justify-center px-6 py-3 bg-[#0F172A] hover:bg-slate-800 text-white text-[13px] font-bold rounded-lg transition-colors shadow-sm cursor-pointer"
-            >
-              Modify Thesis
-            </Link>
-          </div>
-        </section>
 
         {/* 1-FOR-1 SWAP MODAL DIALOG */}
         {swapModal.isOpen && swapModal.incomingItem && (

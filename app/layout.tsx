@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Geist } from "next/font/google";
 import "./globals.css";
 import { GlobalAuthModal } from "@/components/GlobalAuthModal";
+import { cn } from "@/lib/utils";
+
+const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -16,7 +19,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className={cn("font-sans", geist.variable)}>
       <body className={inter.className}>
         {/* GLOBAL ALPHA BANNER */}
         <div className="bg-[#FFFBEB] border-b border-amber-100/50 py-1.5 px-6 flex items-center justify-center gap-2 w-full z-[100] relative">

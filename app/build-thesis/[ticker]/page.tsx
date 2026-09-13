@@ -3,7 +3,7 @@
 import { useState, useEffect, use } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Loader2, ArrowRight, Check, Zap, Plus, AlertTriangle } from 'lucide-react';
+import { Loader2, ArrowRight, Check, Zap, Plus, AlertTriangle, X } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import Logo from '@/components/Logo';
 
@@ -15,6 +15,11 @@ export default function BuildThesisPage({ params }: { params: Promise<{ ticker: 
 
   const [showLimitModal, setShowLimitModal] = useState(false);
   const [showCollisionModal, setShowCollisionModal] = useState(false);
+  
+  // New Modal States
+  const [capWarning, setCapWarning] = useState<{show: boolean, message: string}>({show: false, message: ''});
+  const [showRiskWarning, setShowRiskWarning] = useState(false);
+
   const [step, setStep] = useState<number>(1); 
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isSaving, setIsSaving] = useState<boolean>(false);
@@ -38,8 +43,6 @@ export default function BuildThesisPage({ params }: { params: Promise<{ ticker: 
   const [apiError, setApiError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  
-
   useEffect(() => {
     if (typeof window !== 'undefined' && window.location.hash.includes('access_token')) {
       window.history.replaceState(null, '', window.location.pathname);
@@ -60,6 +63,7 @@ export default function BuildThesisPage({ params }: { params: Promise<{ ticker: 
       
       setUserId(session.user.id);
       const cleanTicker = ticker.toUpperCase().trim();
+      const isEditMode = searchParams.get('edit') === 'true';
 
       const { data: existingThesis } = await supabase
         .from('theses')
@@ -68,7 +72,7 @@ export default function BuildThesisPage({ params }: { params: Promise<{ ticker: 
         .eq('ticker', cleanTicker)
         .maybeSingle();
 
-      if (!existingThesis) {
+      if (!existingThesis && !isEditMode) {
         const { count } = await supabase
           .from('theses')
           .select('*', { count: 'exact', head: true })
@@ -92,7 +96,7 @@ export default function BuildThesisPage({ params }: { params: Promise<{ ticker: 
 
       const cachedHandoff = sessionStorage.getItem(`thesis_handoff_${cleanTicker}`);
 
-      // ✨ DELAYED COLLISION CHECK (Simulates AI processing for 5 seconds)
+      // ✨ CHECK FOR EXISTING THESIS & ROUTE ACCORDINGLY
       if (existingThesis) {
         if (existingThesis.created_at) {
           setCreatedDate(new Date(existingThesis.created_at).toLocaleDateString('en-US', {
@@ -101,49 +105,76 @@ export default function BuildThesisPage({ params }: { params: Promise<{ ticker: 
         }
         if (existingThesis.summary) setSummaryDraft(existingThesis.summary);
 
-        // Let the loading screen play for 5 seconds before showing the modal
-        setTimeout(() => {
-          setShowCollisionModal(true);
-          setIsLoading(false);
-        }, 5000);
-        
-        return; 
+        if (!isEditMode) {
+          // Accidental navigation: show collision modal guardrail
+          setTimeout(() => {
+            setShowCollisionModal(true);
+            setIsLoading(false);
+          }, 3000);
+          return; 
+        } else {
+          // Intentional navigation: bypass modal, engage Edit Mode
+          setIsEditing(true);
+        }
       }
 
-      // NO COLLISION: Process normal handoff for new thesis
-      if (cachedHandoff) {
+      let handoffDrivers: any[] = [];
+      let handoffRisks: any[] = [];
+      let initialSelectedDrivers: string[] = [];
+      let initialSelectedRisks: string[] = [];
+
+      // If we are editing, populate the initial data directly from the saved database thesis
+      if (existingThesis && isEditMode) {
+         const savedDrivers = typeof existingThesis.drivers === 'string' ? JSON.parse(existingThesis.drivers) : existingThesis.drivers || [];
+         const savedRisks = typeof existingThesis.risks === 'string' ? JSON.parse(existingThesis.risks) : existingThesis.risks || [];
+         
+         handoffDrivers = savedDrivers.map((d: any, idx: number) => ({
+            id: `saved_d_${idx}`,
+            title: d.title || d,
+            whyThisMatters: d.desc || d.whyThisMatters || 'Core growth driver tracking.',
+            evidence: d.evidence || ['Established core pillar from foundational business profile.'],
+            monitors: d.monitors || ['Quarterly segment performance metrics']
+         }));
+
+         handoffRisks = savedRisks.map((r: any, idx: number) => ({
+            id: `saved_r_${idx}`,
+            title: r.title || r,
+            whyThisMatters: r.desc || r.whyThisMatters || 'Monitored risk factor.',
+            evidence: r.evidence || ['Monitored counter-thesis factor.'],
+            monitors: r.monitors || ['Macro & operational headwinds']
+         }));
+
+         initialSelectedDrivers = handoffDrivers.map(d => d.id);
+         initialSelectedRisks = handoffRisks.map(r => r.id);
+      } 
+      // If NOT editing, populate from the research handoff (if it exists)
+      else if (cachedHandoff) {
         try {
           const parsed = JSON.parse(cachedHandoff);
-
-          const baseDrivers = (parsed.drivers || []).map((d: any, idx: number) => ({
-            id: d.id || `driver_${idx}`,
+          handoffDrivers = (parsed.drivers || []).map((d: any, idx: number) => ({
+            id: d.id || `handoff_d_${idx}`,
             title: d.title || d.text,
             whyThisMatters: d.why || d.whyThisMatters || 'Core growth driver.',
             evidence: d.evidence || ['Key catalyst identified from research analysis'],
             monitors: d.monitors || ['Segment performance metrics']
           }));
 
-          const baseRisks = (parsed.risks || []).map((r: any, idx: number) => ({
-            id: r.id || `risk_${idx}`,
+          handoffRisks = (parsed.risks || []).map((r: any, idx: number) => ({
+            id: r.id || `handoff_r_${idx}`,
             title: r.title || r.text,
             whyThisMatters: r.why || r.whyThisMatters || 'Core risk factor.',
             evidence: r.evidence || ['Risk factor identified during research analysis'],
             monitors: r.monitors || ['Macro & operational headwinds']
           }));
 
-          setSuggestedDrivers(baseDrivers);
-          setSuggestedRisks(baseRisks);
-          setSelectedDrivers(parsed.selectedDriverIds || []);
-          setSelectedRisks(parsed.selectedRiskIds || []);
-
-          setIsLoading(false);
-          return;
+          initialSelectedDrivers = parsed.selectedDriverIds || handoffDrivers.map(d => d.id).slice(0, 5);
+          initialSelectedRisks = parsed.selectedRiskIds || handoffRisks.map(r => r.id).slice(0, 4);
         } catch (err) {
           console.error('Failed to parse handoff data', err);
         }
       }
 
-      // FALLBACK: Modify existing thesis or fetch API
+      // Fetch remaining AI catalog options to swap in
       try {
         const res = await fetch('/api/thesis-options', {
           method: 'POST',
@@ -154,33 +185,62 @@ export default function BuildThesisPage({ params }: { params: Promise<{ ticker: 
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "AI generation failed");
 
-        let finalSuggestedDrivers = (data.drivers || []).map((d: any, i: number) => ({ ...d, id: `driver_${i}` }));
-        let finalSuggestedRisks = (data.risks || []).map((r: any, i: number) => ({ ...r, id: `risk_${i}` }));
+        let apiDrivers = (data.drivers || []).map((d: any, i: number) => ({ ...d, id: `api_d_${i}` }));
+        let apiRisks = (data.risks || []).map((r: any, i: number) => ({ ...r, id: `api_r_${i}` }));
 
+        const finalDrivers = [...handoffDrivers];
+        apiDrivers.forEach((ad: any) => {
+          if (!finalDrivers.find(fd => fd.title.toLowerCase() === ad.title.toLowerCase())) {
+            finalDrivers.push(ad);
+          }
+        });
 
-        setSuggestedDrivers(finalSuggestedDrivers);
-        setSuggestedRisks(finalSuggestedRisks);
+        const finalRisks = [...handoffRisks];
+        apiRisks.forEach((ar: any) => {
+          if (!finalRisks.find(fr => fr.title.toLowerCase() === ar.title.toLowerCase())) {
+            finalRisks.push(ar);
+          }
+        });
+
+        setSuggestedDrivers(finalDrivers);
+        setSuggestedRisks(finalRisks);
+        setSelectedDrivers(initialSelectedDrivers);
+        setSelectedRisks(initialSelectedRisks);
       } catch (err: any) {
-        console.error("Failed to generate thesis options:", err);
-        setApiError("API failed to retrieve data. Please try again later.");
+        if (handoffDrivers.length > 0 || handoffRisks.length > 0) {
+          setSuggestedDrivers(handoffDrivers);
+          setSuggestedRisks(handoffRisks);
+          setSelectedDrivers(initialSelectedDrivers);
+          setSelectedRisks(initialSelectedRisks);
+        } else {
+          setApiError("API failed to retrieve data. Please try again later.");
+        }
       } finally {
         setIsLoading(false);
       }
     }
     init();
-  }, [ticker, router]);
+  }, [ticker, router, searchParams]);
 
   const handleToggle = (id: string, type: 'driver' | 'risk') => {
     if (type === 'driver') {
       if (selectedDrivers.includes(id)) {
         setSelectedDrivers(selectedDrivers.filter(d => d !== id));
       } else {
+        if (selectedDrivers.length >= 5) {
+          setCapWarning({show: true, message: 'A strong thesis is focused. We recommend keeping 2–5 conviction drivers.'});
+          return;
+        }
         setSelectedDrivers([...selectedDrivers, id]);
       }
     } else {
       if (selectedRisks.includes(id)) {
         setSelectedRisks(selectedRisks.filter(r => r !== id));
       } else {
+        if (selectedRisks.length >= 4) {
+          setCapWarning({show: true, message: 'A strong thesis is focused. We recommend keeping 1–4 core risks.'});
+          return;
+        }
         setSelectedRisks([...selectedRisks, id]);
       }
     }
@@ -189,7 +249,11 @@ export default function BuildThesisPage({ params }: { params: Promise<{ ticker: 
   const handleAddCustom = () => {
     if (!customInput.trim()) return;
 
-    if (step === 1 && selectedDrivers.length < 5) {
+    if (step === 1) {
+      if (selectedDrivers.length >= 5) {
+        setCapWarning({show: true, message: 'A strong thesis is focused. We recommend keeping 2–5 conviction drivers.'});
+        return;
+      }
       const newId = `custom-d-${Date.now()}`;
       setSuggestedDrivers([...suggestedDrivers, {
         id: newId,
@@ -200,7 +264,11 @@ export default function BuildThesisPage({ params }: { params: Promise<{ ticker: 
       }]);
       setSelectedDrivers([...selectedDrivers, newId]);
       setCustomInput('');
-    } else if (step === 2 && selectedRisks.length < 5) {
+    } else if (step === 2) {
+      if (selectedRisks.length >= 4) {
+        setCapWarning({show: true, message: 'A strong thesis is focused. We recommend keeping 1–4 core risks.'});
+        return;
+      }
       const newId = `custom-r-${Date.now()}`;
       setSuggestedRisks([...suggestedRisks, {
         id: newId,
@@ -214,8 +282,16 @@ export default function BuildThesisPage({ params }: { params: Promise<{ ticker: 
     }
   };
 
-  const handleProceedToReview = async () => {
+  const handleProceedToReview = async (bypassWarning = false) => {
+    // Intercept if risk-heavy
+    if (!bypassWarning && selectedRisks.length >= 4 && selectedDrivers.length <= 3) {
+      setShowRiskWarning(true);
+      return;
+    }
+
+    setShowRiskWarning(false);
     setStep(3);
+    
     if (isEditing && summaryDraft) return;
 
     setIsGeneratingSummary(true);
@@ -238,7 +314,7 @@ export default function BuildThesisPage({ params }: { params: Promise<{ ticker: 
     }
   };
 
-  const handleSaveAndFinish = async () => {
+const handleSaveAndFinish = async () => {
     setIsSaving(true);
     try {
       if (!userId) {
@@ -247,14 +323,30 @@ export default function BuildThesisPage({ params }: { params: Promise<{ ticker: 
         return;
       }
 
+      // Map full rich data for drivers
       const formattedDrivers = selectedDrivers.map(id => {
         const found = suggestedDrivers.find(d => d.id === id);
-        return { title: found ? found.title : "Core Driver", status: "on_track" };
+        return { 
+          title: found?.title || "Core Driver",
+          desc: found?.whyThisMatters || "Core growth driver tracking.",
+          whyThisMatters: found?.whyThisMatters || "Core growth driver tracking.",
+          evidence: found?.evidence || ["Established core pillar from foundational business profile."],
+          monitors: found?.monitors || ["Quarterly segment performance metrics"],
+          status: "on_track" 
+        };
       });
 
+      // Map full rich data for risks
       const formattedRisks = selectedRisks.map(id => {
         const found = suggestedRisks.find(r => r.id === id);
-        return { title: found ? found.title : "Macroeconomic Risk" };
+        return { 
+          title: found?.title || "Macroeconomic Risk",
+          desc: found?.whyThisMatters || "Monitored risk factor.",
+          whyThisMatters: found?.whyThisMatters || "Monitored risk factor.",
+          evidence: found?.evidence || ["Monitored counter-thesis factor."],
+          monitors: found?.monitors || ["Macro & operational headwinds"],
+          status: "monitoring" 
+        };
       });
 
       const primaryRiskText = formattedRisks.length > 0 ? formattedRisks[0].title : "Macroeconomic pressures and sector rotation";
@@ -293,14 +385,28 @@ export default function BuildThesisPage({ params }: { params: Promise<{ ticker: 
     }
   };
 
- if (isLoading) {
+  if (isLoading) {
     return <BuilderLoadingScreen ticker={ticker} />;
   }
 
   const currentOptions = step === 1 ? suggestedDrivers : suggestedRisks;
   const currentSelections = step === 1 ? selectedDrivers : selectedRisks;
 
-  const renderCard = (item: any) => {
+  const selectedCards = currentOptions.filter(item => currentSelections.includes(item.id));
+  
+  // 1. Limit unselected cards so Total Displayed (Selected + Unselected) never exceeds 6
+  const allUnselected = currentOptions.filter(item => !currentSelections.includes(item.id));
+  const unselectedCards = allUnselected.slice(0, Math.max(0, 6 - selectedCards.length));
+
+  // 2. Reusable dynamic grid layout for BOTH sections
+  const getGridClass = (count: number) => {
+    if (count === 1) return 'grid-cols-1 max-w-2xl mx-auto';
+    if (count === 2) return 'grid-cols-1 md:grid-cols-2 max-w-4xl mx-auto';
+    return 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3';
+  };
+
+ const renderCard = (item: any) => {
+    // ... [KEEP YOUR EXISTING renderCard FUNCTION EXACTLY AS IS] ...
     const isSelected = currentSelections.includes(item.id);
     return (
       <div
@@ -370,9 +476,7 @@ export default function BuildThesisPage({ params }: { params: Promise<{ ticker: 
             onClick={() => router.push('/dashboard')}
             className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 hover:text-slate-900 transition-all duration-150 border border-slate-200/60 shadow-sm active:scale-95 cursor-pointer"
           >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <X className="w-3.5 h-3.5" />
             Cancel
           </button>
         </div>
@@ -382,9 +486,7 @@ export default function BuildThesisPage({ params }: { params: Promise<{ ticker: 
         <div className="text-center mb-12 flex flex-col items-center">
           {isEditing && createdDate && (
             <div className="inline-flex items-center gap-2 bg-blue-50/80 text-blue-700 px-4 py-2 rounded-full text-xs font-medium italic mb-4 border border-blue-100 shadow-sm">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
+              <Zap className="w-4 h-4" />
               You added {ticker} to your portfolio on {createdDate}.
             </div>
           )}
@@ -401,12 +503,11 @@ export default function BuildThesisPage({ params }: { params: Promise<{ ticker: 
               ? "Investment IQ has drafted an executive summary based on your selections. Review and customize before saving."
               : isEditing
                 ? `Review and modify the ${step === 1 ? 'drivers' : 'risks'} you are tracking below.`
-                : `Choose up to 5 ${step === 1 ? 'drivers' : 'risks'} to monitor. You have selected ${currentSelections.length > 5 ? 5 : currentSelections.length} of 5.`
+                : `Choose up to ${step === 1 ? '5' : '4'} ${step === 1 ? 'drivers' : 'risks'} to monitor. You have selected ${currentSelections.length}.`
             }
           </p>
         </div>
 
-        {/* STEP 3: SUMMARY */}
         {step === 3 && (
           <div className="max-w-2xl mx-auto mb-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="bg-white rounded-3xl p-8 border border-slate-200 shadow-sm relative overflow-hidden">
@@ -437,10 +538,9 @@ export default function BuildThesisPage({ params }: { params: Promise<{ ticker: 
           </div>
         )}
 
-        {/* STEPS 1 & 2: STANDARD CARDS GRID */}
         {step !== 3 && (
           <>
-            {apiError ? (
+            {apiError && currentOptions.length === 0 ? (
               <div className="max-w-2xl mx-auto bg-rose-50 border border-rose-200 p-8 rounded-3xl text-center space-y-4 shadow-sm mb-12">
                 <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mx-auto shadow-sm">
                   <AlertTriangle className="w-6 h-6 text-rose-500" />
@@ -456,11 +556,31 @@ export default function BuildThesisPage({ params }: { params: Promise<{ ticker: 
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
-                  {currentOptions.map(item => renderCard(item))}
-                </div>
+          {selectedCards.length > 0 && (
+                  <div className="mb-10 animate-in fade-in">
+                    <h4 className="text-[11px] font-extrabold text-blue-600 uppercase tracking-widest mb-4 flex items-center gap-2">
+                      <Check className="w-4 h-4" /> Your Selected {step === 1 ? 'Drivers' : 'Risks'}
+                    </h4>
+                    {/* 3. Apply dynamic grid class here */}
+                    <div className={`grid gap-6 ${getGridClass(selectedCards.length)}`}>
+                      {selectedCards.map(item => renderCard(item))}
+                    </div>
+                  </div>
+                )}
 
-                <div className="max-w-2xl mx-auto bg-white rounded-3xl p-6 md:p-8 border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4 items-center">
+                {unselectedCards.length > 0 && (
+                  <div className="mb-12 animate-in fade-in delay-100">
+                    <h4 className="text-[11px] font-extrabold text-slate-400 uppercase tracking-widest mb-4">
+                      Other {step === 1 ? 'Conviction Drivers' : 'Risk Factors'} to Consider
+                    </h4>
+                    {/* 4. Apply dynamic grid class here as well */}
+                    <div className={`grid gap-6 ${getGridClass(unselectedCards.length)}`}>
+                      {unselectedCards.map(item => renderCard(item))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="max-w-2xl mx-auto bg-white rounded-3xl p-6 md:p-8 border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4 items-center mt-12">
                   <div className="flex-1 w-full">
                     <h4 className="text-sm font-extrabold text-slate-900 flex items-center gap-2 mb-1">
                       <Plus className="w-4 h-4 text-slate-400" /> Write My Own {step === 1 ? 'Driver' : 'Risk'}
@@ -471,13 +591,13 @@ export default function BuildThesisPage({ params }: { params: Promise<{ ticker: 
                       placeholder={step === 1 ? "e.g. Sovereign AI demand scaling in Middle East" : "e.g. Regulatory actions block major acquisition"}
                       value={customInput}
                       onChange={(e) => setCustomInput(e.target.value)}
-                      disabled={currentSelections.length >= 5}
+                      disabled={(step === 1 && currentSelections.length >= 5) || (step === 2 && currentSelections.length >= 4)}
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-medium focus:outline-none focus:border-blue-500 focus:bg-white transition-colors disabled:opacity-50"
                     />
                   </div>
                   <button
                     onClick={handleAddCustom}
-                    disabled={!customInput.trim() || currentSelections.length >= 5}
+                    disabled={!customInput.trim() || (step === 1 && currentSelections.length >= 5) || (step === 2 && currentSelections.length >= 4)}
                     className="w-full md:w-auto self-end bg-slate-900 hover:bg-slate-800 disabled:bg-slate-300 text-white text-xs font-extrabold px-6 py-3 rounded-xl transition-colors cursor-pointer"
                   >
                     Add Custom
@@ -492,15 +612,13 @@ export default function BuildThesisPage({ params }: { params: Promise<{ ticker: 
       <div className="fixed bottom-0 left-0 right-0 bg-slate-100 border-t border-slate-200 py-4 px-6 z-40">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className={`w-8 h-8 rounded-full bg-white border flex items-center justify-center text-xs font-extrabold ${
-              currentSelections.length > 5 ? 'border-rose-500 text-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.2)]' : 'border-slate-200 text-slate-900'
-            }`}>
+            <div className={`w-8 h-8 rounded-full bg-white border flex items-center justify-center text-xs font-extrabold border-slate-200 text-slate-900`}>
               {step === 3 ? <Check className="w-4 h-4 text-emerald-600" strokeWidth={4} /> : currentSelections.length}
             </div>
-            <span className={`text-xs font-bold ${currentSelections.length > 5 ? 'text-rose-500' : 'text-slate-600'}`}>
+            <span className="text-xs font-bold text-slate-600">
               {step === 3
                 ? 'Final Review'
-                : `/ 5 ${step === 1 ? 'Drivers' : 'Risks'} Selected`}
+                : `/ ${step === 1 ? '5 Drivers' : '4 Risks'} Selected`}
             </span>
           </div>
 
@@ -508,10 +626,10 @@ export default function BuildThesisPage({ params }: { params: Promise<{ ticker: 
             {step === 1 && (
               <button
                 onClick={() => setStep(2)}
-                disabled={selectedDrivers.length === 0 || selectedDrivers.length > 5}
+                disabled={selectedDrivers.length < 2}
                 className="bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:text-slate-50 text-white text-sm font-extrabold px-6 py-2.5 rounded-xl transition-colors flex items-center gap-2 cursor-pointer"
               >
-                {selectedDrivers.length > 5 ? 'Remove 1 to Continue' : 'Next: Add Risks'} <ArrowRight className="w-4 h-4" />
+                {selectedDrivers.length < 2 ? 'Select at least 2 drivers' : 'Next: Add Risks'} {selectedDrivers.length >= 2 && <ArrowRight className="w-4 h-4" />}
               </button>
             )}
 
@@ -524,11 +642,11 @@ export default function BuildThesisPage({ params }: { params: Promise<{ ticker: 
                   Back
                 </button>
                 <button
-                  onClick={handleProceedToReview}
-                  disabled={selectedRisks.length === 0 || selectedRisks.length > 5}
+                  onClick={() => handleProceedToReview(false)}
+                  disabled={selectedRisks.length < 1}
                   className="bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white text-sm font-extrabold px-6 py-2.5 rounded-xl transition-colors flex items-center gap-2 cursor-pointer"
                 >
-                  {selectedRisks.length > 5 ? 'Remove 1 to Continue' : 'Review Thesis'} <ArrowRight className="w-4 h-4" />
+                  {selectedRisks.length < 1 ? 'Select at least 1 risk' : 'Review Thesis'} {selectedRisks.length >= 1 && <ArrowRight className="w-4 h-4" />}
                 </button>
               </>
             )}
@@ -558,6 +676,47 @@ export default function BuildThesisPage({ params }: { params: Promise<{ ticker: 
           </div>
         </div>
       </div>
+
+      {/* HARD CAP WARNING MODAL (Soft Dismissable Alert) */}
+      {capWarning.show && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[300] animate-in slide-in-from-top-4 fade-in duration-300">
+          <div className="bg-slate-900 text-white px-6 py-3 rounded-full shadow-lg flex items-center gap-3">
+            <span className="text-sm font-semibold">{capWarning.message}</span>
+            <button onClick={() => setCapWarning({show: false, message: ''})} className="p-1 hover:bg-slate-800 rounded-full transition-colors">
+              <X className="w-4 h-4 text-slate-400" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ⚠️ RISK-HEAVY THESIS MODAL */}
+      {showRiskWarning && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-[#0F172A]/80 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-8 text-center border border-slate-200 animate-[slideIn_0.3s_ease-out]">
+            <div className="w-16 h-16 bg-amber-50 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-amber-100">
+              <AlertTriangle className="w-8 h-8 text-amber-500" />
+            </div>
+            <h3 className="text-2xl font-extrabold text-[#0F172A] mb-3">⚠️ Your thesis is becoming risk-heavy</h3>
+            <p className="text-[14px] text-slate-600 font-medium leading-relaxed mb-8">
+              You've selected {selectedDrivers.length} conviction driver{selectedDrivers.length !== 1 ? 's' : ''} and {selectedRisks.length} risks. Consider narrowing your thesis to the factors that matter most.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <button
+                onClick={() => setShowRiskWarning(false)}
+                className="px-6 py-3 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold rounded-xl transition-all w-full sm:w-auto cursor-pointer"
+              >
+                Review Selections
+              </button>
+              <button
+                onClick={() => handleProceedToReview(true)}
+                className="px-6 py-3 bg-[#0F172A] hover:bg-slate-800 text-white font-bold rounded-xl transition-all w-full sm:w-auto shadow-sm cursor-pointer"
+              >
+                Continue Anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ✨ SIMPLE COLLISION MODAL */}
       {showCollisionModal && (

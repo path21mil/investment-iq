@@ -6,6 +6,7 @@ import Link from 'next/link';
 import SmartSearchBar from '@/components/SmartSearchBar';
 import { Loader2, ArrowRight, Star, ShieldCheck, Activity, BookOpen, Circle } from 'lucide-react';
 import Logo from '@/components/Logo';
+import { BrainCircuit, Radar, TrendingUp } from 'lucide-react';
 
 // 1. CURATED DEMO NARRATIVES
 const DEMO_COMPANIES: Record<string, any> = {
@@ -336,38 +337,48 @@ export default function Home() {
           </div>
         </div>
 
-        {/* FEATURES / WHY (Fixed Wrapper) */}
-        <div className="w-full max-w-5xl mx-auto mt-10 mb-20 relative z-10 px-4">
-          <div className="text-center mb-14">
-            <h2 className="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight">Never lose track of why you invested</h2>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 max-w-5xl mx-auto mt-12">
+          
+          {/* Card 1 */}
+          <div className="bg-white rounded-3xl p-8 border border-slate-100 shadow-sm flex flex-col items-start text-left transition-all hover:shadow-md">
+            <div className="flex items-center gap-3 mb-4">
+              <span className="text-4xl font-black text-slate-200 tracking-tighter">01</span>
+              <h3 className="text-[17px] font-extrabold text-[#0F172A] leading-snug">
+                Remember Why You Invested
+              </h3>
+            </div>
+            <p className="text-[14px] text-slate-500 font-medium leading-relaxed">
+              Record your thesis and key assumptions. Never panic sell because of short-term price noise again.
+            </p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-10">
-            <div className="bg-white p-8 rounded-3xl border border-slate-200/60 shadow-[0_8px_30px_rgb(0,0,0,0.03)] flex flex-col text-center items-center hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-all">
-              <div className="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center text-2xl mb-5">🧠</div>
-              <h3 className="text-lg font-bold text-slate-900 mb-2">Remember Why You Invested</h3>
-              <p className="text-slate-500 text-sm font-medium leading-relaxed">
-                Record your thesis and key assumptions. Never panic sell because of short-term price noise again.
-              </p>
-            </div>
 
-            <div className="bg-white p-8 rounded-3xl border border-slate-200/60 shadow-[0_8px_30px_rgb(0,0,0,0.03)] flex flex-col text-center items-center hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-all">
-              <div className="w-14 h-14 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center text-2xl mb-5">🤖</div>
-              <h3 className="text-lg font-bold text-slate-900 mb-2">AI Monitors Every Update</h3>
-              <p className="text-slate-500 text-sm font-medium leading-relaxed">
-                New evidence from earnings reports, filings, and management commentary is instantly checked against your thesis.
-              </p>
+          {/* Card 2 */}
+          <div className="bg-white rounded-3xl p-8 border border-slate-100 shadow-sm flex flex-col items-start text-left transition-all hover:shadow-md">
+            <div className="flex items-center gap-3 mb-4">
+              <span className="text-4xl font-black text-slate-200 tracking-tighter">02</span>
+              <h3 className="text-[17px] font-extrabold text-[#0F172A] leading-snug">
+                Monitor What Changes
+              </h3>
             </div>
-
-            <div className="bg-white p-8 rounded-3xl border border-slate-200/60 shadow-[0_8px_30px_rgb(0,0,0,0.03)] flex flex-col text-center items-center hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-all">
-              <div className="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center text-2xl mb-5">📈</div>
-              <h3 className="text-lg font-bold text-slate-900 mb-2">Know When It Changes</h3>
-              <p className="text-slate-500 text-sm font-medium leading-relaxed">
-                See instantly when the real-world evidence strengthens, weakens, or completely challenges your core convictions.
-              </p>
-            </div>
+            <p className="text-[14px] text-slate-500 font-medium leading-relaxed">
+              New evidence from earnings reports, filings, and management commentary is instantly checked against your thesis.
+            </p>
           </div>
+
+          {/* Card 3 */}
+          <div className="bg-white rounded-3xl p-8 border border-slate-100 shadow-sm flex flex-col items-start text-left transition-all hover:shadow-md">
+            <div className="flex items-center gap-3 mb-4">
+              <span className="text-4xl font-black text-slate-200 tracking-tighter">03</span>
+              <h3 className="text-[17px] font-extrabold text-[#0F172A] leading-snug">
+                Know When It Changes
+              </h3>
+            </div>
+            <p className="text-[14px] text-slate-500 font-medium leading-relaxed">
+              See instantly when the real-world evidence strengthens, weakens, or completely challenges your core convictions.
+            </p>
+          </div>
+
         </div>
-
       </main>
       
       {/* FOOTER */}

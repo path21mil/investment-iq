@@ -883,11 +883,11 @@ export default function Dashboard() {
             </div>
 
             <div className="p-6 border-t border-slate-200 bg-white flex flex-col gap-3">
-              <button 
-                onClick={() => router.push(`/build-thesis/${reviewCompany?.ticker}`)}
-                className="w-full bg-[#0F172A] hover:bg-slate-800 text-white font-bold py-3 rounded-xl transition-colors text-[13px] cursor-pointer"
-              >
-                Modify My Thesis
+             <button 
+              onClick={() => router.push(`/build-thesis/${reviewCompany?.ticker}?edit=true`)}
+              className="w-full bg-[#0F172A] hover:bg-slate-800 text-white font-bold py-3 rounded-xl transition-colors text-[13px] cursor-pointer"
+                >
+              Modify My Thesis
               </button>
               
               <button 
