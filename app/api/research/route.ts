@@ -20,7 +20,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Ticker is required' }, { status: 400 });
     }
 
-    // 1. UNIVERSAL TICKER NORMALIZATION (From full-research)
+    // 1. UNIVERSAL TICKER NORMALIZATION
     const rawTicker = (ticker || '').toString().toUpperCase().trim();
     const cleanTicker = rawTicker
       .replace('$', '')
@@ -35,14 +35,21 @@ export async function POST(request: Request) {
       .maybeSingle();
 
     if (cacheData && cacheData.ai_data) {
-      const lastUpdated = new Date(cacheData.updated_at).getTime();
-      const now = new Date().getTime();
-      if ((now - lastUpdated) / (1000 * 60 * 60) < 24) {
-        return NextResponse.json(cacheData.ai_data);
+      const aiData = cacheData.ai_data;
+      // ✨ CACHE-BUSTER: Check if strengths are using the old string format. 
+      // If they are, bypass the cache and force a new generation.
+      const isOldFormat = aiData.strengths && aiData.strengths.length > 0 && typeof aiData.strengths[0] === 'string';
+      
+      if (!isOldFormat) {
+        const lastUpdated = new Date(cacheData.updated_at).getTime();
+        const now = new Date().getTime();
+        if ((now - lastUpdated) / (1000 * 60 * 60) < 24) {
+          return NextResponse.json(aiData);
+        }
       }
     }
 
-    // 3. FETCH LIVE MARKET DATA (Combined Finnhub calls)
+    // 3. FETCH LIVE MARKET DATA
     const today = new Date();
     const lastWeek = new Date(today.getTime() - 14 * 24 * 60 * 60 * 1000);
     const finnhubKey = process.env.FINNHUB_API_KEY;
@@ -55,7 +62,7 @@ export async function POST(request: Request) {
     let metricsData: any = {};
     let fetchedCompanyName = companyName || cleanTicker;
     let logoUrl = "";
-    let exchangeShortName = "US Market"; // Default fallback
+    let exchangeShortName = "US Market"; 
 
     if (finnhubKey) {
       try {
@@ -68,13 +75,12 @@ export async function POST(request: Request) {
         ]);
 
         if (profileRes.ok) {
-  const profileData = await profileRes.json();
-  if (profileData?.name) fetchedCompanyName = profileData.name;
-  if (profileData?.finnhubIndustry) profileSummary = `Industry: ${profileData.finnhubIndustry}, Market Cap: $${profileData.marketCapitalization}M`;
-  if (profileData?.logo) logoUrl = profileData.logo;
-  // Grab the first word of the exchange (e.g., "NASDAQ NMS - GLOBAL MARKET" -> "NASDAQ")
-  if (profileData?.exchange) exchangeShortName = profileData.exchange.split(' ')[0]; 
-}
+          const profileData = await profileRes.json();
+          if (profileData?.name) fetchedCompanyName = profileData.name;
+          if (profileData?.finnhubIndustry) profileSummary = `Industry: ${profileData.finnhubIndustry}, Market Cap: $${profileData.marketCapitalization}M`;
+          if (profileData?.logo) logoUrl = profileData.logo;
+          if (profileData?.exchange) exchangeShortName = profileData.exchange.split(' ')[0]; 
+        }
 
         if (newsRes.ok) {
           const newsData = await newsRes.json();
@@ -87,7 +93,7 @@ export async function POST(request: Request) {
         if (quoteRes.ok) {
           const q = await quoteRes.json();
           currentPrice = q.c || 0;
-          priceChange = q.d || 0; // Daily dollar change
+          priceChange = q.d || 0; 
         }
 
         if (metricRes.ok) {
@@ -104,11 +110,10 @@ export async function POST(request: Request) {
       }
     }
 
-    // 4. QUANTITATIVE METRICS EXTRACTION (From full-research)
+    // 4. QUANTITATIVE METRICS EXTRACTION
     let yearHigh = Number(metricsData['52WeekHigh']) || currentPrice;
     let yearLow = Number(metricsData['52WeekLow']) || (currentPrice > 0 ? currentPrice * 0.7 : 0);
 
-    // Guardrail against share class data anomalies
     if (currentPrice > 0 && yearHigh > currentPrice * 4) {
       yearHigh = Number((currentPrice * 1.15).toFixed(2));
       yearLow = Number((currentPrice * 0.85).toFixed(2));
@@ -120,7 +125,7 @@ export async function POST(request: Request) {
     const netMargin = metricsData['netProfitMarginTTM'] || 0;
     const earningsYield = pe && Number(pe) > 0 ? (1 / Number(pe)) * 100 : 0;
 
-    // 5. GEMINI INSTITUTIONAL SYNTHESIS (Using strict schema from research)
+    // 5. GEMINI INSTITUTIONAL SYNTHESIS
     const model = genAI.getGenerativeModel({ 
       model: "gemini-3.5-flash",
       generationConfig: { responseMimeType: "application/json" },
@@ -132,6 +137,7 @@ export async function POST(request: Request) {
       ]
     });
 
+    // ✨ UPDATED PROMPT: Now requests rich objects for strengths and risks
     const prompt = `
       Analyze ${fetchedCompanyName} (${cleanTicker}) as an institutional Wall Street equity analyst.
       Company Context: ${profileSummary}
@@ -156,8 +162,22 @@ export async function POST(request: Request) {
         "ratingTitle": "Short 2-word title (e.g. Dominant Leader, High Compounder, Category Pioneer)",
         "ratingBadge": "Expanding",
         "overallAssessment": "2-sentence institutional summary synthesizing fundamentals and recent news.",
-        "strengths": ["Specific strength 1", "Specific strength 2"],
-        "risks": ["Specific risk 1", "Specific risk 2"],
+        "strengths": [
+          {
+            "title": "Short punchy driver title (3-6 words)",
+            "whyThisMatters": "Clear 1-sentence explanation of why this creates shareholder value.",
+            "evidence": ["Data point or business facts 1", "Fact 2", "Fact 3"],
+            "monitors": ["Key metric or KPI to track 1", "KPI 2", "KPI 3"]
+          }
+        ],
+        "risks": [
+          {
+            "title": "Short punchy risk title (3-6 words)",
+            "whyThisMatters": "Clear 1-sentence explanation of how this hurts performance.",
+            "evidence": ["Data point or business concern 1", "Concern 2", "Concern 3"],
+            "monitors": ["Key metric or warning sign 1", "Warning sign 2", "Warning sign 3"]
+          }
+        ],
         "pillars": {
           "quality": { "label": "Excellent" | "Good" | "Moderate", "color": "green" },
           "management": { "label": "Trusted" | "Solid" | "Under Review", "color": "green" },
@@ -188,7 +208,6 @@ export async function POST(request: Request) {
     const result = await model.generateContent(prompt);
     let rawText = result.response.text();
 
-    // Safely Extract JSON (From research file)
     const firstBrace = rawText.indexOf('{');
     const lastBrace = rawText.lastIndexOf('}');
     if (firstBrace === -1 || lastBrace === -1) {
@@ -206,10 +225,10 @@ export async function POST(request: Request) {
     }
 
     // 6. ASSEMBLE FINAL PAYLOAD & CACHE
-  const finalPayload = {
+    const finalPayload = {
       ticker: cleanTicker,
       companyName: fetchedCompanyName,
-      exchangeShortName: exchangeShortName, // <-- Added this line
+      exchangeShortName: exchangeShortName, 
       image: logoUrl,
       price: currentPrice,
       changes: priceChange,

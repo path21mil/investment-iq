@@ -25,7 +25,7 @@ export async function POST(req: Request) {
       console.warn("⚠️ Warning: Supabase credentials missing. Caching will be disabled for this request.");
     }
 
-    // 1. 🚀 CHECK CACHE FIRST (if Supabase client is active)
+    // 1. 🚀 CHECK CACHE FIRST (with data integrity check)
     if (supabase) {
       const { data: cachedData, error: cacheError } = await supabase
         .from('thesis_options_cache')
@@ -34,8 +34,15 @@ export async function POST(req: Request) {
         .maybeSingle();
 
       if (!cacheError && cachedData && cachedData.data) {
-        console.log(`⚡ Loaded thesis options for ${cleanTicker} from Supabase Cache!`);
-        return NextResponse.json(cachedData.data);
+        const d = cachedData.data;
+        const allDriversHaveWhy = Array.isArray(d.drivers) && d.drivers.every((item: any) => Boolean(item.whyThisMatters || item.why || item.why_this_matters));
+        const allRisksHaveWhy = Array.isArray(d.risks) && d.risks.every((item: any) => Boolean(item.whyThisMatters || item.why || item.why_this_matters));
+
+        if (allDriversHaveWhy && allRisksHaveWhy) {
+          console.log(`⚡ Loaded complete thesis options for ${cleanTicker} from Supabase Cache!`);
+          return NextResponse.json(d);
+        }
+        console.log(`🔄 Cached thesis options for ${cleanTicker} missing descriptions. Refreshing...`);
       }
     }
 
@@ -87,8 +94,21 @@ Return strictly a valid JSON object matching this schema:
 
     const result = JSON.parse(aiContent);
 
-    const formattedDrivers = (result.drivers || []).slice(0, 6).map((d: any, i: number) => ({ ...d, id: `d${i}` }));
-    const formattedRisks = (result.risks || []).slice(0, 6).map((r: any, i: number) => ({ ...r, id: `r${i}` }));
+    const formattedDrivers = (result.drivers || []).slice(0, 6).map((d: any, i: number) => ({
+      id: `d${i}`,
+      title: d.title || 'Core Driver',
+      whyThisMatters: d.whyThisMatters || d.why || d.why_this_matters || d.whyItMatters || 'Clear 1-sentence explanation of why this creates shareholder value.',
+      evidence: Array.isArray(d.evidence) ? d.evidence : [d.evidence || 'Established core pillar.'],
+      monitors: Array.isArray(d.monitors) ? d.monitors : [d.monitors || 'Quarterly segment performance metrics']
+    }));
+
+    const formattedRisks = (result.risks || []).slice(0, 6).map((r: any, i: number) => ({
+      id: `r${i}`,
+      title: r.title || 'Monitored Risk',
+      whyThisMatters: r.whyThisMatters || r.why || r.why_this_matters || r.whyItMatters || 'Monitored counter-thesis factor that could impair performance.',
+      evidence: Array.isArray(r.evidence) ? r.evidence : [r.evidence || 'Monitored counter-thesis factor.'],
+      monitors: Array.isArray(r.monitors) ? r.monitors : [r.monitors || 'Macro & operational headwinds']
+    }));
 
     const finalPayload = { drivers: formattedDrivers, risks: formattedRisks };
 

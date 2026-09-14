@@ -185,9 +185,23 @@ export default function BuildThesisPage({ params }: { params: Promise<{ ticker: 
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "AI generation failed");
 
-        let apiDrivers = (data.drivers || []).map((d: any, i: number) => ({ ...d, id: `api_d_${i}` }));
-        let apiRisks = (data.risks || []).map((r: any, i: number) => ({ ...r, id: `api_r_${i}` }));
+       let apiDrivers = (data.drivers || []).map((d: any, i: number) => ({
+  ...d,
+  id: `api_d_${i}`,
+  title: d.title || 'Growth Driver',
+  whyThisMatters: d.whyThisMatters || d.why || d.why_this_matters || d.whyItMatters || d.description || d.desc || 'Core driver creating long-term shareholder value.',
+  evidence: Array.isArray(d.evidence) && d.evidence.length > 0 ? d.evidence : ['Key catalyst identified from research analysis'],
+  monitors: Array.isArray(d.monitors) && d.monitors.length > 0 ? d.monitors : ['Segment performance metrics']
+}));
 
+let apiRisks = (data.risks || []).map((r: any, i: number) => ({
+  ...r,
+  id: `api_r_${i}`,
+  title: r.title || 'Monitored Risk',
+  whyThisMatters: r.whyThisMatters || r.why || r.why_this_matters || r.whyItMatters || r.description || r.desc || 'Monitored counter-thesis factor that could impair performance.',
+  evidence: Array.isArray(r.evidence) && r.evidence.length > 0 ? r.evidence : ['Risk factor identified during research analysis'],
+  monitors: Array.isArray(r.monitors) && r.monitors.length > 0 ? r.monitors : ['Macro & operational headwinds']
+}));
         const finalDrivers = [...handoffDrivers];
         apiDrivers.forEach((ad: any) => {
           if (!finalDrivers.find(fd => fd.title.toLowerCase() === ad.title.toLowerCase())) {
@@ -429,10 +443,12 @@ const handleSaveAndFinish = async () => {
           </div>
         </div>
 
-        <div className="mb-4">
-          <p className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest mb-1.5">Why This Matters</p>
-          <p className="text-xs font-medium text-slate-700 leading-relaxed">{item.whyThisMatters}</p>
-        </div>
+       <div className="mb-4">
+  <p className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest mb-1.5">Why This Matters</p>
+  <p className="text-xs font-medium text-slate-700 leading-relaxed">
+    {item.whyThisMatters || item.why || item.why_this_matters || item.whyItMatters || (step === 1 ? 'Core growth driver creating shareholder value.' : 'Monitored counter-thesis factor that could impair performance.')}
+  </p>
+</div>
 
         <div className="mb-6">
           <p className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest mb-2">Evidence</p>

@@ -381,38 +381,22 @@ function OverviewTab({ data, onExplore, session, ticker }: { data: any, onExplor
   const hasEnough = selectedItems.length >= minRequired;
 
   // DATA ADAPTER: Expands your basic string data into Rich UI Cards
-  const drivers = (data?.strengths || []).map((text: string, idx: number) => ({
+  const drivers = (data?.strengths || []).map((item: any, idx: number) => ({
     id: `driver_${idx}`,
     type: 'driver',
-    title: text,
-    why: "This dynamic enhances financial stability and provides strong visibility into future cash flow generation.",
-    evidence: [
-      "Recent SEC filings indicate continued sequential growth in this segment.",
-      "Management highlighted this as a core strategic pillar during the last earnings call.",
-      "Industry trends support sustained momentum over the next 12-18 months."
-    ],
-    monitors: [
-      "Quarterly revenue growth in segment",
-      "Operating margin expansion",
-      "Market share retention"
-    ]
+    title: item.title || item,
+    why: item.whyThisMatters || "Core growth driver tracking.",
+    evidence: item.evidence || ["Established core pillar from foundational business profile."],
+    monitors: item.monitors || ["Quarterly segment performance metrics"]
   }));
   
-  const risks = (data?.risks || []).map((text: string, idx: number) => ({
+  const risks = (data?.risks || []).map((item: any, idx: number) => ({
     id: `risk_${idx}`,
     type: 'risk',
-    title: text,
-    why: "This represents a material threat to margin expansion and could disrupt the current growth trajectory if unmitigated.",
-    evidence: [
-      "Competitor pricing pressure has intensified in key geographic markets.",
-      "Supply chain bottlenecks have slightly delayed recent product rollouts.",
-      "Macroeconomic headwinds could soften enterprise spending."
-    ],
-    monitors: [
-      "Gross margin compression",
-      "Customer churn rate",
-      "CapEx vs guidance"
-    ]
+    title: item.title || item,
+    why: item.whyThisMatters || "Monitored risk factor.",
+    evidence: item.evidence || ["Monitored counter-thesis factor."],
+    monitors: item.monitors || ["Macro & operational headwinds"]
   }));
 
   // Reusable Card Component
