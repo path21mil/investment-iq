@@ -523,7 +523,7 @@ const handleSaveAndFinish = async () => {
                 : `Choose up to ${step === 1 ? '5' : '4'} ${step === 1 ? 'drivers' : 'risks'} to monitor. You have selected ${currentSelections.length}.`
             }
           </p>
-        </PageContainer>
+        
 
         {step === 3 && (
           <div className="max-w-2xl mx-auto mb-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -624,6 +624,7 @@ const handleSaveAndFinish = async () => {
             )}
           </>
         )}
+        </PageContainer>
       </main>
 
       <div className="fixed bottom-0 left-0 right-0 bg-slate-100 border-t border-slate-200 py-4 px-6 z-40">

@@ -111,6 +111,7 @@ export default function UserThesisPage({ params }: { params: Promise<{ ticker: s
           return;
         }
 
+
         // 1. Fetch user's saved thesis
         const { data: savedThesis } = await supabase
           .from('theses')
@@ -400,18 +401,18 @@ export default function UserThesisPage({ params }: { params: Promise<{ ticker: s
             <SmartSearchBar />
           </div>
 
-          <div className="hidden md:flex items-center gap-3 shrink-0">
-            <button
-              onClick={() => router.push(`/company/${ticker}`)}
-              className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-[13px] font-bold text-[#0F172A] hover:bg-slate-50 transition-colors shadow-sm cursor-pointer"
-            >
-              View Research
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          <button
+            onClick={() => router.push(`/company/${ticker}`)}
+              className="px-3 py-1.5 sm:px-4 sm:py-2 bg-white border border-slate-200 rounded-lg text-[11px] sm:text-[13px] font-bold text-[#0F172A] hover:bg-slate-50 transition-colors shadow-sm cursor-pointer"
+              >
+              <span className="hidden sm:inline">View </span>Research
             </button>
             <button
-              onClick={() => router.push('/dashboard')}
-              className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-[13px] font-bold text-[#0F172A] hover:bg-slate-50 transition-colors shadow-sm cursor-pointer"
+            onClick={() => router.push('/dashboard')}
+            className="px-3 py-1.5 sm:px-4 sm:py-2 bg-white border border-slate-200 rounded-lg text-[11px] sm:text-[13px] font-bold text-[#0F172A] hover:bg-slate-50 transition-colors shadow-sm cursor-pointer"
             >
-              Dashboard
+            Dashboard
             </button>
           </div>
         </PageContainer>
