@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Geist } from "next/font/google";
 import "./globals.css";
 import { GlobalAuthModal } from "@/components/GlobalAuthModal";
+import AlphaTestingModal from "@/components/AlphaTestingModal";
 import { cn } from "@/lib/utils";
 
 const geist = Geist({subsets:['latin'],variable:'--font-sans'});
@@ -21,13 +22,8 @@ export default function RootLayout({
   return (
     <html lang="en" className={cn("font-sans", geist.variable)}>
       <body className={inter.className}>
-        {/* GLOBAL ALPHA BANNER */}
-        <div className="bg-[#FFFBEB] border-b border-amber-100/50 py-1.5 px-6 flex items-center justify-center gap-2 w-full z-[100] relative">
-          <span className="text-amber-500 text-[9px] mt-[1px]">●</span>
-          <p className="text-[11px] font-medium text-amber-900/60 text-center">
-            Investment IQ is currently in Alpha. All thesis data is generated as a UI demonstration and does not reflect real financial data.
-          </p>
-        </div>
+        {/* NEW GLOBAL ALPHA TESTING MODAL */}
+        <AlphaTestingModal />
         
         {children}
         

@@ -15,6 +15,7 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import Logo from '@/components/Logo';
+import PageContainer from '@/components/PageContainer';
 
 
 export function CompanyLogo({ ticker, containerClass }: { ticker: string, containerClass: string }) {
@@ -131,7 +132,7 @@ export default function CompanyResearchPage() {
     <div className="min-h-screen bg-[#F8FAFC] font-sans text-[#0F172A] pb-24 antialiased">
       
       <nav className="w-full bg-white/90 backdrop-blur-md border-b border-slate-200 sticky top-0 z-40 h-[64px] flex items-center mb-8">
-        <div className="max-w-[900px] w-full mx-auto px-4 sm:px-6 flex items-center justify-between">
+       <PageContainer className="h-16 flex items-center justify-between">
           <Logo href={session ? "/dashboard" : "/"} />
           
           {session ? (
@@ -165,10 +166,10 @@ export default function CompanyResearchPage() {
               </button>
             </div>
           )}
-        </div>
+        </PageContainer>
       </nav>
 
-      <div className="max-w-[900px] mx-auto w-full px-4 md:px-6">
+      <PageContainer>
     
         <div className="mb-8 bg-white border border-slate-200 rounded-2xl sm:rounded-3xl p-5 sm:p-7 shadow-sm flex flex-col items-center text-center sm:text-left sm:flex-row sm:justify-between gap-5 sm:gap-4">
           
@@ -261,7 +262,7 @@ export default function CompanyResearchPage() {
           {activeTab === 'peers' && <PeersTab data={data} />}
         </div>
         
-      </div>
+      </PageContainer>
     </div>
   );
 }

@@ -20,7 +20,7 @@ import { createClient } from "@supabase/supabase-js";
 import WatchlistSection from '@/components/WatchlistSection';
 import SmartSearchBar from '@/components/SmartSearchBar';
 import Header from '@/components/Header';
-
+import PageContainer from '@/components/PageContainer';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -464,11 +464,9 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] font-sans text-[#0F172A] pb-24 relative overflow-hidden antialiased">
-
-      <Header />
-
-      <main className="max-w-[960px] mx-auto px-6 pt-12 md:pt-14">
-        
+     <Header />
+     <main className="pt-8 md:pt-12">
+     <PageContainer>
         {portfolio.length === 0 ? (
           <div className="text-center py-16">
             <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-[#0F172A] mb-4">
@@ -778,8 +776,10 @@ export default function Dashboard() {
                 />
               </form>
             </div>
+      
           </>
         )}
+        </PageContainer>
       </main>
 
       {/* QUICK REVIEW DRAWER */}

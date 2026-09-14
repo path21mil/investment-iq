@@ -6,6 +6,7 @@ import Link from 'next/link';
 import SmartSearchBar from '@/components/SmartSearchBar';
 import { Loader2, ArrowRight, Star, ShieldCheck, Activity, BookOpen, Circle } from 'lucide-react';
 import Logo from '@/components/Logo';
+import PageContainer from '@/components/PageContainer';
 import { BrainCircuit, Radar, TrendingUp } from 'lucide-react';
 
 // 1. CURATED DEMO NARRATIVES
@@ -105,7 +106,7 @@ export default function Home() {
       
       {/* TOP NAVIGATION */}
       <nav className="bg-white/90 backdrop-blur-md border-b border-slate-200/60 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center gap-2">
+        <PageContainer className="py-3 sm:py-4 flex justify-between items-center gap-2">
           <div className="shrink-0">
             <Logo />
           </div>
@@ -124,14 +125,16 @@ export default function Home() {
               Get Started
             </Link>
           </div>
-        </div>
+        </PageContainer>
       </nav>
 
-      <main className="flex-grow flex flex-col items-center pt-16 md:pt-24 pb-10 px-6 relative">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-blue-100/40 rounded-full blur-[100px] pointer-events-none -z-10 overflow-x-hidden"></div>
+      <main className="flex-grow relative pt-16 md:pt-24 pb-10">
+         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-blue-100/40 rounded-full blur-[100px] pointer-events-none -z-10 overflow-x-hidden"></div>
+  
+          <PageContainer maxWidth="max-w-7xl" className="flex flex-col items-center">
 
-        {/* HERO TEXT */}
-        <div className="text-center max-w-4xl mx-auto mb-10">
+         {/* HERO TEXT */}
+         <div className="text-center max-w-4xl mx-auto mb-10">
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-slate-900 tracking-tight leading-tight mb-6">
             Investment IQ doesn't just research stocks. <br className="hidden md:block"/> 
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">
@@ -379,6 +382,7 @@ export default function Home() {
           </div>
 
         </div>
+        </PageContainer>
       </main>
       
       {/* FOOTER */}
@@ -412,6 +416,7 @@ export default function Home() {
           <p className="text-sm font-medium text-slate-400">© {new Date().getFullYear()} Investment IQ. For educational purposes only.</p>
         </div>
       </footer>
+    
     </div>
   );
 }

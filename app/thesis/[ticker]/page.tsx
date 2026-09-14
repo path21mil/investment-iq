@@ -7,6 +7,7 @@ import { TrendingUp, TrendingDown, Loader2, Plus, Zap, Check, ArrowRightLeft, X 
 import { supabase } from '@/lib/supabase';
 import SmartSearchBar from '@/components/SmartSearchBar';
 import Logo from '@/components/Logo';
+import PageContainer from '@/components/PageContainer';
 
 interface ThesisConsideration {
   id?: string;
@@ -390,7 +391,7 @@ export default function UserThesisPage({ params }: { params: Promise<{ ticker: s
     <div className="min-h-screen bg-[#F8FAFC] font-sans text-[#0F172A] pb-24">
       {/* NAVIGATION */}
       <header className="sticky top-0 w-full z-50 bg-white/90 backdrop-blur-md border-b border-slate-200">
-        <div className="max-w-[960px] mx-auto px-4 sm:px-6 h-[64px] flex items-center justify-between gap-8">
+        <PageContainer className="h-[64px] flex items-center justify-between gap-8">
           <div className="shrink-0 flex items-center gap-4">
             <Logo href="/dashboard" />
           </div>
@@ -413,11 +414,12 @@ export default function UserThesisPage({ params }: { params: Promise<{ ticker: s
               Dashboard
             </button>
           </div>
-        </div>
+        </PageContainer>
       </header>
 
       {/* MAIN CONTAINER */}
-      <main className="max-w-[960px] mx-auto px-4 sm:px-6 pt-8 md:pt-12">
+     <main className="pt-8 md:pt-12">
+        <PageContainer>
         {/* HERO BANNER */}
         <div className="mb-4 bg-white border border-slate-200 rounded-3xl p-5 sm:p-8 shadow-sm flex flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-3 sm:gap-6 min-w-0">
@@ -863,6 +865,7 @@ export default function UserThesisPage({ params }: { params: Promise<{ ticker: s
             </div>
           </div>
         )}
+        </PageContainer>
       </main>
     </div>
   );

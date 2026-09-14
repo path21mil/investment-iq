@@ -21,6 +21,7 @@ import { PortfolioShareModal } from '@/components/PortfolioShareModal';
 import { DeleteConfirmModal } from '@/components/DeleteConfirmModal';
 import { createClient } from "@supabase/supabase-js";
 import Header from '@/components/Header';
+import PageContainer from '@/components/PageContainer';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -246,7 +247,8 @@ export default function PortfolioPage() {
     <div className="min-h-screen bg-[#F8FAFC] font-sans text-[#0F172A] pb-24 relative overflow-hidden">
       <Header />
 
-      <main className="max-w-[960px] mx-auto px-4 sm:px-6 pt-10 md:pt-14">
+      <main className="pt-8 md:pt-12">
+      <PageContainer>
         <div className="mb-10">
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#0F172A] mb-2">
             My Conviction Portfolio
@@ -469,6 +471,7 @@ export default function PortfolioPage() {
             })}
           </div>
         )}
+        </PageContainer>
       </main>
 
       {shareCompany && (

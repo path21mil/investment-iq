@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Loader2, ArrowRight, Check, Zap, Plus, AlertTriangle, X } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import Logo from '@/components/Logo';
+import PageContainer from '@/components/PageContainer';
 
 export default function BuildThesisPage({ params }: { params: Promise<{ ticker: string }> }) {
   const router = useRouter();
@@ -486,7 +487,7 @@ const handleSaveAndFinish = async () => {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans relative">
       <header className="border-b border-slate-200 bg-white/80 backdrop-blur-md sticky top-0 z-50">
-        <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
+        <PageContainer className="h-16 flex items-center justify-between">
           <Logo href="/dashboard" />
           <button
             onClick={() => router.push('/dashboard')}
@@ -495,11 +496,11 @@ const handleSaveAndFinish = async () => {
             <X className="w-3.5 h-3.5" />
             Cancel
           </button>
-        </div>
+        </PageContainer>
       </header>
 
-      <main className="flex-grow max-w-5xl mx-auto w-full px-6 pt-12 pb-32">
-        <div className="text-center mb-12 flex flex-col items-center">
+      <main className="flex-grow w-full pt-12 pb-32">
+       <PageContainer>
           {isEditing && createdDate && (
             <div className="inline-flex items-center gap-2 bg-blue-50/80 text-blue-700 px-4 py-2 rounded-full text-xs font-medium italic mb-4 border border-blue-100 shadow-sm">
               <Zap className="w-4 h-4" />
@@ -522,7 +523,7 @@ const handleSaveAndFinish = async () => {
                 : `Choose up to ${step === 1 ? '5' : '4'} ${step === 1 ? 'drivers' : 'risks'} to monitor. You have selected ${currentSelections.length}.`
             }
           </p>
-        </div>
+        </PageContainer>
 
         {step === 3 && (
           <div className="max-w-2xl mx-auto mb-12 animate-in fade-in slide-in-from-bottom-4 duration-500">

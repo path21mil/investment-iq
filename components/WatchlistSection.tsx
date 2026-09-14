@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { X, ExternalLink } from 'lucide-react';
 import Link from 'next/link'; // Added Link import
+import PageContainer from '@/components/PageContainer';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -143,7 +144,7 @@ export default function WatchlistSection() {
   };
   
   return (
-    <div className="w-full max-w-4xl mx-auto antialiased">
+    <div className="w-full antialiased">
       {/* Header */}
       <div className="mb-4">
         <h2 className="text-[10px] font-bold tracking-widest text-slate-400 uppercase">

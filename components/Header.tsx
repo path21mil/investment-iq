@@ -7,6 +7,7 @@ import { Menu, X, ChevronDown } from 'lucide-react';
 import { useRouter, usePathname } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { UpdatesDrawer } from '@/components/UpdatesDrawer';
+import PageContainer from '@/components/PageContainer';
 
 export default function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -30,7 +31,7 @@ export default function Header() {
       
       {/* TOP NAVBAR */}
       <div className="relative z-50 bg-white shadow-sm border-b border-slate-200">
-        <div className="max-w-[960px] mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+        <PageContainer className="h-16 flex items-center justify-between">
           
           {/* 1. LOGO */}
           <div className="shrink-0">
@@ -104,7 +105,7 @@ export default function Header() {
             </button>
           </div>
           
-        </div>
+        </PageContainer>
       </div>
 
       {/* 4. MOBILE MENU DROPDOWN & OVERLAY */}
