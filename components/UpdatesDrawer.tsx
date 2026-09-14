@@ -101,7 +101,7 @@ export function UpdatesDrawer() {
         )}
       </SheetTrigger>
 
-      <SheetContent className="w-[380px] sm:w-[440px] flex flex-col p-0 bg-white">
+      <SheetContent className="w-full sm:w-[440px] flex flex-col p-0 bg-white overflow-x-hidden">
         {/* Header */}
         <div className="px-6 pt-6 pb-4 border-b border-slate-100">
           <SheetHeader className="text-left">
