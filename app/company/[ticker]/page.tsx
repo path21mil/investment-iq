@@ -12,7 +12,10 @@ import {
   Loader2, 
   ChevronDown, 
   ChevronUp, 
-  CheckCircle2
+  CheckCircle2,
+  // 🟢 NEW: Added Calendar and Info icons for the Forward Outlook module
+  Calendar,
+  Info
 } from 'lucide-react';
 import Logo from '@/components/Logo';
 import PageContainer from '@/components/PageContainer';
@@ -68,8 +71,6 @@ export default function CompanyResearchPage() {
   
   // Session Tracker State
   const [session, setSession] = useState<any>(null);
-
-  
 
   // Fetch and listen for session changes
   useEffect(() => {
@@ -257,6 +258,7 @@ export default function CompanyResearchPage() {
             />
           )}
           {activeTab === 'questions' && <QuestionsTab data={data} />}
+          {/* 🟢 NEW: Injected into FinancialsTab */}
           {activeTab === 'financials' && <FinancialsTab data={data} />}
           {activeTab === 'valuation' && <ValuationTab data={data} />}
           {activeTab === 'peers' && <PeersTab data={data} />}
@@ -737,39 +739,152 @@ function QuestionsTab({ data }: { data: any }) {
   );
 }
 
+export function ForwardOutlookModule({ estimates }: { estimates?: any }) {
+  // 🟢 1. IF ESTIMATES IS NULL, SHOW YOUR CUSTOM BETA BANNER
+  if (estimates === null) {
+    return (
+      <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-sm">
+        <div className="flex items-center gap-2 mb-4">
+          {/* Symbol removed as requested */}
+          <h3 className="text-xl font-black text-[#0F172A] tracking-tight">Forward Outlook</h3>
+        </div>
+        <div className="bg-slate-50 border border-slate-100 rounded-2xl p-6 flex flex-col items-center text-center">
+          <Info className="w-6 h-6 text-slate-400 mb-3" />
+          <h4 className="text-[13px] font-extrabold text-[#0F172A] mb-1">
+            Forward Consensus in Beta
+          </h4>
+          <p className="text-[13px] text-slate-500 font-medium max-w-md">
+            Forward analyst consensus is currently in beta and limited to major liquid symbols (e.g., AAPL, MSFT, NVDA). Live coverage for broader equities is coming soon.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // 🟢 2. IF LOADING/UNDEFINED, SHOW EMPTY STATE (NO FAKE NUMBERS)
+  const data = estimates || {
+    revenue: { fy1: { label: '-', value: '-' }, fy2: { label: '-', value: '-' }, fy3: { label: '-', value: '-' } },
+    eps: { fy1: { label: '-', value: '-' }, fy2: { label: '-', value: '-' }, fy3: { label: '-', value: '-' } },
+    cagr: '-',
+    guidance: 'Awaiting data',
+    source: 'Analyst consensus',
+    date: 'Loading...'
+  };
+
+  // 🟢 3. RENDER LIVE DATA
+  return (
+    <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-sm">
+      <div className="flex items-center gap-2 mb-6">
+        {/* Symbol removed as requested */}
+        <h3 className="text-xl font-black text-[#0F172A] tracking-tight">Forward Outlook</h3>
+      </div>
+      
+      <div className="flex flex-col lg:flex-row gap-8 lg:gap-12 mb-6">
+        <div className="flex-1 space-y-6">
+          <div>
+            <h4 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-3">Revenue Growth</h4>
+            <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-4">
+              <div className="flex-1 bg-slate-50 border border-slate-100 rounded-xl p-3 sm:p-4 text-center">
+                <div className="text-[10px] font-bold text-slate-400 mb-1">{data.revenue.fy1.label}</div>
+                <div className="text-lg font-black text-emerald-600">{data.revenue.fy1.value}</div>
+              </div>
+              <ArrowRight className="w-4 h-4 text-slate-300 hidden sm:block" />
+              <div className="flex-1 bg-slate-50 border border-slate-100 rounded-xl p-3 sm:p-4 text-center">
+                <div className="text-[10px] font-bold text-slate-400 mb-1">{data.revenue.fy2.label}</div>
+                <div className="text-lg font-black text-emerald-600">{data.revenue.fy2.value}</div>
+              </div>
+              <ArrowRight className="w-4 h-4 text-slate-300 hidden sm:block" />
+              <div className="flex-1 bg-slate-50 border border-slate-100 rounded-xl p-3 sm:p-4 text-center">
+                <div className="text-[10px] font-bold text-slate-400 mb-1">{data.revenue.fy3.label}</div>
+                <div className="text-lg font-black text-emerald-600">{data.revenue.fy3.value}</div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <h4 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-3">EPS Growth</h4>
+            <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-4">
+              <div className="flex-1 bg-slate-50 border border-slate-100 rounded-xl p-3 sm:p-4 text-center">
+                <div className="text-[10px] font-bold text-slate-400 mb-1">{data.eps.fy1.label}</div>
+                <div className="text-lg font-black text-[#0F172A]">{data.eps.fy1.value}</div>
+              </div>
+              <ArrowRight className="w-4 h-4 text-slate-300 hidden sm:block" />
+              <div className="flex-1 bg-slate-50 border border-slate-100 rounded-xl p-3 sm:p-4 text-center">
+                <div className="text-[10px] font-bold text-slate-400 mb-1">{data.eps.fy2.label}</div>
+                <div className="text-lg font-black text-[#0F172A]">{data.eps.fy2.value}</div>
+              </div>
+              <ArrowRight className="w-4 h-4 text-slate-300 hidden sm:block" />
+              <div className="flex-1 bg-slate-50 border border-slate-100 rounded-xl p-3 sm:p-4 text-center">
+                <div className="text-[10px] font-bold text-slate-400 mb-1">{data.eps.fy3.label}</div>
+                <div className="text-lg font-black text-[#0F172A]">{data.eps.fy3.value}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="lg:w-1/3 flex flex-col justify-center">
+          <div className="bg-blue-50/50 border border-blue-100 rounded-2xl p-6 h-full flex flex-col justify-center items-center text-center">
+             <h4 className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-2">3Y Revenue CAGR</h4>
+             <span className="text-4xl font-black text-[#0F172A] tracking-tight">{data.cagr}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="border-t border-slate-100 pt-5 mt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-2 text-[11px] font-bold text-slate-400">
+          <Calendar className="w-3.5 h-3.5" />
+          {data.source} · {data.date}
+        </div>
+        <div className="flex items-center gap-2 text-[11px] font-extrabold text-slate-600 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
+           <Info className="w-3.5 h-3.5 text-slate-400" />
+           {data.guidance}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ==========================================
 // 📊 DEEP DIVE: FINANCIALS
 // ==========================================
 function FinancialsTab({ data }: { data: any }) {
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 bg-white rounded-3xl border border-slate-200 p-8 shadow-sm space-y-8">
-      <h2 className="text-2xl font-black text-[#0F172A]">Financial Performance</h2>
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8">
       
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-        <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200">
-          <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Growth</h4>
-          <div className="space-y-3 text-sm">
-            <div className="flex justify-between font-bold">
-              <span className="text-slate-500">Revenue Growth</span> 
-              <span className="text-emerald-600">{data?.metrics?.revenueGrowth || '-'}</span>
+      {/* 🟢 NEW: Injected the Reusable Module Here */}
+      <ForwardOutlookModule estimates={data?.forwardEstimates} />
+
+      {/* Original Historical Financials */}
+      <div className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm space-y-8">
+        <h2 className="text-2xl font-black text-[#0F172A]">Historical Performance</h2>
+        
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200">
+            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Growth</h4>
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between font-bold">
+                <span className="text-slate-500">Revenue Growth</span> 
+                <span className="text-emerald-600">{data?.metrics?.revenueGrowth || '-'}</span>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200">
-          <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Margins</h4>
-          <div className="space-y-3 text-sm">
-            <div className="flex justify-between font-bold">
-              <span className="text-slate-500">Operating Margin</span> 
-              <span className="text-[#0F172A]">{data?.metrics?.operatingMargin || '-'}</span>
-            </div>
-            <div className="flex justify-between font-bold">
-              <span className="text-slate-500">Net Margin</span> 
-              <span className="text-[#0F172A]">{data?.metrics?.netMargin || '-'}</span>
+          <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200">
+            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Margins</h4>
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between font-bold">
+                <span className="text-slate-500">Operating Margin</span> 
+                <span className="text-[#0F172A]">{data?.metrics?.operatingMargin || '-'}</span>
+              </div>
+              <div className="flex justify-between font-bold">
+                <span className="text-slate-500">Net Margin</span> 
+                <span className="text-[#0F172A]">{data?.metrics?.netMargin || '-'}</span>
+              </div>
             </div>
           </div>
         </div>
       </div>
+
     </div>
   );
 }

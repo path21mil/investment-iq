@@ -1,20 +1,86 @@
 import { NextResponse } from 'next/server';
-import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
+import OpenAI from 'openai';
 import { createClient } from '@supabase/supabase-js';
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+// Initialize OpenAI (Replaces Gemini)
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY || '',
+});
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
+// ==========================================
+// 1. HELPER: DYNAMIC FORWARD ESTIMATES (FMP)
+// ==========================================
+async function fetchForwardEstimates(ticker: string) {
+  try {
+    const fmpKey = process.env.FMP_API_KEY;
+    if (!fmpKey) return null;
+
+    const res = await fetch(`https://financialmodelingprep.com/api/v3/analyst-estimates/${ticker}?period=annual&apikey=${fmpKey}`);
+    const estimates = await res.json();
+
+    // Gracefully handle FMP free tier sandbox restrictions or empty arrays
+    if (!estimates || estimates.length === 0 || estimates["Error Message"]) {
+        return null;
+    }
+
+    const sorted = estimates.sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const today = new Date();
+    const futureEstimates = sorted.filter((e: any) => new Date(e.date) > today).slice(0, 3);
+    const lastActual = sorted.filter((e: any) => new Date(e.date) <= today).pop(); 
+
+    if (futureEstimates.length < 3 || !lastActual) return null; 
+
+    const calcGrowth = (current: number, previous: number) => {
+       if (!current || !previous) return '-';
+       const growth = ((current / previous) - 1) * 100;
+       const sign = growth > 0 ? '+' : '';
+       return `${sign}${growth.toFixed(1)}%`;
+    };
+
+    const baseRev = lastActual.estimatedRevenueAvg; 
+    const year3Rev = futureEstimates[2].estimatedRevenueAvg;
+    let cagr = '-';
+    if (baseRev && year3Rev) {
+       const cagrValue = (Math.pow(year3Rev / baseRev, 1/3) - 1) * 100;
+       cagr = `${cagrValue > 0 ? '+' : ''}${cagrValue.toFixed(1)}%`;
+    }
+
+  return {
+      revenue: {
+        fy1: { label: futureEstimates[0].date.substring(0, 4) + 'E', value: calcGrowth(futureEstimates[0].estimatedRevenueAvg, baseRev) },
+        fy2: { label: futureEstimates[1].date.substring(0, 4) + 'E', value: calcGrowth(futureEstimates[1].estimatedRevenueAvg, futureEstimates[0].estimatedRevenueAvg) },
+        fy3: { label: futureEstimates[2].date.substring(0, 4) + 'E', value: calcGrowth(futureEstimates[2].estimatedRevenueAvg, futureEstimates[1].estimatedRevenueAvg) }
+      },
+      eps: {
+        fy1: { label: futureEstimates[0].date.substring(0, 4) + 'E', value: calcGrowth(futureEstimates[0].estimatedEpsAvg, lastActual.estimatedEpsAvg) },
+        fy2: { label: futureEstimates[1].date.substring(0, 4) + 'E', value: calcGrowth(futureEstimates[1].estimatedEpsAvg, futureEstimates[0].estimatedEpsAvg) },
+        fy3: { label: futureEstimates[2].date.substring(0, 4) + 'E', value: calcGrowth(futureEstimates[2].estimatedEpsAvg, futureEstimates[1].estimatedEpsAvg) }
+      },
+      cagr: cagr,
+      guidance: `Data sourced from live broker consensus`,
+      source: `Analyst consensus · Financial Modeling Prep`,
+      date: `Updated ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+    };
+  } catch (error) {
+    console.warn("Failed to fetch FMP estimates:", error);
+    return null;
+  }
+}
+
+// ==========================================
+// 2. MAIN API ROUTE
+// ==========================================
 export async function POST(request: Request) {
   try {
     const body = await request.json();
     const { ticker, companyName } = body;
 
-    if (!process.env.GEMINI_API_KEY) {
-      return NextResponse.json({ error: "Gemini API key not configured in .env" }, { status: 500 });
+    if (!process.env.OPENAI_API_KEY) {
+      return NextResponse.json({ error: "OpenAI API key not configured in .env" }, { status: 500 });
     }
     if (!ticker) {
       return NextResponse.json({ error: 'Ticker is required' }, { status: 400 });
@@ -36,8 +102,6 @@ export async function POST(request: Request) {
 
     if (cacheData && cacheData.ai_data) {
       const aiData = cacheData.ai_data;
-      // ✨ CACHE-BUSTER: Check if strengths are using the old string format. 
-      // If they are, bypass the cache and force a new generation.
       const isOldFormat = aiData.strengths && aiData.strengths.length > 0 && typeof aiData.strengths[0] === 'string';
       
       if (!isOldFormat) {
@@ -125,20 +189,11 @@ export async function POST(request: Request) {
     const netMargin = metricsData['netProfitMarginTTM'] || 0;
     const earningsYield = pe && Number(pe) > 0 ? (1 / Number(pe)) * 100 : 0;
 
-    // 5. GEMINI INSTITUTIONAL SYNTHESIS
-    const model = genAI.getGenerativeModel({ 
-      model: "gemini-3.5-flash",
-      generationConfig: { responseMimeType: "application/json" },
-      safetySettings: [ 
-        { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-        { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
-        { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
-        { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-      ]
-    });
+    // 5. FETCH FORWARD ESTIMATES
+    const forwardEstimates = await fetchForwardEstimates(cleanTicker);
 
-    // ✨ UPDATED PROMPT: Now requests rich objects for strengths and risks
-    const prompt = `
+    // 6. OPENAI INSTITUTIONAL SYNTHESIS
+ const prompt = `
       Analyze ${fetchedCompanyName} (${cleanTicker}) as an institutional Wall Street equity analyst.
       Company Context: ${profileSummary}
       
@@ -157,25 +212,41 @@ export async function POST(request: Request) {
       - "Mature" (Established market leader with steady, defensive compounding cash flows)
       - "Declining" (Facing structural headwinds, disruption, or shrinking market share)
 
-      Return a JSON object exactly matching this structure:
+      CRITICAL NARRATIVE RULES FOR DRIVERS (STRENGTHS) AND RISKS:
+      DO NOT use generic financial metrics as titles (e.g., absolutely NO "Strong Revenue Growth", "High Margins", or "Intense Competition"). 
+      Instead, you MUST identify the specific qualitative business catalysts or structural moats behind the numbers. Use creative, institutional narrative titles (e.g., "Unrivaled Ecosystem Lock-in", "Aggressive Carrier Subsidies", "Sovereign AI CapEx Cycle"). Apply this standard to both strengths and risks.
+
+      Return a JSON object exactly matching this structure.
       {
         "ratingTitle": "Short 2-word title (e.g. Dominant Leader, High Compounder, Category Pioneer)",
         "ratingBadge": "Expanding",
         "overallAssessment": "2-sentence institutional summary synthesizing fundamentals and recent news.",
-        "strengths": [
+       "strengths": [
           {
-            "title": "Short punchy driver title (3-6 words)",
+            "title": "Narrative qualitative driver title (3-6 words)",
             "whyThisMatters": "Clear 1-sentence explanation of why this creates shareholder value.",
             "evidence": ["Data point or business facts 1", "Fact 2", "Fact 3"],
             "monitors": ["Key metric or KPI to track 1", "KPI 2", "KPI 3"]
+          },
+          {
+            "title": "Second narrative driver title",
+            "whyThisMatters": "Clear 1-sentence explanation.",
+            "evidence": ["Fact 1", "Fact 2", "Fact 3"],
+            "monitors": ["KPI 1", "KPI 2", "KPI 3"]
           }
         ],
         "risks": [
           {
-            "title": "Short punchy risk title (3-6 words)",
+            "title": "Narrative qualitative risk title (3-6 words)",
             "whyThisMatters": "Clear 1-sentence explanation of how this hurts performance.",
             "evidence": ["Data point or business concern 1", "Concern 2", "Concern 3"],
             "monitors": ["Key metric or warning sign 1", "Warning sign 2", "Warning sign 3"]
+          },
+          {
+            "title": "Second narrative risk title",
+            "whyThisMatters": "Clear 1-sentence explanation.",
+            "evidence": ["Fact 1", "Fact 2", "Fact 3"],
+            "monitors": ["KPI 1", "KPI 2", "KPI 3"]
           }
         ],
         "pillars": {
@@ -205,13 +276,28 @@ export async function POST(request: Request) {
       }
     `;
 
-    const result = await model.generateContent(prompt);
-    let rawText = result.response.text();
+    // Make the call to OpenAI with STRENGTHENED STRICT constraints for exact array lengths
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      response_format: { type: "json_object" },
+     messages: [
+        { 
+          role: "system", 
+          content: "You are an elite Wall Street equity analyst. You must output valid JSON. You must strictly adhere to professional financial analysis standards. CRITICAL REQUIREMENT: You MUST generate EXACTLY 2 items in the 'strengths' array and EXACTLY 2 items in the 'risks' array. For every strength and risk, you MUST generate EXACTLY 3 items in the 'evidence' array and EXACTLY 3 items in the 'monitors' array. Never generate 1, 2, or 4 items for these sub-arrays." 
+        },
+        { 
+          role: "user", 
+          content: prompt 
+        }
+      ]
+    });
+
+    let rawText = completion.choices[0].message.content || "{}";
 
     const firstBrace = rawText.indexOf('{');
     const lastBrace = rawText.lastIndexOf('}');
     if (firstBrace === -1 || lastBrace === -1) {
-      return NextResponse.json({ error: "Gemini did not return valid JSON." }, { status: 500 });
+      return NextResponse.json({ error: "AI did not return valid JSON." }, { status: 500 });
     }
 
     rawText = rawText.substring(firstBrace, lastBrace + 1);
@@ -224,7 +310,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "JSON Parsing Failed: " + parseError.message }, { status: 500 });
     }
 
-    // 6. ASSEMBLE FINAL PAYLOAD & CACHE
+    // 7. ASSEMBLE FINAL PAYLOAD & CACHE
     const finalPayload = {
       ticker: cleanTicker,
       companyName: fetchedCompanyName,
@@ -232,6 +318,7 @@ export async function POST(request: Request) {
       image: logoUrl,
       price: currentPrice,
       changes: priceChange,
+      forwardEstimates: forwardEstimates || null, // Will be null if FMP sandbox blocks it
       metrics: {
         pe: pe ? `${Number(pe).toFixed(1)}x` : 'N/A',
         earningsYield: earningsYield ? `${Number(earningsYield).toFixed(1)}%` : 'N/A',

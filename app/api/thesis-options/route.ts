@@ -59,14 +59,21 @@ export async function POST(req: Request) {
     const systemPrompt = `You are a top-tier Wall Street equity research analyst. 
 Analyze ${companyName || cleanTicker} (${cleanTicker}) based on its business model, recent SEC filings (10-K/10-Q), earnings calls, and competitive landscape.
 
-Generate 6 key growth drivers (bull case) and 6 key risks/invalidators (bear case).
+Generate exactly 6 key growth drivers (bull case) and exactly 6 key risks/invalidators (bear case).
 Make every driver and risk deeply specific to ${cleanTicker}. Avoid generic statements that could apply to any company.
+
+CRITICAL NARRATIVE RULES:
+DO NOT use generic financial metrics as titles (e.g., absolutely NO "Strong Revenue Growth", "High Margins", or "Intense Competition"). 
+Instead, you MUST identify the specific qualitative business catalysts or structural moats behind the numbers. Use creative, institutional narrative titles (e.g., "Unrivaled Ecosystem Lock-in", "Aggressive Carrier Subsidies", "Sovereign AI CapEx Cycle").
+
+CRITICAL REQUIREMENT FOR ARRAYS:
+You MUST generate EXACTLY 3 items in the 'evidence' array and EXACTLY 3 items in the 'monitors' array for every single driver and risk. Never generate 1, 2, or 4 items.
 
 Return strictly a valid JSON object matching this schema:
 {
   "drivers": [
     {
-      "title": "Short punchy driver title (3-6 words)",
+      "title": "Narrative qualitative driver title (3-6 words)",
       "whyThisMatters": "Clear 1-sentence explanation of why this creates shareholder value.",
       "evidence": ["Data point or business facts 1", "Fact 2", "Fact 3"],
       "monitors": ["Key metric or KPI to track 1", "KPI 2", "KPI 3"]
@@ -74,7 +81,7 @@ Return strictly a valid JSON object matching this schema:
   ],
   "risks": [
     {
-      "title": "Short punchy risk title (3-6 words)",
+      "title": "Narrative qualitative risk title (3-6 words)",
       "whyThisMatters": "Clear 1-sentence explanation of how this hurts performance.",
       "evidence": ["Data point or business concern 1", "Concern 2", "Concern 3"],
       "monitors": ["Key metric or warning sign 1", "Warning sign 2", "Warning sign 3"]

@@ -500,34 +500,39 @@ const handleSaveAndFinish = async () => {
       </header>
 
       <main className="flex-grow w-full pt-12 pb-32">
-       <PageContainer>
-          {isEditing && createdDate && (
-            <div className="inline-flex items-center gap-2 bg-blue-50/80 text-blue-700 px-4 py-2 rounded-full text-xs font-medium italic mb-4 border border-blue-100 shadow-sm">
-              <Zap className="w-4 h-4" />
-              You added {ticker} to your portfolio on {createdDate}.
-            </div>
-          )}
+       <PageContainer className="max-w-5xl mx-auto px-4 sm:px-6">
+          
+          {/* STEP HEADER: Expands nicely on Step 3 for full-width alignment */}
+          <div className={`mb-8 w-full max-w-5xl mx-auto text-left`}>
+            {isEditing && createdDate && (
+              <div className="inline-flex items-center gap-2 bg-blue-50/80 text-blue-700 px-4 py-2 rounded-full text-xs font-medium italic mb-4 border border-blue-100 shadow-sm">
+                <Zap className="w-4 h-4" />
+                You added {ticker} to your portfolio on {createdDate}.
+              </div>
+            )}
 
-          <p className="text-[10px] font-extrabold text-blue-600 uppercase tracking-widest mb-3">STEP {step} OF 3</p>
-          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight mb-3">
-            {isEditing
-              ? (step === 1 ? `Update your ${ticker} Drivers` : step === 2 ? `Update your ${ticker} Risks` : `Review your ${ticker} Thesis`)
-              : (step === 1 ? `Why are you considering investing in ${ticker}?` : step === 2 ? `What are the biggest risks to ${ticker}?` : `Review your AI-Drafted Thesis`)
-            }
-          </h1>
-          <p className="text-sm font-medium text-slate-500 max-w-lg mx-auto">
-            {step === 3
-              ? "Investment IQ has drafted an executive summary based on your selections. Review and customize before saving."
-              : isEditing
-                ? `Review and modify the ${step === 1 ? 'drivers' : 'risks'} you are tracking below.`
-                : `Choose up to ${step === 1 ? '5' : '4'} ${step === 1 ? 'drivers' : 'risks'} to monitor. You have selected ${currentSelections.length}.`
-            }
-          </p>
+            <p className="text-[10px] font-extrabold text-blue-600 uppercase tracking-widest mb-3">STEP {step} OF 3</p>
+            <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight mb-3">
+              {isEditing
+                ? (step === 1 ? `Update your ${ticker} Drivers` : step === 2 ? `Update your ${ticker} Risks` : `Review your ${ticker} Thesis`)
+                : (step === 1 ? `Why are you considering investing in ${ticker}?` : step === 2 ? `What are the biggest risks to ${ticker}?` : `Review your AI-Drafted Thesis`)
+              }
+            </h1>
+            <p className="text-sm font-medium text-slate-500 max-w-xl">
+              {step === 3
+                ? "Investment IQ has drafted an executive summary based on your selections. Review and customize before saving."
+                : isEditing
+                  ? `Review and modify the ${step === 1 ? 'drivers' : 'risks'} you are tracking below.`
+                  : `Choose up to ${step === 1 ? '5' : '4'} ${step === 1 ? 'drivers' : 'risks'} to monitor. You have selected ${currentSelections.length}.`
+              }
+            </p>
+          </div>
         
 
+        {/* STEP 3 CARD: Expanded to max-w-4xl with responsive mobile padding */}
         {step === 3 && (
-          <div className="max-w-2xl mx-auto mb-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="bg-white rounded-3xl p-8 border border-slate-200 shadow-sm relative overflow-hidden">
+          <div className="w-full max-w-4xl mx-auto mb-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="bg-white rounded-3xl p-6 sm:p-10 border border-slate-200 shadow-sm relative overflow-hidden">
               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-emerald-400"></div>
               <h3 className="text-lg font-extrabold text-slate-900 mb-2 flex items-center gap-2">
                 <Zap className="w-5 h-5 text-amber-500 fill-amber-500" /> Executive Summary
@@ -543,10 +548,10 @@ const handleSaveAndFinish = async () => {
                     value={summaryDraft}
                     onChange={(e) => setSummaryDraft(e.target.value)}
                     maxLength={600}
-                    rows={6}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 text-sm font-medium text-slate-700 focus:outline-none focus:border-blue-500 focus:bg-white transition-colors resize-none leading-relaxed shadow-inner"
+                    rows={7}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-5 text-sm sm:text-base font-medium text-slate-700 focus:outline-none focus:border-blue-500 focus:bg-white transition-colors resize-none leading-relaxed shadow-inner"
                   />
-                  <div className={`absolute bottom-3 right-4 text-[10px] font-bold ${summaryDraft.length >= 580 ? 'text-rose-500' : 'text-slate-400'}`}>
+                  <div className={`absolute bottom-3 right-4 text-[11px] font-bold ${summaryDraft.length >= 580 ? 'text-rose-500' : 'text-slate-400'}`}>
                     {summaryDraft.length} / 600
                   </div>
                 </div>
@@ -845,6 +850,9 @@ function BuilderLoadingScreen({ ticker }: { ticker: string }) {
         <h3 className="text-xl font-extrabold text-[#0F172A] mb-8 tracking-tight">
           Preparing Thesis for {ticker}
         </h3>
+        <p className="text-sm font-medium text-slate-500 mb-8 leading-relaxed px-2">
+          Our AI is currently examining live market metrics, cross-referencing financials, and generating a custom thesis. This deep dive takes roughly <strong className="text-slate-700">20 seconds</strong>.
+        </p>
         
         <div className="w-full bg-slate-50 rounded-2xl border border-slate-100 p-5 mb-2 text-left space-y-4">
           
